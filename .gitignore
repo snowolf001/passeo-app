@@ -69,3 +69,21 @@ yarn-error.log
 /coverage
 
 ios/*.xcworkspace
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Windows
+Thumbs.db
+
+# Android build outputs
+android/app/build/
+android/build/
+
+# iOS build outputs
+ios/build/
+
+# Logs
+*.log
