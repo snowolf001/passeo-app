@@ -1,61 +1,32 @@
 import React from 'react';
-import {View, Text, StyleSheet, TouchableOpacity, FlatList} from 'react-native';
+import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 
-type Task = {
-  id: string;
-  title: string;
-  price: string;
-  location: string;
+type HomeScreenProps = {
+  navigation: any;
 };
 
-const MOCK_TASKS: Task[] = [
-  {
-    id: '1',
-    title: 'Help move a couch',
-    price: '$40',
-    location: 'Glendale',
-  },
-  {
-    id: '2',
-    title: 'Snow shoveling',
-    price: '$25',
-    location: 'Denver',
-  },
-  {
-    id: '3',
-    title: 'Pick up groceries',
-    price: '$15',
-    location: 'Nearby',
-  },
-];
-
-export default function HomeScreen() {
-  const renderItem = ({item}: {item: Task}) => {
-    return (
-      <TouchableOpacity style={styles.card}>
-        <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.meta}>
-          {item.price} · {item.location}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
-
+export default function HomeScreen({navigation}: HomeScreenProps) {
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>Local Tasks</Text>
+      <View style={styles.content}>
+        <Text style={styles.header}>Club App</Text>
+        <Text style={styles.subtitle}>
+          MVP test entry for sessions, check-in, and attendance flow.
+        </Text>
 
-      <FlatList
-        data={MOCK_TASKS}
-        keyExtractor={item => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{padding: 16}}
-      />
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={() => navigation.navigate('Sessions')}>
+          <Text style={styles.primaryButtonText}>Open Sessions</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.fab}>
-        <Text style={styles.fabText}>＋</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate('Upgrade')}>
+          <Text style={styles.secondaryButtonText}>Go to Upgrade</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -65,42 +36,46 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0B0F17',
   },
-  header: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#E5E7EB',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  card: {
-    backgroundColor: '#111827',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  meta: {
-    color: '#9CA3AF',
-    marginTop: 6,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    backgroundColor: '#3B82F6',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
     justifyContent: 'center',
   },
-  fabText: {
-    color: '#FFFFFF',
+  header: {
     fontSize: 28,
-    marginTop: -2,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#9CA3AF',
+    marginBottom: 32,
+  },
+  primaryButton: {
+    backgroundColor: '#3B82F6',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    backgroundColor: '#111827',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#1F2937',
+  },
+  secondaryButtonText: {
+    color: '#E5E7EB',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
