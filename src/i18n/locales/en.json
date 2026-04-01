@@ -1,0 +1,23 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "done": "Done",
+    "ok": "OK",
+    "confirm": "Confirm",
+    "share": "Share",
+    "deleteRoom": "Delete Room",
+    "deleteRoomConfirmation": "Are you sure you want to delete this room and all its items?",
+    "undo": "UNDO",
+    "error": "Error"
+  },
+  "home": {
+    "title": "Passeo",
+    "reports": "Reports",
+    "startNewSession": "Start a new session below.",
+    "deleteMessage": "This action cannot be undone. All photos and reports will be permanently deleted.",
+    "deleteFailed": "Delete failed"
+  }
+}
