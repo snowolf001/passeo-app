@@ -12,25 +12,32 @@ import {clubService} from '../services/clubService';
 import {CURRENT_USER_ID} from '../data/mockData';
 import {db} from '../data/mockData';
 
-// ────────────────────────────────────────────────────────────
-// App Context
-// Holds the current user, their membership, and their club.
-// Any screen can call useApp() to access this without prop drilling.
-// ────────────────────────────────────────────────────────────
+export type CheckInEvent = {
+  membershipId: string;
+  sessionId: string;
+  checkedInAt: string;
+};
 
 type AppContextValue = {
   currentUser: User | null;
   currentMembership: Membership | null;
   currentClub: Club | null;
   isLoading: boolean;
-  /** Re-fetch membership state (e.g. after joining or creating a club). */
   refresh: () => Promise<void>;
-  /**
-   * Instantly decrement the in-context credit balance without re-fetching
-   * anything. Use this after a successful self check-in so the UI updates
-   * immediately and no async work can interrupt an ongoing animation.
-   */
   decrementCurrentMembershipCredits: (amount: number) => void;
+
+  /**
+   * Last successful check-in event.
+   * Used for lightweight cross-screen UI sync without full refresh().
+   */
+  lastCheckInEvent: CheckInEvent | null;
+
+  /**
+   * Emit a successful check-in event.
+   * Also updates currentMembership credits immediately if the checked-in
+   * membership is the current user's membership.
+   */
+  publishCheckInEvent: (event: CheckInEvent) => void;
 };
 
 const AppContext = createContext<AppContextValue>({
@@ -40,6 +47,8 @@ const AppContext = createContext<AppContextValue>({
   isLoading: true,
   refresh: async () => {},
   decrementCurrentMembershipCredits: () => {},
+  lastCheckInEvent: null,
+  publishCheckInEvent: () => {},
 });
 
 export const AppProvider = ({children}: {children: ReactNode}) => {
@@ -49,11 +58,33 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
   );
   const [currentClub, setCurrentClub] = useState<Club | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastCheckInEvent, setLastCheckInEvent] = useState<CheckInEvent | null>(
+    null,
+  );
 
   const decrementCurrentMembershipCredits = useCallback((amount: number) => {
     setCurrentMembership(prev =>
       prev ? {...prev, credits: Math.max(0, prev.credits - amount)} : prev,
     );
+  }, []);
+
+  const publishCheckInEvent = useCallback((event: CheckInEvent) => {
+    setLastCheckInEvent(event);
+
+    setCurrentMembership(prev => {
+      if (!prev) {
+        return prev;
+      }
+
+      if (prev.id !== event.membershipId) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        credits: Math.max(0, prev.credits - 1),
+      };
+    });
   }, []);
 
   const load = useCallback(async () => {
@@ -83,6 +114,8 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
         isLoading,
         refresh: load,
         decrementCurrentMembershipCredits,
+        lastCheckInEvent,
+        publishCheckInEvent,
       }}>
       {children}
     </AppContext.Provider>

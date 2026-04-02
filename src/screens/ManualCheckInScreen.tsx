@@ -20,71 +20,117 @@ import {RootStackParamList} from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManualCheckIn'>;
 
-export default function ManualCheckInScreen({route, navigation}: Props) {
+export default function ManualCheckInScreen({route}: Props) {
   const {sessionId} = route.params;
-  const {currentMembership} = useApp();
+  const {currentMembership, publishCheckInEvent} = useApp();
 
   const [members, setMembers] = useState<MembershipWithUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkingInId, setCheckingInId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
 
   const loadMembers = useCallback(async () => {
-    if (!currentMembership) return;
+    if (!currentMembership) {
+      return;
+    }
+
     setLoading(true);
 
-    const memberships = await membershipService.getMembershipsByClub(
-      currentMembership.clubId,
-    );
-    const users = db.getUsers();
+    try {
+      const [memberships, attendances] = await Promise.all([
+        membershipService.getMembershipsByClub(currentMembership.clubId),
+        attendanceService.getAttendancesForSession(sessionId),
+      ]);
 
-    const enriched: MembershipWithUser[] = memberships
-      .filter(m => m.role === 'member' || m.role === 'host') // exclude admins/owners from check-in list
-      .map(m => ({
-        ...m,
-        user: users.find(u => u.id === m.userId) ?? {
-          id: m.userId,
-          name: 'Unknown',
-        },
-      }));
+      const users = db.getUsers();
 
-    setMembers(enriched);
-    setLoading(false);
-  }, [currentMembership]);
+      const enriched: MembershipWithUser[] = memberships
+        .filter(m => m.role === 'member' || m.role === 'host')
+        .map(m => ({
+          ...m,
+          user: users.find(u => u.id === m.userId) ?? {
+            id: m.userId,
+            name: 'Unknown',
+          },
+        }));
+
+      setMembers(enriched);
+      setCheckedInIds(new Set(attendances.map(a => a.membershipId)));
+    } finally {
+      setLoading(false);
+    }
+  }, [currentMembership, sessionId]);
 
   useEffect(() => {
     loadMembers();
   }, [loadMembers]);
 
   const filteredMembers = useMemo(() => {
-    if (!searchQuery.trim()) return members;
+    if (!searchQuery.trim()) {
+      return members;
+    }
+
     const q = searchQuery.toLowerCase();
     return members.filter(m => m.user.name.toLowerCase().includes(q));
   }, [members, searchQuery]);
 
   const handleCheckIn = async (target: MembershipWithUser) => {
-    if (!currentMembership) return;
+    if (!currentMembership || checkingInId) {
+      return;
+    }
+
+    if (checkedInIds.has(target.id)) {
+      return;
+    }
+
+    if (target.credits <= 0) {
+      return;
+    }
+
     setCheckingInId(target.id);
 
-    const result = await attendanceService.manualCheckIn({
-      actingMembershipId: currentMembership.id,
-      targetMembershipId: target.id,
-      sessionId,
-    });
+    try {
+      const result = await attendanceService.manualCheckIn({
+        actingMembershipId: currentMembership.id,
+        targetMembershipId: target.id,
+        sessionId,
+      });
 
-    setCheckingInId(null);
+      if (result.success) {
+        const checkedInAt = new Date().toISOString();
 
-    if (result.success) {
-      Alert.alert('Done', `${target.user.name} has been checked in.`, [
-        {text: 'OK', onPress: () => navigation.goBack()},
-      ]);
-    } else {
-      Alert.alert('Failed', result.message);
+        setCheckedInIds(prev => {
+          const next = new Set(prev);
+          next.add(target.id);
+          return next;
+        });
+
+        setMembers(prev =>
+          prev.map(member =>
+            member.id === target.id
+              ? {...member, credits: Math.max(0, member.credits - 1)}
+              : member,
+          ),
+        );
+
+        publishCheckInEvent({
+          membershipId: target.id,
+          sessionId,
+          checkedInAt,
+        });
+
+        Alert.alert('Done', `${target.user.name} has been checked in.`);
+      } else {
+        Alert.alert('Failed', result.message);
+      }
+    } finally {
+      setCheckingInId(null);
     }
   };
 
   const renderMember = ({item}: {item: MembershipWithUser}) => {
-    const isCheckedIn = attendanceService.isCheckedIn(item.id, sessionId);
+    const isCheckedIn = checkedInIds.has(item.id);
     const hasNoCredits = item.credits <= 0;
     const isDisabled = isCheckedIn || hasNoCredits;
     const isProcessing = checkingInId === item.id;
@@ -100,16 +146,20 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
           </Text>
           <Text style={styles.memberRole}>{item.role}</Text>
         </View>
+
         <View style={styles.memberRight}>
           <Text style={[styles.creditText, hasNoCredits && styles.creditEmpty]}>
             {item.credits} credit{item.credits !== 1 ? 's' : ''}
           </Text>
+
           {isProcessing && <ActivityIndicator size="small" color="#007AFF" />}
+
           {!isProcessing && isCheckedIn && (
             <View style={styles.badgeSuccess}>
               <Text style={styles.badgeText}>Checked In</Text>
             </View>
           )}
+
           {!isProcessing && !isCheckedIn && hasNoCredits && (
             <View style={styles.badgeError}>
               <Text style={styles.badgeText}>No Credits</Text>
