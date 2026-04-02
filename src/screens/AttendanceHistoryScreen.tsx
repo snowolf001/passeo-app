@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   View,
   Text,
@@ -7,18 +7,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {AttendanceHistoryItem} from '../types';
+import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {attendanceService} from '../services/attendanceService';
+import {AttendanceHistoryItem} from '../types';
+import {RootStackParamList} from '../navigation/types';
 
-type Props = {
-  navigation: any;
-  route: {
-    params: {
-      membershipId: string;
-      title?: string;
-    };
-  };
-};
+type Props = NativeStackScreenProps<RootStackParamList, 'AttendanceHistory'>;
 
 function formatCheckedInAt(iso: string): string {
   const d = new Date(iso);
@@ -41,18 +35,46 @@ function formatSessionStartTime(iso: string): string {
   });
 }
 
+function formatLastCheckIn(iso?: string): string {
+  if (!iso) {
+    return '—';
+  }
+
+  const d = new Date(iso);
+  return d.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function isThisMonth(iso: string): boolean {
+  const d = new Date(iso);
+  const now = new Date();
+
+  return (
+    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+  );
+}
+
 function HistoryRow({item}: {item: AttendanceHistoryItem}) {
   return (
     <View style={styles.row}>
       <Text style={styles.sessionTitle}>{item.sessionTitle}</Text>
+
       <Text style={styles.checkedInAt}>
         Checked in · {formatCheckedInAt(item.checkedInAt)}
       </Text>
+
       <Text style={styles.secondary}>
-        {formatSessionStartTime(item.sessionStartTime)}
+        Session · {formatSessionStartTime(item.sessionStartTime)}
       </Text>
+
       {item.locationName ? (
         <Text style={styles.secondary}>{item.locationName}</Text>
+      ) : null}
+
+      {item.locationAddress ? (
+        <Text style={styles.secondaryMuted}>{item.locationAddress}</Text>
       ) : null}
     </View>
   );
@@ -60,8 +82,10 @@ function HistoryRow({item}: {item: AttendanceHistoryItem}) {
 
 export default function AttendanceHistoryScreen({navigation, route}: Props) {
   const {membershipId, title} = route.params;
+
   const [history, setHistory] = useState<AttendanceHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (title) {
@@ -71,79 +95,163 @@ export default function AttendanceHistoryScreen({navigation, route}: Props) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const data = await attendanceService.getAttendanceHistoryForMembership(
-      membershipId,
-    );
-    setHistory(data);
-    setLoading(false);
+    setError('');
+
+    try {
+      const data = await attendanceService.getAttendanceHistoryForMembership(
+        membershipId,
+      );
+      setHistory(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('[AttendanceHistoryScreen] load failed:', err);
+      setHistory([]);
+      setError('Failed to load attendance history.');
+    } finally {
+      setLoading(false);
+    }
   }, [membershipId]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#007AFF" />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const totalCheckIns = history.length;
+
+  const thisMonthCount = useMemo(
+    () => history.filter(item => isThisMonth(item.checkedInAt)).length,
+    [history],
+  );
+
+  const lastCheckIn = useMemo(
+    () => formatLastCheckIn(history[0]?.checkedInAt),
+    [history],
+  );
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Summary */}
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryLabel}>Total Check-ins</Text>
-        <Text style={styles.summaryValue}>{history.length}</Text>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Total</Text>
+          <Text style={styles.summaryValue}>{totalCheckIns}</Text>
+        </View>
+
+        <View style={styles.summaryDivider} />
+
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>This Month</Text>
+          <Text style={styles.summaryValue}>{thisMonthCount}</Text>
+        </View>
+
+        <View style={styles.summaryDivider} />
+
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Last Check-In</Text>
+          <Text style={styles.summaryValueSmall}>{lastCheckIn}</Text>
+        </View>
       </View>
 
-      {/* List */}
-      <FlatList
-        data={history}
-        keyExtractor={item => item.attendanceId}
-        renderItem={({item}) => <HistoryRow item={item} />}
-        contentContainerStyle={
-          history.length === 0 ? styles.emptyContainer : styles.listContent
-        }
-        ListEmptyComponent={
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading history...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : history.length === 0 ? (
+        <View style={styles.centered}>
           <Text style={styles.emptyText}>No attendance history yet</Text>
-        }
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-      />
+        </View>
+      ) : (
+        <FlatList
+          data={history}
+          keyExtractor={item => item.attendanceId}
+          renderItem={({item}) => <HistoryRow item={item} />}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#F5F5F7'},
-  centered: {flex: 1, justifyContent: 'center', alignItems: 'center'},
 
   summaryCard: {
+    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
     marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 10,
     borderRadius: 14,
     paddingVertical: 16,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingHorizontal: 10,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 1,
   },
-  summaryLabel: {fontSize: 14, color: '#8E8E93'},
-  summaryValue: {fontSize: 22, fontWeight: 'bold', color: '#1C1C1E'},
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  summaryDivider: {
+    width: 1,
+    backgroundColor: '#E5E5EA',
+    marginVertical: 4,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginBottom: 6,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  summaryValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    textAlign: 'center',
+  },
+  summaryValueSmall: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    textAlign: 'center',
+  },
 
-  listContent: {paddingHorizontal: 16, paddingBottom: 32},
-  emptyContainer: {flex: 1, justifyContent: 'center', alignItems: 'center'},
-  emptyText: {fontSize: 15, color: '#8E8E93', marginTop: 40},
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#8E8E93',
+  },
+  errorText: {
+    fontSize: 15,
+    color: '#FF3B30',
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 15,
+    color: '#8E8E93',
+    textAlign: 'center',
+  },
+
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+  },
 
   row: {
     backgroundColor: '#FFFFFF',
@@ -165,12 +273,16 @@ const styles = StyleSheet.create({
   checkedInAt: {
     fontSize: 13,
     color: '#007AFF',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   secondary: {
     fontSize: 13,
     color: '#8E8E93',
     marginTop: 1,
   },
-  separator: {height: 0}, // spacing handled by marginBottom on row
+  secondaryMuted: {
+    fontSize: 12,
+    color: '#AEAEB2',
+    marginTop: 2,
+  },
 });

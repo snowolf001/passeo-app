@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,27 @@ import {RootStackParamList} from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManualCheckIn'>;
 
-export default function ManualCheckInScreen({route}: Props) {
+type ListRow =
+  | {
+      type: 'summary';
+      key: string;
+    }
+  | {
+      type: 'section';
+      key: string;
+      title: string;
+      subtitle?: string;
+      collapsible?: boolean;
+      collapsed?: boolean;
+      onPress?: () => void;
+    }
+  | {
+      type: 'member';
+      key: string;
+      member: MembershipWithUser;
+    };
+
+export default function ManualCheckInScreen({route, navigation}: Props) {
   const {sessionId} = route.params;
   const {currentMembership, publishCheckInEvent} = useApp();
 
@@ -29,6 +49,25 @@ export default function ManualCheckInScreen({route}: Props) {
   const [checkingInId, setCheckingInId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
+  const [showCheckedInSection, setShowCheckedInSection] = useState(false);
+
+  const [snackMsg, setSnackMsg] = useState('');
+  const [snackVisible, setSnackVisible] = useState(false);
+  const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showSnackbar = useCallback((message: string) => {
+    if (snackTimer.current) {
+      clearTimeout(snackTimer.current);
+    }
+
+    setSnackMsg(message);
+    setSnackVisible(true);
+
+    snackTimer.current = setTimeout(() => {
+      setSnackVisible(false);
+      setSnackMsg('');
+    }, 2500);
+  }, []);
 
   const loadMembers = useCallback(async () => {
     if (!currentMembership) {
@@ -66,14 +105,135 @@ export default function ManualCheckInScreen({route}: Props) {
     loadMembers();
   }, [loadMembers]);
 
+  useEffect(() => {
+    return () => {
+      if (snackTimer.current) {
+        clearTimeout(snackTimer.current);
+      }
+    };
+  }, []);
+
   const filteredMembers = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return members;
+    const q = searchQuery.trim().toLowerCase();
+
+    const base = q
+      ? members.filter(m => m.user.name.toLowerCase().includes(q))
+      : members;
+
+    return base;
+  }, [members, searchQuery]);
+
+  const readyMembers = useMemo(
+    () =>
+      filteredMembers
+        .filter(m => !checkedInIds.has(m.id) && m.credits > 0)
+        .sort((a, b) => a.user.name.localeCompare(b.user.name)),
+    [filteredMembers, checkedInIds],
+  );
+
+  const noCreditMembers = useMemo(
+    () =>
+      filteredMembers
+        .filter(m => !checkedInIds.has(m.id) && m.credits <= 0)
+        .sort((a, b) => a.user.name.localeCompare(b.user.name)),
+    [filteredMembers, checkedInIds],
+  );
+
+  const checkedInMembers = useMemo(
+    () =>
+      filteredMembers
+        .filter(m => checkedInIds.has(m.id))
+        .sort((a, b) => a.user.name.localeCompare(b.user.name)),
+    [filteredMembers, checkedInIds],
+  );
+
+  const totalMembers = filteredMembers.length;
+  const totalReady = readyMembers.length;
+  const totalNoCredits = noCreditMembers.length;
+  const totalCheckedIn = checkedInMembers.length;
+
+  const listData = useMemo((): ListRow[] => {
+    const rows: ListRow[] = [{type: 'summary', key: 'summary'}];
+
+    if (readyMembers.length > 0) {
+      rows.push({
+        type: 'section',
+        key: 'section-ready',
+        title: `Ready to Check In (${readyMembers.length})`,
+      });
+
+      readyMembers.forEach(member => {
+        rows.push({
+          type: 'member',
+          key: `member-${member.id}`,
+          member,
+        });
+      });
     }
 
-    const q = searchQuery.toLowerCase();
-    return members.filter(m => m.user.name.toLowerCase().includes(q));
-  }, [members, searchQuery]);
+    if (noCreditMembers.length > 0) {
+      rows.push({
+        type: 'section',
+        key: 'section-no-credits',
+        title: `No Credits (${noCreditMembers.length})`,
+        subtitle: 'These members cannot be checked in until they have credits.',
+      });
+
+      noCreditMembers.forEach(member => {
+        rows.push({
+          type: 'member',
+          key: `member-${member.id}`,
+          member,
+        });
+      });
+    }
+
+    if (checkedInMembers.length > 0) {
+      rows.push({
+        type: 'section',
+        key: 'section-checked-in',
+        title: `Already Checked In (${checkedInMembers.length})`,
+        subtitle: showCheckedInSection ? 'Tap to hide' : 'Tap to show',
+        collapsible: true,
+        collapsed: !showCheckedInSection,
+        onPress: () => setShowCheckedInSection(prev => !prev),
+      });
+
+      if (showCheckedInSection) {
+        checkedInMembers.forEach(member => {
+          rows.push({
+            type: 'member',
+            key: `member-${member.id}`,
+            member,
+          });
+        });
+      }
+    }
+
+    if (
+      readyMembers.length === 0 &&
+      noCreditMembers.length === 0 &&
+      checkedInMembers.length === 0
+    ) {
+      rows.push({
+        type: 'section',
+        key: 'section-empty',
+        title: 'No members found',
+      });
+    }
+
+    return rows;
+  }, [readyMembers, noCreditMembers, checkedInMembers, showCheckedInSection]);
+
+  const handleOpenHistory = useCallback(
+    (member: MembershipWithUser) => {
+      navigation.navigate('AttendanceHistory', {
+        membershipId: member.id,
+        title: `${member.user.name} History`,
+      });
+    },
+    [navigation],
+  );
 
   const handleCheckIn = async (target: MembershipWithUser) => {
     if (!currentMembership || checkingInId) {
@@ -120,7 +280,7 @@ export default function ManualCheckInScreen({route}: Props) {
           checkedInAt,
         });
 
-        Alert.alert('Done', `${target.user.name} has been checked in.`);
+        showSnackbar(`${target.user.name} checked in · 1 credit used`);
       } else {
         Alert.alert('Failed', result.message);
       }
@@ -129,7 +289,63 @@ export default function ManualCheckInScreen({route}: Props) {
     }
   };
 
-  const renderMember = ({item}: {item: MembershipWithUser}) => {
+  const renderSummaryCard = () => (
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryItem}>
+        <Text style={styles.summaryLabel}>Members</Text>
+        <Text style={styles.summaryValue}>{totalMembers}</Text>
+      </View>
+      <View style={styles.summaryDivider} />
+      <View style={styles.summaryItem}>
+        <Text style={styles.summaryLabel}>Ready</Text>
+        <Text style={styles.summaryValue}>{totalReady}</Text>
+      </View>
+      <View style={styles.summaryDivider} />
+      <View style={styles.summaryItem}>
+        <Text style={styles.summaryLabel}>Checked In</Text>
+        <Text style={styles.summaryValue}>{totalCheckedIn}</Text>
+      </View>
+    </View>
+  );
+
+  const renderSectionHeader = (
+    title: string,
+    subtitle?: string,
+    collapsible?: boolean,
+    collapsed?: boolean,
+    onPress?: () => void,
+  ) => {
+    const content = (
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionHeaderTextWrap}>
+          <Text style={styles.sectionHeaderTitle}>{title}</Text>
+          {!!subtitle && (
+            <Text style={styles.sectionHeaderSubtitle}>{subtitle}</Text>
+          )}
+        </View>
+        {collapsible && (
+          <Text style={styles.sectionHeaderChevron}>
+            {collapsed ? '▾' : '▴'}
+          </Text>
+        )}
+      </View>
+    );
+
+    if (collapsible && onPress) {
+      return (
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={onPress}
+          style={styles.sectionHeaderTouchable}>
+          {content}
+        </TouchableOpacity>
+      );
+    }
+
+    return content;
+  };
+
+  const renderMemberCard = (item: MembershipWithUser) => {
     const isCheckedIn = checkedInIds.has(item.id);
     const hasNoCredits = item.credits <= 0;
     const isDisabled = isCheckedIn || hasNoCredits;
@@ -137,6 +353,7 @@ export default function ManualCheckInScreen({route}: Props) {
 
     return (
       <TouchableOpacity
+        activeOpacity={0.85}
         style={[styles.memberCard, isDisabled && styles.memberCardDisabled]}
         onPress={() => handleCheckIn(item)}
         disabled={isDisabled || !!checkingInId}>
@@ -165,45 +382,92 @@ export default function ManualCheckInScreen({route}: Props) {
               <Text style={styles.badgeText}>No Credits</Text>
             </View>
           )}
+
+          {!isProcessing && !isCheckedIn && !hasNoCredits && (
+            <View style={styles.badgeAction}>
+              <Text style={styles.badgeActionText}>Tap to Check In</Text>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={styles.historyButton}
+            onPress={e => {
+              e.stopPropagation?.();
+              handleOpenHistory(item);
+            }}
+            disabled={!!checkingInId}>
+            <Text style={styles.historyButtonText}>History</Text>
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <View style={styles.searchBar}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search members by name..."
-          placeholderTextColor="#AEAEB2"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCorrect={false}
-          clearButtonMode="always"
-        />
-      </View>
+  const renderItem = ({item}: {item: ListRow}) => {
+    if (item.type === 'summary') {
+      return renderSummaryCard();
+    }
 
-      {loading ? (
-        <ActivityIndicator style={{marginTop: 40}} color="#007AFF" />
-      ) : (
-        <FlatList
-          data={filteredMembers}
-          keyExtractor={item => item.id}
-          renderItem={renderMember}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No members found.</Text>
-          }
-        />
-      )}
+    if (item.type === 'section') {
+      return renderSectionHeader(
+        item.title,
+        item.subtitle,
+        item.collapsible,
+        item.collapsed,
+        item.onPress,
+      );
+    }
+
+    return renderMemberCard(item.member);
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <View style={styles.screenRoot}>
+        <View style={styles.searchBar}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search member name"
+            placeholderTextColor="#AEAEB2"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCorrect={false}
+            clearButtonMode="always"
+          />
+        </View>
+
+        {loading ? (
+          <ActivityIndicator style={{marginTop: 40}} color="#007AFF" />
+        ) : (
+          <FlatList
+            data={listData}
+            keyExtractor={item => item.key}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+          />
+        )}
+
+        {snackVisible && (
+          <View pointerEvents="none" style={styles.snackbar}>
+            <Text style={styles.snackbarText}>{snackMsg}</Text>
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7'},
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F5F5F7',
+  },
+  screenRoot: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: '#F5F5F7',
+  },
   searchBar: {
     padding: 16,
     backgroundColor: '#FFFFFF',
@@ -218,7 +482,73 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1C1C1E',
   },
-  listContent: {padding: 16},
+  listContent: {
+    padding: 16,
+    paddingBottom: 90,
+  },
+  summaryCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    marginBottom: 18,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 1},
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryDivider: {
+    width: 1,
+    backgroundColor: '#E5E5EA',
+    marginVertical: 4,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginBottom: 6,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  summaryValue: {
+    fontSize: 22,
+    color: '#1C1C1E',
+    fontWeight: '700',
+  },
+  sectionHeaderTouchable: {
+    marginBottom: 10,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  sectionHeaderTextWrap: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  sectionHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  sectionHeaderSubtitle: {
+    marginTop: 3,
+    fontSize: 12,
+    color: '#8E8E93',
+  },
+  sectionHeaderChevron: {
+    fontSize: 16,
+    color: '#8E8E93',
+    fontWeight: '700',
+  },
   memberCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -245,11 +575,25 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
     marginBottom: 3,
   },
-  memberRole: {fontSize: 12, color: '#8E8E93', textTransform: 'uppercase'},
+  memberRole: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+  },
   textMuted: {color: '#8E8E93'},
-  memberRight: {alignItems: 'flex-end', gap: 6},
-  creditText: {fontSize: 13, color: '#3A3A3C'},
-  creditEmpty: {color: '#FF3B30', fontWeight: '600'},
+  memberRight: {
+    alignItems: 'flex-end',
+    gap: 6,
+    marginLeft: 12,
+  },
+  creditText: {
+    fontSize: 13,
+    color: '#3A3A3C',
+  },
+  creditEmpty: {
+    color: '#FF3B30',
+    fontWeight: '600',
+  },
   badgeSuccess: {
     backgroundColor: '#34C759',
     paddingHorizontal: 8,
@@ -262,11 +606,54 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
-  badgeText: {color: '#FFF', fontSize: 11, fontWeight: '700'},
-  emptyText: {
-    textAlign: 'center',
-    color: '#8E8E93',
-    marginTop: 40,
-    fontSize: 16,
+  badgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  badgeAction: {
+    backgroundColor: '#EAF3FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  badgeActionText: {
+    color: '#007AFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  historyButton: {
+    marginTop: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F2F2F7',
+  },
+  historyButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#007AFF',
+  },
+  snackbar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 24,
+    zIndex: 999,
+    elevation: 10,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  snackbarText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    flexShrink: 1,
   },
 });
