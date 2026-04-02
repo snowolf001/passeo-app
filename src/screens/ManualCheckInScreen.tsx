@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -51,6 +53,10 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
   const [showCheckedInSection, setShowCheckedInSection] = useState(false);
 
+  const [selectedMember, setSelectedMember] =
+    useState<MembershipWithUser | null>(null);
+  const [peopleCount, setPeopleCount] = useState(1);
+
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
   const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -67,6 +73,11 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
       setSnackVisible(false);
       setSnackMsg('');
     }, 2500);
+  }, []);
+
+  const closePeoplePicker = useCallback(() => {
+    setSelectedMember(null);
+    setPeopleCount(1);
   }, []);
 
   const loadMembers = useCallback(async () => {
@@ -235,16 +246,8 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
     [navigation],
   );
 
-  const handleCheckIn = async (target: MembershipWithUser) => {
+  const doCheckIn = async (target: MembershipWithUser, creditsUsed: number) => {
     if (!currentMembership || checkingInId) {
-      return;
-    }
-
-    if (checkedInIds.has(target.id)) {
-      return;
-    }
-
-    if (target.credits <= 0) {
       return;
     }
 
@@ -255,6 +258,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
         actingMembershipId: currentMembership.id,
         targetMembershipId: target.id,
         sessionId,
+        creditsUsed,
       });
 
       if (result.success) {
@@ -269,7 +273,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
         setMembers(prev =>
           prev.map(member =>
             member.id === target.id
-              ? {...member, credits: Math.max(0, member.credits - 1)}
+              ? {...member, credits: Math.max(0, member.credits - creditsUsed)}
               : member,
           ),
         );
@@ -280,13 +284,35 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
           checkedInAt,
         });
 
-        showSnackbar(`${target.user.name} checked in · 1 credit used`);
+        showSnackbar(
+          `${target.user.name} checked in · ${creditsUsed} ${
+            creditsUsed === 1 ? 'person' : 'people'
+          }`,
+        );
       } else {
         Alert.alert('Failed', result.message);
       }
     } finally {
       setCheckingInId(null);
+      closePeoplePicker();
     }
+  };
+
+  const handleCheckIn = (target: MembershipWithUser) => {
+    if (!currentMembership || checkingInId) {
+      return;
+    }
+
+    if (checkedInIds.has(target.id)) {
+      return;
+    }
+
+    if (target.credits <= 0) {
+      return;
+    }
+
+    setSelectedMember(target);
+    setPeopleCount(1);
   };
 
   const renderSummaryCard = () => (
@@ -421,6 +447,8 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
     return renderMemberCard(item.member);
   };
 
+  const maxPeople = selectedMember?.credits ?? 1;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <View style={styles.screenRoot}>
@@ -453,6 +481,92 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
             <Text style={styles.snackbarText}>{snackMsg}</Text>
           </View>
         )}
+
+        <Modal
+          visible={!!selectedMember}
+          transparent
+          animationType="fade"
+          onRequestClose={closePeoplePicker}>
+          <View style={styles.modalOverlay}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={closePeoplePicker}
+            />
+            <View style={styles.modalSheet}>
+              <Text style={styles.modalTitle}>How many people?</Text>
+
+              {!!selectedMember && (
+                <Text style={styles.modalSubtitle}>
+                  {selectedMember.user.name} has {selectedMember.credits} credit
+                  {selectedMember.credits !== 1 ? 's' : ''} available
+                </Text>
+              )}
+
+              <View style={styles.counterRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.counterButton,
+                    peopleCount <= 1 && styles.counterButtonDisabled,
+                  ]}
+                  onPress={() => setPeopleCount(prev => Math.max(1, prev - 1))}
+                  disabled={peopleCount <= 1}>
+                  <Text
+                    style={[
+                      styles.counterButtonText,
+                      peopleCount <= 1 && styles.counterButtonTextDisabled,
+                    ]}>
+                    −
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={styles.counterValueWrap}>
+                  <Text style={styles.counterValue}>{peopleCount}</Text>
+                  <Text style={styles.counterValueLabel}>
+                    {peopleCount === 1 ? 'person' : 'people'}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.counterButton,
+                    peopleCount >= maxPeople && styles.counterButtonDisabled,
+                  ]}
+                  onPress={() =>
+                    setPeopleCount(prev => Math.min(maxPeople, prev + 1))
+                  }
+                  disabled={peopleCount >= maxPeople}>
+                  <Text
+                    style={[
+                      styles.counterButtonText,
+                      peopleCount >= maxPeople &&
+                        styles.counterButtonTextDisabled,
+                    ]}>
+                    +
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalSecondaryButton}
+                  onPress={closePeoplePicker}>
+                  <Text style={styles.modalSecondaryButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalPrimaryButton}
+                  onPress={() =>
+                    selectedMember && doCheckIn(selectedMember, peopleCount)
+                  }>
+                  <Text style={styles.modalPrimaryButtonText}>
+                    Check In ({peopleCount}{' '}
+                    {peopleCount === 1 ? 'person' : 'people'})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -655,5 +769,111 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     flexShrink: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 28,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: -2},
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 15,
+    color: '#6B7280',
+    lineHeight: 22,
+    marginBottom: 22,
+  },
+  counterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  counterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  counterButtonDisabled: {
+    backgroundColor: '#E5E5EA',
+  },
+  counterButtonText: {
+    fontSize: 28,
+    fontWeight: '500',
+    color: '#1C1C1E',
+    lineHeight: 30,
+  },
+  counterButtonTextDisabled: {
+    color: '#AEAEB2',
+  },
+  counterValueWrap: {
+    minWidth: 110,
+    alignItems: 'center',
+    marginHorizontal: 24,
+  },
+  counterValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  counterValueLabel: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#8E8E93',
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalSecondaryButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSecondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3A3A3C',
+  },
+  modalPrimaryButton: {
+    flex: 1.5,
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  modalPrimaryButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

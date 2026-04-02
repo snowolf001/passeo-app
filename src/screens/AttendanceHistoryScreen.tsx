@@ -69,6 +69,12 @@ function HistoryRow({item}: {item: AttendanceHistoryItem}) {
         Session · {formatSessionStartTime(item.sessionStartTime)}
       </Text>
 
+      {item.creditsUsed > 0 && (
+        <Text style={styles.creditsUsed}>
+          {item.creditsUsed} credit{item.creditsUsed !== 1 ? 's' : ''} used
+        </Text>
+      )}
+
       {item.locationName ? (
         <Text style={styles.secondary}>{item.locationName}</Text>
       ) : null}
@@ -274,6 +280,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#007AFF',
     marginBottom: 4,
+  },
+  creditsUsed: {
+    fontSize: 12,
+    color: '#FF9500',
+    fontWeight: '600',
+    marginTop: 2,
   },
   secondary: {
     fontSize: 13,

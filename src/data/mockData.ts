@@ -204,12 +204,14 @@ let attendances: Attendance[] = [
     sessionId: 's1',
     membershipId: 'm3',
     checkedInAt: today(6),
+    creditsUsed: 1,
   },
   {
     id: 'a2',
     sessionId: 's1',
     membershipId: 'm4',
     checkedInAt: today(6),
+    creditsUsed: 1,
   },
 ];
 

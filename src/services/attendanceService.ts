@@ -85,6 +85,7 @@ export const attendanceService = {
       sessionId,
       membershipId,
       checkedInAt: new Date().toISOString(),
+      creditsUsed: 1,
     };
 
     db.addAttendance(attendance);
@@ -92,6 +93,7 @@ export const attendanceService = {
       membershipId,
       sessionId,
       'Session check-in',
+      1,
     );
 
     return {success: true, message: 'You are checked in!'};
@@ -110,8 +112,19 @@ export const attendanceService = {
     actingMembershipId: string;
     targetMembershipId: string;
     sessionId: string;
+    creditsUsed?: number;
   }): Promise<{success: boolean; message: string}> => {
-    const {actingMembershipId, targetMembershipId, sessionId} = params;
+    const {
+      actingMembershipId,
+      targetMembershipId,
+      sessionId,
+      creditsUsed: rawCredits,
+    } = params;
+    const creditsUsed = rawCredits ?? 1;
+
+    if (creditsUsed < 1) {
+      return {success: false, message: 'creditsUsed must be at least 1.'};
+    }
 
     const actor = db.getMemberships().find(m => m.id === actingMembershipId);
     if (!actor)
@@ -141,8 +154,11 @@ export const attendanceService = {
       return {success: false, message: 'This member is already checked in.'};
     }
 
-    if (target.credits <= 0) {
-      return {success: false, message: 'This member has no remaining credits.'};
+    if (target.credits < creditsUsed) {
+      return {
+        success: false,
+        message: `This member only has ${target.credits} credit(s). Cannot use ${creditsUsed}.`,
+      };
     }
 
     const attendance: Attendance = {
@@ -150,6 +166,7 @@ export const attendanceService = {
       sessionId,
       membershipId: targetMembershipId,
       checkedInAt: new Date().toISOString(),
+      creditsUsed,
     };
 
     db.addAttendance(attendance);
@@ -157,6 +174,7 @@ export const attendanceService = {
       targetMembershipId,
       sessionId,
       'Manual check-in by host',
+      creditsUsed,
     );
 
     return {success: true, message: 'Member checked in.'};
@@ -220,6 +238,7 @@ export const attendanceService = {
         sessionTitle: session.title,
         sessionStartTime: session.startTime,
         checkedInAt: att.checkedInAt,
+        creditsUsed: att.creditsUsed,
         locationName: location?.name,
         locationAddress: location?.address,
       });

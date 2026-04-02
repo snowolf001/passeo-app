@@ -18,25 +18,26 @@ export const creditService = {
   },
 
   /**
-   * Deduct 1 credit from a membership and log the transaction.
-   * Returns false if the membership is not found or has insufficient credits.
+   * Deduct credits from a membership and log the transaction.
+   * `amount` defaults to 1. Returns false if membership not found or has insufficient credits.
    */
   deductCredit: async (
     membershipId: string,
     sessionId: string,
     reason: string,
+    amount: number = 1,
   ): Promise<boolean> => {
     const memberships = db.getMemberships();
     const membership = memberships.find(m => m.id === membershipId);
     if (!membership) return false;
-    if (membership.credits <= 0) return false;
+    if (membership.credits < amount) return false;
 
-    db.updateMembership({...membership, credits: membership.credits - 1});
+    db.updateMembership({...membership, credits: membership.credits - amount});
 
     const transaction: CreditTransaction = {
       id: `ct_${nanoid(8)}`,
       membershipId,
-      amount: -1,
+      amount: -amount,
       reason,
       sessionId,
     };

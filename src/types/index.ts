@@ -56,6 +56,7 @@ export type Attendance = {
   sessionId: string;
   membershipId: string;
   checkedInAt: string; // ISO string
+  creditsUsed: number; // how many credits were consumed for this check-in
 };
 
 // A flattened view of an attendance record for display in history lists.
@@ -65,6 +66,7 @@ export type AttendanceHistoryItem = {
   sessionTitle: string;
   sessionStartTime: string;
   checkedInAt: string;
+  creditsUsed: number;
   locationName?: string;
   locationAddress?: string;
 };
