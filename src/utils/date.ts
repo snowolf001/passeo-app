@@ -1,10 +1,29 @@
 export const formatDate = (dateString: string): string => {
   const date = new Date(dateString);
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
+  return date.toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
     day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
+};
+
+export const formatTime = (isoString: string): string => {
+  return new Date(isoString).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+export const isToday = (isoString: string): boolean => {
+  const date = new Date(isoString);
+  const now = new Date();
+  return (
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear()
+  );
 };
 
 export const formatDateTime = (dateString: string): string => {

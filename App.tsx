@@ -6,6 +6,7 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
 import RootNavigator from './src/navigation/RootNavigator';
+import {AppProvider} from './src/context/AppContext';
 import {endIap, initIap, syncProStatusFromStore} from './src/services/iap';
 import {useAppTheme} from './src/theme/useAppTheme';
 
@@ -117,10 +118,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{flex: 1}}>
       <SafeAreaProvider>
-        <NavigationContainer theme={navTheme}>
-          <RootNavigator />
-        </NavigationContainer>
-        <Toast config={toastConfig} />
+        <AppProvider>
+          <NavigationContainer theme={navTheme}>
+            <RootNavigator />
+          </NavigationContainer>
+          <Toast config={toastConfig} />
+        </AppProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

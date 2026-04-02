@@ -1,9 +1,23 @@
-export type RootStackParamList = {
-  Home: undefined;
-  Upgrade: undefined;
+// ────────────────────────────────────────────────────────────
+// Navigation type definitions
+// ────────────────────────────────────────────────────────────
 
-  // Club App
-  Sessions: undefined;
+export type RootStackParamList = {
+  // Pre-auth / onboarding
+  JoinOrCreateClub: undefined;
+
+  // Main tabbed app
+  MainTabs: undefined;
+
+  // Stack screens pushed on top of tabs
   SessionDetail: {sessionId: string};
   ManualCheckIn: {sessionId: string};
+  CreateSession: undefined;
+  ClubSettings: undefined;
+};
+
+export type MainTabParamList = {
+  Home: undefined;
+  Schedule: undefined;
+  Profile: undefined;
 };
