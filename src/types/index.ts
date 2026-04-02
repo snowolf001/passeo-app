@@ -58,6 +58,17 @@ export type Attendance = {
   checkedInAt: string; // ISO string
 };
 
+// A flattened view of an attendance record for display in history lists.
+export type AttendanceHistoryItem = {
+  attendanceId: string;
+  sessionId: string;
+  sessionTitle: string;
+  sessionStartTime: string;
+  checkedInAt: string;
+  locationName?: string;
+  locationAddress?: string;
+};
+
 // A credit add / deduct ledger entry.
 export type CreditTransaction = {
   id: string;

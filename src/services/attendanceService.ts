@@ -1,4 +1,4 @@
-import {Attendance, MembershipWithUser} from '../types';
+import {Attendance, AttendanceHistoryItem, MembershipWithUser} from '../types';
 import {db} from '../data/mockData';
 import {nanoid} from 'nanoid/non-secure';
 import {creditService} from './creditService';
@@ -191,5 +191,40 @@ export const attendanceService = {
         new Date(attA?.checkedInAt ?? 0).getTime()
       );
     });
+  },
+
+  /**
+   * Get attendance history for a membership, enriched with session & location info.
+   * Sorted by checkedInAt descending.
+   */
+  getAttendanceHistoryForMembership: async (
+    membershipId: string,
+  ): Promise<AttendanceHistoryItem[]> => {
+    const records = db
+      .getAttendances()
+      .filter(a => a.membershipId === membershipId)
+      .sort(
+        (a, b) =>
+          new Date(b.checkedInAt).getTime() - new Date(a.checkedInAt).getTime(),
+      );
+
+    const result: AttendanceHistoryItem[] = [];
+
+    for (const att of records) {
+      const session = db.getSessions().find(s => s.id === att.sessionId);
+      if (!session) continue;
+      const location = db.getLocations().find(l => l.id === session.locationId);
+      result.push({
+        attendanceId: att.id,
+        sessionId: session.id,
+        sessionTitle: session.title,
+        sessionStartTime: session.startTime,
+        checkedInAt: att.checkedInAt,
+        locationName: location?.name,
+        locationAddress: location?.address,
+      });
+    }
+
+    return result;
   },
 };

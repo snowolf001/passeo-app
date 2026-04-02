@@ -120,6 +120,21 @@ export default function ProfileScreen({navigation}: Props) {
           </View>
         )}
 
+        {/* My History */}
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() =>
+              navigation.navigate('AttendanceHistory', {
+                membershipId: currentMembership.id,
+                title: 'My History',
+              })
+            }>
+            <Text style={styles.actionItemText}>My History</Text>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Admin section */}
         {isAdminOrOwner && (
           <View style={styles.card}>

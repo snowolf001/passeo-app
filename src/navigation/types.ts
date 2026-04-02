@@ -14,6 +14,7 @@ export type RootStackParamList = {
   ManualCheckIn: {sessionId: string};
   CreateSession: undefined;
   ClubSettings: undefined;
+  AttendanceHistory: {membershipId: string; title?: string};
 };
 
 export type MainTabParamList = {

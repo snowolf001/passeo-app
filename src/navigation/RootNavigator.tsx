@@ -11,6 +11,7 @@ import SessionDetailScreen from '../screens/SessionDetailScreen';
 import ManualCheckInScreen from '../screens/ManualCheckInScreen';
 import CreateSessionScreen from '../screens/CreateSessionScreen';
 import ClubSettingsScreen from '../screens/ClubSettingsScreen';
+import AttendanceHistoryScreen from '../screens/AttendanceHistoryScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -60,6 +61,11 @@ export default function RootNavigator() {
         name="ClubSettings"
         component={ClubSettingsScreen}
         options={{headerShown: true, title: 'Club Settings'}}
+      />
+      <Stack.Screen
+        name="AttendanceHistory"
+        component={AttendanceHistoryScreen}
+        options={{headerShown: true, title: 'Attendance History'}}
       />
     </Stack.Navigator>
   );
