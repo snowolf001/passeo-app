@@ -173,17 +173,26 @@ export default function SessionDetailScreen({route, navigation}: Props) {
 
     switch (checkInMode) {
       case 'live':
-      case 'backfill':
-        if (!hasCredits) return 'You do not have enough credits to check in.';
-        return `You have ${availableCredits} credit${
+        if (!hasCredits) return 'No credits remaining';
+        return `${availableCredits} credit${
           availableCredits === 1 ? '' : 's'
-        } available.`;
+        } available`;
+
+      case 'backfill':
+        if (!hasCredits) return 'No credits remaining';
+        return `Backfill available · ${availableCredits} credit${
+          availableCredits === 1 ? '' : 's'
+        } left`;
+
       case 'not_allowed':
-        return 'Member self backfill is disabled for this club.';
+        return 'Backfill is disabled for members';
+
       case 'expired':
-        return 'The backfill window for this session has expired.';
+        return 'Backfill window expired';
+
       case 'no_credits':
-        return 'You do not have enough credits to check in.';
+        return 'No credits remaining';
+
       default:
         return null;
     }
@@ -195,6 +204,25 @@ export default function SessionDetailScreen({route, navigation}: Props) {
 
   const getModalActionText = () => {
     return checkInMode === 'backfill' ? 'Backfill' : 'Check In';
+  };
+
+  const getStatusText = (mode: CheckInMode) => {
+    switch (mode) {
+      case 'live':
+        return '🟢 Available now';
+      case 'backfill':
+        return '🟡 Backfill available';
+      case 'already_checked_in':
+        return '✅ You are checked in';
+      case 'expired':
+        return '⚪ Backfill expired';
+      case 'not_allowed':
+        return '⚪ Backfill not allowed';
+      case 'no_credits':
+        return '⚪ No credits';
+      default:
+        return '';
+    }
   };
 
   const openSelfCheckInPicker = () => {
@@ -293,7 +321,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         };
       case 'no_credits':
         return {
-          label: 'No Credits Remaining',
+          label: 'No Credits',
           disabled: true,
           style: styles.btnDisabled,
           textStyle: styles.checkInBtnTextDark,
@@ -314,7 +342,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         };
       case 'not_allowed':
         return {
-          label: 'Backfill Not Allowed',
+          label: 'Backfill Disabled',
           disabled: true,
           style: styles.btnDisabled,
           textStyle: styles.checkInBtnTextDark,
@@ -322,7 +350,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       case 'expired':
       default:
         return {
-          label: 'Missed Check-In',
+          label: 'Backfill Expired',
           disabled: true,
           style: styles.btnDisabled,
           textStyle: styles.checkInBtnTextDark,
@@ -333,14 +361,27 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const ciBtn = selfCheckInButtonState();
   const helperText = getHelperText();
 
-  const renderMemberRow = ({item}: {item: MembershipWithUser}) => (
-    <View style={styles.memberRow}>
-      <Text style={styles.memberName}>{item.user.name}</Text>
-      <View style={[styles.roleBadge, roleColor(item.role)]}>
-        <Text style={styles.roleBadgeText}>{item.role}</Text>
+  const renderMemberRow = ({item}: {item: MembershipWithUser}) => {
+    const isYou = currentMembership?.id === item.id;
+
+    return (
+      <View style={styles.memberRow}>
+        <View style={styles.memberLeft}>
+          <Text style={styles.memberName}>{item.user.name}</Text>
+
+          {isYou && (
+            <View style={styles.youBadge}>
+              <Text style={styles.youBadgeText}>You</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={[styles.roleBadge, roleColor(item.role)]}>
+          <Text style={styles.roleBadgeText}>{item.role}</Text>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderContent = () => {
     if (loadingSession && !session) {
@@ -394,6 +435,10 @@ export default function SessionDetailScreen({route, navigation}: Props) {
               {session.capacity != null ? ` / ${session.capacity}` : ''} checked
               in
             </Text>
+          </View>
+
+          <View style={styles.statusBanner}>
+            <Text style={styles.statusText}>{getStatusText(checkInMode)}</Text>
           </View>
         </View>
 
@@ -667,6 +712,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
   },
+  statusBanner: {
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#F2F2F7',
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3A3A3C',
+  },
   section: {
     padding: 20,
     borderBottomWidth: 1,
@@ -720,6 +776,22 @@ const styles = StyleSheet.create({
   hostButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '700',
+  },
+  memberLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  youBadge: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  youBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
     fontWeight: '700',
   },
   memberRow: {

@@ -18,6 +18,17 @@ const FALLBACK_SETTINGS = {
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_BACKFILL_SESSIONS = 50;
 
+type SessionListItem = {
+  session: any;
+  mode:
+    | 'live'
+    | 'backfill'
+    | 'expired'
+    | 'already_checked_in'
+    | 'no_credits'
+    | 'not_allowed';
+};
+
 export default function BackfillSessionsScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
 
@@ -29,7 +40,7 @@ export default function BackfillSessionsScreen({navigation}: Props) {
   const attendances = db.getAttendances();
   const clubSettings = currentClub.settings ?? FALLBACK_SETTINGS;
 
-  const filteredSessions = useMemo(() => {
+  const filteredSessions = useMemo<SessionListItem[]>(() => {
     const now = Date.now();
 
     return sessions
@@ -68,67 +79,125 @@ export default function BackfillSessionsScreen({navigation}: Props) {
       .slice(0, MAX_BACKFILL_SESSIONS);
   }, [sessions, attendances, currentMembership, clubSettings]);
 
-  const renderItem = ({item}: any) => {
+  const getStatusLabel = (mode: SessionListItem['mode']) => {
+    switch (mode) {
+      case 'backfill':
+        return 'Backfill Available';
+      case 'expired':
+        return 'Backfill Expired';
+      case 'already_checked_in':
+        return 'Checked In';
+      case 'no_credits':
+        return 'No Credits';
+      case 'not_allowed':
+        return 'Backfill Disabled';
+      case 'live':
+        return 'Available Now';
+      default:
+        return 'Unavailable';
+    }
+  };
+
+  const getStatusColors = (mode: SessionListItem['mode']) => {
+    switch (mode) {
+      case 'backfill':
+        return {
+          text: '#166534',
+          background: '#DCFCE7',
+        };
+      case 'already_checked_in':
+        return {
+          text: '#374151',
+          background: '#E5E7EB',
+        };
+      case 'no_credits':
+        return {
+          text: '#9A3412',
+          background: '#FFEDD5',
+        };
+      case 'expired':
+      case 'not_allowed':
+        return {
+          text: '#991B1B',
+          background: '#FEE2E2',
+        };
+      case 'live':
+      default:
+        return {
+          text: '#374151',
+          background: '#E5E7EB',
+        };
+    }
+  };
+
+  const getHelperText = (mode: SessionListItem['mode']) => {
+    switch (mode) {
+      case 'backfill':
+        return 'You can still check in for this session';
+      case 'already_checked_in':
+        return 'You already checked in for this session';
+      case 'expired':
+        return 'This session is outside the backfill window';
+      case 'no_credits':
+        return 'You need at least 1 credit to backfill';
+      case 'not_allowed':
+        return 'Member backfill is disabled for this club';
+      default:
+        return null;
+    }
+  };
+
+  const formatSessionTime = (startTime: string) => {
+    return new Date(startTime).toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  const renderItem = ({item}: {item: SessionListItem}) => {
     const {session, mode} = item;
-
-    const getStatusLabel = () => {
-      switch (mode) {
-        case 'backfill':
-          return 'Backfill Available';
-        case 'expired':
-          return 'Expired';
-        case 'already_checked_in':
-          return 'Checked In';
-        case 'no_credits':
-          return 'No Credits';
-        case 'not_allowed':
-          return 'Not Allowed';
-        case 'live':
-          return 'Open for Check-In';
-        default:
-          return 'Missed';
-      }
-    };
-
-    const getStatusColor = () => {
-      switch (mode) {
-        case 'backfill':
-          return '#34C759';
-        case 'already_checked_in':
-          return '#8E8E93';
-        case 'expired':
-        case 'not_allowed':
-          return '#FF3B30';
-        case 'no_credits':
-          return '#FF9500';
-        default:
-          return '#8E8E93';
-      }
-    };
+    const statusColors = getStatusColors(mode);
+    const helperText = getHelperText(mode);
+    const isClickable = mode === 'backfill' || mode === 'live';
 
     return (
       <TouchableOpacity
-        style={styles.card}
-        onPress={() =>
+        style={[styles.card, !isClickable && styles.cardDisabled]}
+        activeOpacity={isClickable ? 0.7 : 1}
+        onPress={() => {
+          if (!isClickable) {
+            return;
+          }
+
           navigation.navigate('SessionDetail', {
             sessionId: session.id,
-          })
-        }>
+          });
+        }}>
         <View style={styles.row}>
           <Text style={styles.title}>{session.title}</Text>
-          <Text style={[styles.badge, {color: getStatusColor()}]}>
-            {getStatusLabel()}
-          </Text>
+
+          <View
+            style={[
+              styles.badgePill,
+              {backgroundColor: statusColors.background},
+            ]}>
+            <Text style={[styles.badgeText, {color: statusColors.text}]}>
+              {getStatusLabel(mode)}
+            </Text>
+          </View>
         </View>
 
-        <Text style={styles.time}>
-          {new Date(session.startTime).toLocaleString([], {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          })}
-        </Text>
+        <Text style={styles.time}>{formatSessionTime(session.startTime)}</Text>
+
+        {helperText ? (
+          <Text style={styles.helperText}>{helperText}</Text>
+        ) : null}
+
+        {isClickable ? (
+          <Text style={styles.actionHint}>Tap to check in</Text>
+        ) : null}
       </TouchableOpacity>
     );
   };
@@ -140,9 +209,21 @@ export default function BackfillSessionsScreen({navigation}: Props) {
         keyExtractor={item => item.session.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <View style={styles.headerCard}>
+            <Text style={styles.headerTitle}>Past Sessions</Text>
+            <Text style={styles.headerSubtitle}>
+              View recently ended sessions and see whether backfill is still
+              available.
+            </Text>
+          </View>
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>No recent past sessions</Text>
+            <Text style={styles.emptyTitle}>No recent past sessions</Text>
+            <Text style={styles.emptyText}>
+              Ended sessions from the last 14 days will appear here.
+            </Text>
           </View>
         }
       />
@@ -151,18 +232,44 @@ export default function BackfillSessionsScreen({navigation}: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7'},
-  list: {padding: 16, paddingBottom: 40},
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F7',
+  },
+  list: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  headerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  headerSubtitle: {
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#6B7280',
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
   },
+  cardDisabled: {
+    opacity: 0.6,
+  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   title: {
     fontSize: 16,
@@ -171,21 +278,45 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: 10,
   },
-  badge: {
-    fontSize: 13,
-    fontWeight: '600',
+  badgePill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   time: {
-    marginTop: 6,
+    marginTop: 8,
     fontSize: 13,
     color: '#8E8E93',
   },
+  helperText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  actionHint: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
   empty: {
-    marginTop: 60,
+    marginTop: 80,
     alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1C1C1E',
   },
   emptyText: {
+    marginTop: 6,
     color: '#8E8E93',
     fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
