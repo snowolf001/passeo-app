@@ -15,6 +15,9 @@ const FALLBACK_SETTINGS = {
   hostBackfillHours: 72,
 };
 
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+const MAX_BACKFILL_SESSIONS = 50;
+
 export default function BackfillSessionsScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
 
@@ -27,6 +30,8 @@ export default function BackfillSessionsScreen({navigation}: Props) {
   const clubSettings = currentClub.settings ?? FALLBACK_SETTINGS;
 
   const filteredSessions = useMemo(() => {
+    const now = Date.now();
+
     return sessions
       .map(session => {
         const isAlreadyCheckedIn = attendances.some(
@@ -47,12 +52,20 @@ export default function BackfillSessionsScreen({navigation}: Props) {
           mode,
         };
       })
-      .filter(item => attendanceService.isSessionEnded(item.session))
+      .filter(item => {
+        if (!attendanceService.isSessionEnded(item.session)) {
+          return false;
+        }
+
+        const startMs = new Date(item.session.startTime).getTime();
+        return startMs >= now - FOURTEEN_DAYS_MS;
+      })
       .sort(
         (a, b) =>
           new Date(b.session.startTime).getTime() -
           new Date(a.session.startTime).getTime(),
-      );
+      )
+      .slice(0, MAX_BACKFILL_SESSIONS);
   }, [sessions, attendances, currentMembership, clubSettings]);
 
   const renderItem = ({item}: any) => {
@@ -129,7 +142,7 @@ export default function BackfillSessionsScreen({navigation}: Props) {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>No past sessions</Text>
+            <Text style={styles.emptyText}>No recent past sessions</Text>
           </View>
         }
       />

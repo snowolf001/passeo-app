@@ -13,8 +13,7 @@ import {
 // ────────────────────────────────────────────────────────────
 // Current user – the person using this device in MVP
 // ────────────────────────────────────────────────────────────
-export const CURRENT_USER_ID = 'u1';
-export const CURRENT_MEMBERSHIP_ID = 'm3';
+export const CURRENT_USER_ID = 'u2';
 
 // ────────────────────────────────────────────────────────────
 // Users
@@ -254,8 +253,7 @@ let sessions: Session[] = [
 ];
 
 // ────────────────────────────────────────────────────────────
-// Attendances  (a few pre-existing records)
-// Sam and Morgan are already checked in to today's session
+// Attendances
 // Keep s7 / s8 / s9 without attendances so backfill can be tested
 // ────────────────────────────────────────────────────────────
 let attendances: Attendance[] = [
@@ -285,6 +283,7 @@ let creditTransactions: CreditTransaction[] = [
     amount: -1,
     reason: 'Session check-in',
     sessionId: 's1',
+    createdAt: new Date().toISOString(),
   },
   {
     id: 'ct2',
@@ -292,6 +291,7 @@ let creditTransactions: CreditTransaction[] = [
     amount: -1,
     reason: 'Session check-in',
     sessionId: 's1',
+    createdAt: new Date().toISOString(),
   },
 ];
 
@@ -311,7 +311,6 @@ const clubSubscriptions: ClubSubscription[] = [
 // Mutable store accessors (services mutate these in-memory)
 // ────────────────────────────────────────────────────────────
 export const db = {
-  // readers
   getUsers: () => users,
   getClubs: () => clubs,
   getLocations: () => locations,
@@ -321,7 +320,6 @@ export const db = {
   getCreditTransactions: () => creditTransactions,
   getClubSubscriptions: () => clubSubscriptions,
 
-  // writers
   addMembership: (m: Membership) => {
     memberships = [...memberships, m];
   },

@@ -13,45 +13,103 @@ import {nanoid} from 'nanoid/non-secure';
 import {creditService} from './creditService';
 
 // ────────────────────────────────────────────────────────────
-// Backfill helpers (pure functions, exported via service object)
+// Defensive helpers
 // ────────────────────────────────────────────────────────────
 
+// 防止同一个 membership/session 被并发重复 check-in
+const inFlightCheckIns = new Set<string>();
+
+function _makeCheckInKey(membershipId: string, sessionId: string): string {
+  return `${membershipId}::${sessionId}`;
+}
+
+function _releaseCheckInLock(membershipId: string, sessionId: string) {
+  inFlightCheckIns.delete(_makeCheckInKey(membershipId, sessionId));
+}
+
+// creditsUsed 清洗：
+// - undefined/null/non-number => 1
+// - 小数 => floor
+// - <= 0 保持原值，后面统一拦截
+function _normalizeCreditsUsed(rawCredits?: number): number {
+  if (typeof rawCredits !== 'number' || !Number.isFinite(rawCredits)) {
+    return 1;
+  }
+  return Math.floor(rawCredits);
+}
+
+function _getSafeCredits(membership?: Membership | null): number {
+  const credits = membership?.credits;
+  if (typeof credits !== 'number' || !Number.isFinite(credits) || credits < 0) {
+    return 0;
+  }
+  return Math.floor(credits);
+}
+
+function _hasExistingAttendance(
+  membershipId: string,
+  sessionId: string,
+): boolean {
+  return db
+    .getAttendances()
+    .some(a => a.membershipId === membershipId && a.sessionId === sessionId);
+}
+
 function _isSessionEnded(session: Session): boolean {
-  if (!session.endTime) return false;
-  return new Date(session.endTime) < new Date();
+  if (!session?.endTime) return false;
+  const endMs = new Date(session.endTime).getTime();
+  if (Number.isNaN(endMs)) return false;
+  return endMs < Date.now();
 }
 
 function _getHoursSinceSessionEnd(session: Session): number {
-  if (!session.endTime) return 0;
+  if (!session?.endTime) return 0;
   const endMs = new Date(session.endTime).getTime();
+  if (Number.isNaN(endMs)) return 0;
   return Math.max(0, (Date.now() - endMs) / (1000 * 60 * 60));
 }
 
 function _resolveSettings(clubId: string): ClubSettings {
+  if (!clubId) return DEFAULT_CLUB_SETTINGS;
   return (
     db.getClubs().find(c => c.id === clubId)?.settings ?? DEFAULT_CLUB_SETTINGS
   );
 }
 
+function _getSafeMemberBackfillHours(settings: ClubSettings): number {
+  const hours = settings?.memberBackfillHours;
+  if (typeof hours !== 'number' || !Number.isFinite(hours) || hours < 0) {
+    return DEFAULT_CLUB_SETTINGS.memberBackfillHours;
+  }
+  return hours;
+}
+
+function _getSafeHostBackfillHours(settings: ClubSettings): number {
+  const hours = settings?.hostBackfillHours;
+  if (typeof hours !== 'number' || !Number.isFinite(hours) || hours < 0) {
+    return DEFAULT_CLUB_SETTINGS.hostBackfillHours;
+  }
+  return hours;
+}
+
 function _canMemberBackfill(session: Session, settings: ClubSettings): boolean {
-  if (!settings.allowMemberBackfill) return false;
+  if (!session) return false;
+  if (!settings?.allowMemberBackfill) return false;
   if (!_isSessionEnded(session)) return false;
-  return _getHoursSinceSessionEnd(session) <= settings.memberBackfillHours;
+  return (
+    _getHoursSinceSessionEnd(session) <= _getSafeMemberBackfillHours(settings)
+  );
 }
 
 function _canHostBackfill(session: Session, settings: ClubSettings): boolean {
+  if (!session) return false;
   if (!_isSessionEnded(session)) return false;
-  return _getHoursSinceSessionEnd(session) <= settings.hostBackfillHours;
+  return (
+    _getHoursSinceSessionEnd(session) <= _getSafeHostBackfillHours(settings)
+  );
 }
 
-// ────────────────────────────────────────────────────────────
-// Attendance Service
-// Handles: self check-in, manual check-in, attendance queries
-// ────────────────────────────────────────────────────────────
-
 export const attendanceService = {
-  // ── Backfill helpers (exposed for screens) ──────────────────
-
   isSessionEnded: _isSessionEnded,
   getHoursSinceSessionEnd: _getHoursSinceSessionEnd,
   canMemberBackfill: _canMemberBackfill,
@@ -60,17 +118,22 @@ export const attendanceService = {
   getCheckInMode: (params: {
     membership: Membership;
     session: Session;
-    settings: ClubSettings;
-    isAlreadyCheckedIn: boolean;
+    settings?: ClubSettings;
+    isAlreadyCheckedIn?: boolean;
   }): CheckInMode => {
-    const {membership, session, settings, isAlreadyCheckedIn} = params;
+    const {
+      membership,
+      session,
+      settings = DEFAULT_CLUB_SETTINGS,
+      isAlreadyCheckedIn = false,
+    } = params;
+
+    // 保护：membership/session 缺失
+    if (!membership || !session) return 'not_allowed';
 
     if (isAlreadyCheckedIn) return 'already_checked_in';
-    if (membership.credits <= 0) return 'no_credits';
+    if (_getSafeCredits(membership) <= 0) return 'no_credits';
 
-    // Self check-in UI should always follow member self-backfill policy.
-    // Host/Admin extended windows are for manual check-in of others, not for
-    // this self check-in button.
     if (!_isSessionEnded(session)) return 'live';
 
     if (!settings.allowMemberBackfill) return 'not_allowed';
@@ -78,17 +141,18 @@ export const attendanceService = {
     return _canMemberBackfill(session, settings) ? 'backfill' : 'expired';
   },
 
-  // ── Queries ──────────────────────────────────────────────────
-
   getAttendancesForSession: async (
     sessionId: string,
   ): Promise<Attendance[]> => {
+    if (!sessionId) return [];
     return db.getAttendances().filter(a => a.sessionId === sessionId);
   },
 
   getAttendancesForMembership: async (
     membershipId: string,
   ): Promise<Attendance[]> => {
+    if (!membershipId) return [];
+
     return db
       .getAttendances()
       .filter(a => a.membershipId === membershipId)
@@ -99,139 +163,168 @@ export const attendanceService = {
   },
 
   isCheckedIn: (membershipId: string, sessionId: string): boolean => {
+    if (!membershipId || !sessionId) return false;
+
     return db
       .getAttendances()
       .some(a => a.membershipId === membershipId && a.sessionId === sessionId);
   },
 
-  /**
-   * Self check-in: the current member checks themselves in.
-   *
-   * Rules:
-   * - Must belong to the session's club
-   * - Must not already be checked in
-   * - Must have enough credits for creditsUsed
-   * - If session ended, must still be within member self-backfill policy
-   */
   selfCheckIn: async (params: {
     membershipId: string;
     sessionId: string;
     creditsUsed?: number;
   }): Promise<{success: boolean; message: string}> => {
     const {membershipId, sessionId, creditsUsed: rawCredits} = params;
-    const creditsUsed = rawCredits ?? 1;
+    const creditsUsed = _normalizeCreditsUsed(rawCredits);
+
+    if (!membershipId) {
+      return {success: false, message: 'Membership not found.'};
+    }
+
+    if (!sessionId) {
+      return {success: false, message: 'Session not found.'};
+    }
 
     if (creditsUsed < 1) {
       return {success: false, message: 'creditsUsed must be at least 1.'};
     }
 
-    const membership = db.getMemberships().find(m => m.id === membershipId);
-    if (!membership) {
-      return {success: false, message: 'Membership not found.'};
-    }
-
-    const session = db.getSessions().find(s => s.id === sessionId);
-    if (!session) {
-      return {success: false, message: 'Session not found.'};
-    }
-
-    if (membership.clubId !== session.clubId) {
-      return {success: false, message: 'You are not a member of this club.'};
-    }
-
-    if (membership.credits < creditsUsed) {
+    const checkInKey = _makeCheckInKey(membershipId, sessionId);
+    if (inFlightCheckIns.has(checkInKey)) {
       return {
         success: false,
-        message: `You only have ${membership.credits} credit(s). Cannot use ${creditsUsed}.`,
+        message: 'Check-in already in progress.',
       };
     }
 
-    const settings = _resolveSettings(membership.clubId);
+    inFlightCheckIns.add(checkInKey);
 
-    const mode = attendanceService.getCheckInMode({
-      membership,
-      session,
-      settings,
-      isAlreadyCheckedIn: attendanceService.isCheckedIn(
+    try {
+      const membership = db.getMemberships().find(m => m.id === membershipId);
+      if (!membership) {
+        return {success: false, message: 'Membership not found.'};
+      }
+
+      const session = db.getSessions().find(s => s.id === sessionId);
+      if (!session) {
+        return {success: false, message: 'Session not found.'};
+      }
+
+      if (membership.clubId !== session.clubId) {
+        return {success: false, message: 'You are not a member of this club.'};
+      }
+
+      const safeCredits = _getSafeCredits(membership);
+      if (safeCredits < creditsUsed) {
+        return {
+          success: false,
+          message: `You only have ${safeCredits} credit(s). Cannot use ${creditsUsed}.`,
+        };
+      }
+
+      const settings = _resolveSettings(membership.clubId);
+
+      const mode = attendanceService.getCheckInMode({
+        membership,
+        session,
+        settings,
+        isAlreadyCheckedIn: attendanceService.isCheckedIn(
+          membershipId,
+          sessionId,
+        ),
+      });
+
+      if (mode === 'already_checked_in') {
+        return {
+          success: false,
+          message: 'You are already checked in to this session.',
+        };
+      }
+
+      if (mode === 'no_credits') {
+        return {
+          success: false,
+          message: 'You do not have enough credits to check in.',
+        };
+      }
+
+      if (mode === 'expired') {
+        return {
+          success: false,
+          message: 'The backfill window for this session has expired.',
+        };
+      }
+
+      if (mode === 'not_allowed') {
+        return {
+          success: false,
+          message: 'Member backfill is not allowed for this club.',
+        };
+      }
+
+      if (mode !== 'live' && mode !== 'backfill') {
+        return {
+          success: false,
+          message: 'This session is not eligible for check-in.',
+        };
+      }
+
+      // 写入前再查一次，防竞态重复
+      if (_hasExistingAttendance(membershipId, sessionId)) {
+        return {
+          success: false,
+          message: 'You are already checked in to this session.',
+        };
+      }
+
+      const source: Attendance['source'] =
+        mode === 'backfill' ? 'backfill-self' : 'self';
+
+      const attendance: Attendance = {
+        id: `a_${nanoid(8)}`,
+        sessionId,
+        membershipId,
+        checkedInAt: new Date().toISOString(),
+        creditsUsed,
+        source,
+      };
+
+      db.addAttendance(attendance);
+
+      const deducted = await creditService.deductCredit(
         membershipId,
         sessionId,
-      ),
-    });
+        mode === 'backfill' ? 'Self backfill check-in' : 'Session check-in',
+        creditsUsed,
+      );
 
-    if (mode === 'already_checked_in') {
+      // credit 失败时回滚 attendance，防止数据不一致
+      if (!deducted) {
+        const attendances = db.getAttendances();
+        const index = attendances.findIndex(a => a.id === attendance.id);
+        if (index >= 0) {
+          attendances.splice(index, 1);
+        }
+
+        return {
+          success: false,
+          message: 'Failed to deduct credits.',
+        };
+      }
+
       return {
-        success: false,
-        message: 'You are already checked in to this session.',
+        success: true,
+        message:
+          mode === 'backfill'
+            ? 'Backfilled successfully.'
+            : 'You are checked in!',
       };
+    } finally {
+      _releaseCheckInLock(membershipId, sessionId);
     }
-
-    if (mode === 'no_credits') {
-      return {
-        success: false,
-        message: 'You do not have enough credits to check in.',
-      };
-    }
-
-    if (mode === 'expired') {
-      return {
-        success: false,
-        message: 'The backfill window for this session has expired.',
-      };
-    }
-
-    if (mode === 'not_allowed') {
-      return {
-        success: false,
-        message: 'Member backfill is not allowed for this club.',
-      };
-    }
-
-    if (mode !== 'live' && mode !== 'backfill') {
-      return {
-        success: false,
-        message: 'This session is not eligible for check-in.',
-      };
-    }
-
-    const source: Attendance['source'] =
-      mode === 'backfill' ? 'backfill-self' : 'self';
-
-    const attendance: Attendance = {
-      id: `a_${nanoid(8)}`,
-      sessionId,
-      membershipId,
-      checkedInAt: new Date().toISOString(),
-      creditsUsed,
-      source,
-    };
-
-    db.addAttendance(attendance);
-    await creditService.deductCredit(
-      membershipId,
-      sessionId,
-      mode === 'backfill' ? 'Self backfill check-in' : 'Session check-in',
-      creditsUsed,
-    );
-
-    return {
-      success: true,
-      message:
-        mode === 'backfill'
-          ? 'Backfilled successfully.'
-          : 'You are checked in!',
-    };
   },
 
-  /**
-   * Manual check-in: a host/admin/owner checks in another member.
-   *
-   * Rules:
-   * - Acting membership must have role host/admin/owner
-   * - Target membership must be in the same club
-   * - Target must not already be checked in
-   * - Target must have enough credits
-   * - If session ended, host/admin backfill window applies
-   */
   manualCheckIn: async (params: {
     actingMembershipId: string;
     targetMembershipId: string;
@@ -244,93 +337,149 @@ export const attendanceService = {
       sessionId,
       creditsUsed: rawCredits,
     } = params;
-    const creditsUsed = rawCredits ?? 1;
+    const creditsUsed = _normalizeCreditsUsed(rawCredits);
+
+    if (!actingMembershipId) {
+      return {success: false, message: 'Acting membership not found.'};
+    }
+
+    if (!targetMembershipId) {
+      return {success: false, message: 'Member not found.'};
+    }
+
+    if (!sessionId) {
+      return {success: false, message: 'Session not found.'};
+    }
 
     if (creditsUsed < 1) {
       return {success: false, message: 'creditsUsed must be at least 1.'};
     }
 
-    const actor = db.getMemberships().find(m => m.id === actingMembershipId);
-    if (!actor) {
-      return {success: false, message: 'Acting membership not found.'};
-    }
-
-    const canAct = ['host', 'admin', 'owner'].includes(actor.role);
-    if (!canAct) {
+    const checkInKey = _makeCheckInKey(targetMembershipId, sessionId);
+    if (inFlightCheckIns.has(checkInKey)) {
       return {
         success: false,
-        message: 'You do not have permission to check in members.',
+        message: 'Check-in already in progress.',
       };
     }
 
-    const target = db.getMemberships().find(m => m.id === targetMembershipId);
-    if (!target) {
-      return {success: false, message: 'Member not found.'};
-    }
+    inFlightCheckIns.add(checkInKey);
 
-    const session = db.getSessions().find(s => s.id === sessionId);
-    if (!session) {
-      return {success: false, message: 'Session not found.'};
-    }
+    try {
+      const actor = db.getMemberships().find(m => m.id === actingMembershipId);
+      if (!actor) {
+        return {success: false, message: 'Acting membership not found.'};
+      }
 
-    if (target.clubId !== session.clubId) {
-      return {
-        success: false,
-        message: 'That member does not belong to this club.',
-      };
-    }
-
-    if (attendanceService.isCheckedIn(targetMembershipId, sessionId)) {
-      return {success: false, message: 'This member is already checked in.'};
-    }
-
-    if (target.credits < creditsUsed) {
-      return {
-        success: false,
-        message: `This member only has ${target.credits} credit(s). Cannot use ${creditsUsed}.`,
-      };
-    }
-
-    const sessionEnded = _isSessionEnded(session);
-    let source: Attendance['source'];
-
-    if (sessionEnded) {
-      const settings = _resolveSettings(actor.clubId);
-      if (!_canHostBackfill(session, settings)) {
+      const canAct = ['host', 'admin', 'owner'].includes(actor.role);
+      if (!canAct) {
         return {
           success: false,
-          message: 'The backfill window for this session has expired.',
+          message: 'You do not have permission to check in members.',
         };
       }
-      source = 'backfill-host';
-    } else {
-      source = 'manual';
+
+      const target = db.getMemberships().find(m => m.id === targetMembershipId);
+      if (!target) {
+        return {success: false, message: 'Member not found.'};
+      }
+
+      const session = db.getSessions().find(s => s.id === sessionId);
+      if (!session) {
+        return {success: false, message: 'Session not found.'};
+      }
+
+      // 防止跨 club 操作
+      if (actor.clubId !== session.clubId) {
+        return {
+          success: false,
+          message: 'You do not have permission to manage this club session.',
+        };
+      }
+
+      if (target.clubId !== session.clubId) {
+        return {
+          success: false,
+          message: 'That member does not belong to this club.',
+        };
+      }
+
+      if (attendanceService.isCheckedIn(targetMembershipId, sessionId)) {
+        return {success: false, message: 'This member is already checked in.'};
+      }
+
+      const targetCredits = _getSafeCredits(target);
+      if (targetCredits < creditsUsed) {
+        return {
+          success: false,
+          message: `This member only has ${targetCredits} credit(s). Cannot use ${creditsUsed}.`,
+        };
+      }
+
+      const sessionEnded = _isSessionEnded(session);
+      let source: Attendance['source'];
+
+      if (sessionEnded) {
+        const settings = _resolveSettings(actor.clubId);
+        if (!_canHostBackfill(session, settings)) {
+          return {
+            success: false,
+            message: 'The backfill window for this session has expired.',
+          };
+        }
+        source = 'backfill-host';
+      } else {
+        source = 'manual';
+      }
+
+      // 写入前二次查重
+      if (_hasExistingAttendance(targetMembershipId, sessionId)) {
+        return {success: false, message: 'This member is already checked in.'};
+      }
+
+      const attendance: Attendance = {
+        id: `a_${nanoid(8)}`,
+        sessionId,
+        membershipId: targetMembershipId,
+        checkedInAt: new Date().toISOString(),
+        creditsUsed,
+        source,
+        createdByMembershipId: actingMembershipId,
+      };
+
+      db.addAttendance(attendance);
+
+      const deducted = await creditService.deductCredit(
+        targetMembershipId,
+        sessionId,
+        sessionEnded ? 'Backfill check-in by host' : 'Manual check-in by host',
+        creditsUsed,
+      );
+
+      if (!deducted) {
+        const attendances = db.getAttendances();
+        const index = attendances.findIndex(a => a.id === attendance.id);
+        if (index >= 0) {
+          attendances.splice(index, 1);
+        }
+
+        return {
+          success: false,
+          message: 'Failed to deduct credits.',
+        };
+      }
+
+      return {success: true, message: 'Member checked in.'};
+    } finally {
+      _releaseCheckInLock(targetMembershipId, sessionId);
     }
-
-    const attendance: Attendance = {
-      id: `a_${nanoid(8)}`,
-      sessionId,
-      membershipId: targetMembershipId,
-      checkedInAt: new Date().toISOString(),
-      creditsUsed,
-      source,
-      createdByMembershipId: actingMembershipId,
-    };
-
-    db.addAttendance(attendance);
-    await creditService.deductCredit(
-      targetMembershipId,
-      sessionId,
-      sessionEnded ? 'Backfill check-in by host' : 'Manual check-in by host',
-      creditsUsed,
-    );
-
-    return {success: true, message: 'Member checked in.'};
   },
 
   getCheckedInMembers: async (
     sessionId: string,
   ): Promise<MembershipWithUser[]> => {
+    if (!sessionId) return [];
+
     const attendances = db
       .getAttendances()
       .filter(a => a.sessionId === sessionId);
@@ -341,8 +490,10 @@ export const attendanceService = {
         .getMemberships()
         .find(m => m.id === att.membershipId);
       if (!membership) continue;
+
       const user = db.getUsers().find(u => u.id === membership.userId);
       if (!user) continue;
+
       result.push({...membership, user});
     }
 
@@ -359,6 +510,8 @@ export const attendanceService = {
   getAttendanceHistoryForMembership: async (
     membershipId: string,
   ): Promise<AttendanceHistoryItem[]> => {
+    if (!membershipId) return [];
+
     const records = db
       .getAttendances()
       .filter(a => a.membershipId === membershipId)
@@ -372,7 +525,9 @@ export const attendanceService = {
     for (const att of records) {
       const session = db.getSessions().find(s => s.id === att.sessionId);
       if (!session) continue;
+
       const location = db.getLocations().find(l => l.id === session.locationId);
+
       result.push({
         attendanceId: att.id,
         sessionId: session.id,

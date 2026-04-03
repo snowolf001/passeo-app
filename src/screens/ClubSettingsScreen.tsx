@@ -21,8 +21,7 @@ import {RootStackParamList} from '../navigation/types';
 type Props = NativeStackScreenProps<RootStackParamList, 'ClubSettings'>;
 
 export default function ClubSettingsScreen({navigation}: Props) {
-  const {currentMembership, currentClub, updateCurrentClubSettings, refresh} =
-    useApp();
+  const {currentMembership, currentClub, updateCurrentClubSettings} = useApp();
 
   const [locations, setLocations] = useState<ClubLocation[]>([]);
   const [locationName, setLocationName] = useState('');
@@ -33,8 +32,17 @@ export default function ClubSettingsScreen({navigation}: Props) {
     currentClub?.settings ?? DEFAULT_CLUB_SETTINGS,
   );
 
+  useEffect(() => {
+    if (currentClub?.settings) {
+      setLocalSettings(currentClub.settings);
+    }
+  }, [currentClub?.settings]);
+
   const loadLocations = useCallback(async () => {
-    if (!currentMembership) return;
+    if (!currentMembership) {
+      return;
+    }
+
     setLoading(true);
     const locs = await clubService.getLocations(currentMembership.clubId);
     setLocations(locs);
@@ -46,7 +54,10 @@ export default function ClubSettingsScreen({navigation}: Props) {
   }, [loadLocations]);
 
   const handleAddLocation = async () => {
-    if (!currentMembership) return;
+    if (!currentMembership) {
+      return;
+    }
+
     if (!locationName.trim() || !locationAddress.trim()) {
       Alert.alert(
         'Required',
@@ -54,6 +65,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
       );
       return;
     }
+
     setAddingLocation(true);
     const result = await clubService.addLocation(
       currentMembership.clubId,
@@ -61,6 +73,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
       locationAddress,
     );
     setAddingLocation(false);
+
     if (result.success) {
       setLocationName('');
       setLocationAddress('');
@@ -81,11 +94,18 @@ export default function ClubSettingsScreen({navigation}: Props) {
     key: K,
     value: ClubSettings[K],
   ) => {
-    if (!currentMembership) return;
-    const updated: ClubSettings = {...localSettings, [key]: value};
+    if (!currentMembership) {
+      return;
+    }
+
+    const updated: ClubSettings = {
+      ...localSettings,
+      [key]: value,
+    };
+
     setLocalSettings(updated);
-    await clubService.updateClubSettings(currentMembership.clubId, updated);
     updateCurrentClubSettings(updated);
+    await clubService.updateClubSettings(currentMembership.clubId, updated);
   };
 
   if (!currentClub || !currentMembership) {
@@ -107,7 +127,6 @@ export default function ClubSettingsScreen({navigation}: Props) {
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled">
-        {/* Club info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Club Info</Text>
           <View style={styles.infoRow}>
@@ -122,7 +141,6 @@ export default function ClubSettingsScreen({navigation}: Props) {
           </View>
         </View>
 
-        {/* Locations list */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Saved Locations</Text>
           {loading ? (
@@ -141,7 +159,6 @@ export default function ClubSettingsScreen({navigation}: Props) {
           )}
         </View>
 
-        {/* Add location form */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Add Location</Text>
           <TextInput
@@ -171,12 +188,10 @@ export default function ClubSettingsScreen({navigation}: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Check-In Policy */}
         {isAdminOrOwner && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Check-In Policy</Text>
 
-            {/* Allow member backfill */}
             <View style={styles.settingRow}>
               <View style={styles.settingLabelWrap}>
                 <Text style={styles.settingLabel}>
@@ -254,7 +269,6 @@ export default function ClubSettingsScreen({navigation}: Props) {
           </View>
         )}
 
-        {/* Owner-only danger zone */}
         {isOwner && (
           <View style={[styles.section, styles.dangerZone]}>
             <Text style={styles.sectionTitle}>Ownership</Text>
@@ -335,8 +349,6 @@ const styles = StyleSheet.create({
     borderColor: '#FF3B30',
   },
   dangerButtonText: {color: '#FF3B30', fontSize: 15, fontWeight: '700'},
-
-  // Check-In Policy styles
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -357,7 +369,10 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 8,
   },
-  optionRow: {flexDirection: 'row', gap: 8, flexWrap: 'wrap'},
+  optionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
   optionPill: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -365,6 +380,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
     borderWidth: 1.5,
     borderColor: 'transparent',
+    marginRight: 8,
+    marginBottom: 8,
   },
   optionPillActive: {
     backgroundColor: '#EAF3FF',

@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,10 @@ import {SessionWithLocation} from '../types';
 import {formatDate} from '../utils/date';
 
 type Props = {navigation: any};
+
+const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+const MAX_VISIBLE_SESSIONS = 50;
 
 export default function SessionsScreen({navigation}: Props) {
   const {currentMembership} = useApp();
@@ -39,6 +43,28 @@ export default function SessionsScreen({navigation}: Props) {
     const unsub = navigation.addListener('focus', loadSessions);
     return unsub;
   }, [navigation, loadSessions]);
+
+  const visibleSessions = useMemo(() => {
+    const now = Date.now();
+
+    return sessions
+      .filter(session => {
+        const startMs = new Date(session.startTime).getTime();
+        const endMs = session.endTime
+          ? new Date(session.endTime).getTime()
+          : startMs;
+
+        const withinUpcomingWindow = startMs <= now + FOURTEEN_DAYS_MS;
+        const withinRecentPastWindow = endMs >= now - THREE_DAYS_MS;
+
+        return withinUpcomingWindow && withinRecentPastWindow;
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+      )
+      .slice(0, MAX_VISIBLE_SESSIONS);
+  }, [sessions]);
 
   const getStatusBadge = (session: SessionWithLocation) => {
     if (!currentMembership) return null;
@@ -117,7 +143,7 @@ export default function SessionsScreen({navigation}: Props) {
     <SafeAreaView style={styles.container}>
       <Text style={styles.headerTitle}>Club Schedule</Text>
       <FlatList
-        data={sessions}
+        data={visibleSessions}
         keyExtractor={item => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}

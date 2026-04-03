@@ -168,6 +168,35 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     return Math.max(1, availableCredits);
   }, [availableCredits]);
 
+  const getHelperText = () => {
+    if (isCheckedIn) return null;
+
+    switch (checkInMode) {
+      case 'live':
+      case 'backfill':
+        if (!hasCredits) return 'You do not have enough credits to check in.';
+        return `You have ${availableCredits} credit${
+          availableCredits === 1 ? '' : 's'
+        } available.`;
+      case 'not_allowed':
+        return 'Member self backfill is disabled for this club.';
+      case 'expired':
+        return 'The backfill window for this session has expired.';
+      case 'no_credits':
+        return 'You do not have enough credits to check in.';
+      default:
+        return null;
+    }
+  };
+
+  const getModalTitle = () => {
+    return checkInMode === 'backfill' ? 'Backfill Check-In' : 'Check In';
+  };
+
+  const getModalActionText = () => {
+    return checkInMode === 'backfill' ? 'Backfill' : 'Check In';
+  };
+
   const openSelfCheckInPicker = () => {
     if (
       !currentMembership ||
@@ -302,6 +331,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   };
 
   const ciBtn = selfCheckInButtonState();
+  const helperText = getHelperText();
 
   const renderMemberRow = ({item}: {item: MembershipWithUser}) => (
     <View style={styles.memberRow}>
@@ -381,26 +411,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
             )}
           </TouchableOpacity>
 
-          {!isCheckedIn &&
-            hasCredits &&
-            (checkInMode === 'live' || checkInMode === 'backfill') && (
-              <Text style={styles.helperText}>
-                You have {availableCredits} credit
-                {availableCredits === 1 ? '' : 's'} available.
-              </Text>
-            )}
-
-          {!isCheckedIn && checkInMode === 'not_allowed' && (
-            <Text style={styles.helperText}>
-              Member self backfill is disabled for this club.
-            </Text>
-          )}
-
-          {!isCheckedIn && checkInMode === 'expired' && (
-            <Text style={styles.helperText}>
-              The backfill window for this session has expired.
-            </Text>
-          )}
+          {helperText && <Text style={styles.helperText}>{helperText}</Text>}
         </View>
 
         {canManualCheckIn && session && (
@@ -461,11 +472,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
               onPress={closePeoplePicker}
             />
             <View style={styles.modalSheet}>
-              <Text style={styles.modalTitle}>
-                {checkInMode === 'backfill'
-                  ? 'Backfill Check-In'
-                  : 'How many people?'}
-              </Text>
+              <Text style={styles.modalTitle}>{getModalTitle()}</Text>
 
               <Text style={styles.modalSubtitle}>
                 You have {availableCredits} credit
@@ -535,8 +542,8 @@ export default function SessionDetailScreen({route, navigation}: Props) {
                     <ActivityIndicator color="#FFF" />
                   ) : (
                     <Text style={styles.modalPrimaryButtonText}>
-                      {checkInMode === 'backfill' ? 'Backfill' : 'Check In'} (
-                      {peopleCount} {peopleCount === 1 ? 'person' : 'people'})
+                      {getModalActionText()} ({peopleCount}{' '}
+                      {peopleCount === 1 ? 'person' : 'people'})
                     </Text>
                   )}
                 </TouchableOpacity>

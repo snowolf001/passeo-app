@@ -100,9 +100,10 @@ export type AttendanceHistoryItem = {
 export type CreditTransaction = {
   id: string;
   membershipId: string;
-  amount: number; // negative = deduction
+  amount: number;
   reason: string;
-  sessionId?: string;
+  sessionId: string;
+  createdAt: string;
 };
 
 // Club-level subscription / billing info.

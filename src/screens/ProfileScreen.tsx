@@ -73,7 +73,6 @@ export default function ProfileScreen({navigation}: Props) {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.pageTitle}>Profile</Text>
 
-        {/* Identity card */}
         <View style={styles.card}>
           <Text style={styles.userName}>{currentUser.name}</Text>
           <View style={styles.infoRow}>
@@ -96,7 +95,6 @@ export default function ProfileScreen({navigation}: Props) {
           </View>
         </View>
 
-        {/* Club info */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Club</Text>
           <View style={styles.infoRow}>
@@ -113,7 +111,6 @@ export default function ProfileScreen({navigation}: Props) {
           )}
         </View>
 
-        {/* Subscription */}
         {subscription && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Subscription</Text>
@@ -137,7 +134,6 @@ export default function ProfileScreen({navigation}: Props) {
           </View>
         )}
 
-        {/* My History */}
         <View style={styles.card}>
           <TouchableOpacity
             style={styles.actionItem}
@@ -152,7 +148,6 @@ export default function ProfileScreen({navigation}: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Backfill */}
         {canAccessBackfill && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Backfill</Text>
@@ -170,7 +165,6 @@ export default function ProfileScreen({navigation}: Props) {
           </View>
         )}
 
-        {/* Admin section */}
         {isAdminOrOwner && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Club Management</Text>
@@ -185,7 +179,6 @@ export default function ProfileScreen({navigation}: Props) {
           </View>
         )}
 
-        {/* Owner section */}
         {role === 'owner' && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Ownership</Text>
