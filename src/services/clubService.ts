@@ -1,4 +1,4 @@
-import {Club, ClubLocation, ClubSubscription} from '../types';
+import {Club, ClubLocation, ClubSettings, ClubSubscription} from '../types';
 import {db} from '../data/mockData';
 import {nanoid} from 'nanoid/non-secure';
 
@@ -71,5 +71,18 @@ export const clubService = {
    */
   getSubscription: async (clubId: string): Promise<ClubSubscription | null> => {
     return db.getClubSubscriptions().find(s => s.clubId === clubId) ?? null;
+  },
+
+  /**
+   * Update check-in / backfill policy settings for a club.
+   */
+  updateClubSettings: async (
+    clubId: string,
+    settings: ClubSettings,
+  ): Promise<{success: boolean; message: string}> => {
+    const club = db.getClubs().find(c => c.id === clubId);
+    if (!club) return {success: false, message: 'Club not found.'};
+    db.updateClubSettings(clubId, settings);
+    return {success: true, message: 'Settings updated.'};
   },
 };

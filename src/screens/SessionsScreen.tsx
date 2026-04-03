@@ -35,7 +35,6 @@ export default function SessionsScreen({navigation}: Props) {
     loadSessions();
   }, [loadSessions]);
 
-  // Reload check-in state each time the screen focuses
   useEffect(() => {
     const unsub = navigation.addListener('focus', loadSessions);
     return unsub;
@@ -43,8 +42,11 @@ export default function SessionsScreen({navigation}: Props) {
 
   const getStatusBadge = (session: SessionWithLocation) => {
     if (!currentMembership) return null;
-    const now = new Date();
-    const start = new Date(session.startTime);
+
+    const now = Date.now();
+    const start = new Date(session.startTime).getTime();
+    const end = new Date(session.endTime ?? session.startTime).getTime();
+
     const isCheckedIn = attendanceService.isCheckedIn(
       currentMembership.id,
       session.id,
@@ -53,15 +55,27 @@ export default function SessionsScreen({navigation}: Props) {
     if (isCheckedIn) {
       return {label: 'Checked In', color: '#34C759'};
     }
-    const diffHours = (start.getTime() - now.getTime()) / 3600000;
-    if (diffHours <= 2 && diffHours >= -1) {
+
+    if (now < start) {
+      const diffHours = (start - now) / 3600000;
+
+      if (diffHours <= 2) {
+        return {label: 'Open for Check-In', color: '#007AFF'};
+      }
+
+      return {label: 'Upcoming', color: '#8E8E93'};
+    }
+
+    if (now <= end) {
       return {label: 'Open for Check-In', color: '#007AFF'};
     }
-    return {label: 'Upcoming', color: '#8E8E93'};
+
+    return {label: 'Ended', color: '#8E8E93'};
   };
 
   const renderItem = ({item}: {item: SessionWithLocation}) => {
     const badge = getStatusBadge(item);
+
     return (
       <TouchableOpacity
         style={styles.card}
@@ -76,7 +90,9 @@ export default function SessionsScreen({navigation}: Props) {
             </View>
           )}
         </View>
+
         <Text style={styles.detailText}>⏱ {formatDate(item.startTime)}</Text>
+
         {item.location && (
           <>
             <Text style={styles.detailText}>📍 {item.location.name}</Text>
@@ -106,7 +122,7 @@ export default function SessionsScreen({navigation}: Props) {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No upcoming sessions.</Text>
+          <Text style={styles.emptyText}>No sessions found.</Text>
         }
       />
     </SafeAreaView>

@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -8,13 +8,20 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useApp} from '../context/AppContext';
 import {sessionService} from '../services/sessionService';
 import {attendanceService} from '../services/attendanceService';
-import {SessionWithLocation, MembershipWithUser} from '../types';
+import {
+  SessionWithLocation,
+  MembershipWithUser,
+  DEFAULT_CLUB_SETTINGS,
+  CheckInMode,
+} from '../types';
 import {RootStackParamList} from '../navigation/types';
 import {formatDate} from '../utils/date';
 import {openInMaps} from '../utils/maps';
@@ -26,6 +33,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const {sessionId} = route.params;
   const {
     currentMembership,
+    currentClub,
     decrementCurrentMembershipCredits,
     lastCheckInEvent,
     publishCheckInEvent,
@@ -37,6 +45,9 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   >([]);
   const [loadingSession, setLoadingSession] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
+
+  const [showPeoplePicker, setShowPeoplePicker] = useState(false);
+  const [peopleCount, setPeopleCount] = useState(1);
 
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
@@ -55,6 +66,14 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       setSnackMsg('');
     }, 3000);
   }, []);
+
+  const closePeoplePicker = useCallback(() => {
+    if (checkingIn) {
+      return;
+    }
+    setShowPeoplePicker(false);
+    setPeopleCount(1);
+  }, [checkingIn]);
 
   const loadData = useCallback(async () => {
     setLoadingSession(true);
@@ -124,12 +143,46 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     ? checkedInMembers.some(m => m.id === currentMembership.id)
     : false;
 
-  const hasCredits = (currentMembership?.credits ?? 0) > 0;
+  const availableCredits = currentMembership?.credits ?? 0;
+  const hasCredits = availableCredits > 0;
   const canManualCheckIn = currentMembership
     ? ['host', 'admin', 'owner'].includes(currentMembership.role)
     : false;
 
-  const handleSelfCheckIn = async () => {
+  const checkInMode: CheckInMode = useMemo(() => {
+    if (!currentMembership || !session) {
+      return 'live';
+    }
+
+    const settings = currentClub?.settings ?? DEFAULT_CLUB_SETTINGS;
+
+    return attendanceService.getCheckInMode({
+      membership: currentMembership,
+      session,
+      settings,
+      isAlreadyCheckedIn: isCheckedIn,
+    });
+  }, [currentMembership, session, currentClub, isCheckedIn]);
+
+  const maxPeople = useMemo(() => {
+    return Math.max(1, availableCredits);
+  }, [availableCredits]);
+
+  const openSelfCheckInPicker = () => {
+    if (
+      !currentMembership ||
+      !session ||
+      checkingIn ||
+      (checkInMode !== 'live' && checkInMode !== 'backfill')
+    ) {
+      return;
+    }
+
+    setPeopleCount(1);
+    setShowPeoplePicker(true);
+  };
+
+  const handleSelfCheckIn = async (creditsUsed: number) => {
     if (!currentMembership || !session || checkingIn || isCheckedIn) {
       return;
     }
@@ -139,13 +192,22 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       const result = await attendanceService.selfCheckIn({
         membershipId: currentMembership.id,
         sessionId: session.id,
+        creditsUsed,
       });
 
       if (result.success) {
         const checkedInAt = new Date().toISOString();
+        const wasBackfill = checkInMode === 'backfill';
 
-        showSnackbar('Checked in successfully · 1 credit used');
-        decrementCurrentMembershipCredits(1);
+        showSnackbar(
+          `${
+            wasBackfill ? 'Backfilled' : 'Checked in'
+          } successfully · ${creditsUsed} credit${
+            creditsUsed === 1 ? '' : 's'
+          } used`,
+        );
+
+        decrementCurrentMembershipCredits(creditsUsed);
 
         setCheckedInMembers(prev => {
           const alreadyExists = prev.some(m => m.id === currentMembership.id);
@@ -160,7 +222,14 @@ export default function SessionDetailScreen({route, navigation}: Props) {
             return prev;
           }
 
-          return [{...currentMembership, user}, ...prev];
+          return [
+            {
+              ...currentMembership,
+              user,
+              credits: Math.max(0, currentMembership.credits - creditsUsed),
+            },
+            ...prev,
+          ];
         });
 
         publishCheckInEvent({
@@ -168,6 +237,9 @@ export default function SessionDetailScreen({route, navigation}: Props) {
           sessionId: session.id,
           checkedInAt,
         });
+
+        setShowPeoplePicker(false);
+        setPeopleCount(1);
       } else {
         Alert.alert('Check-In Failed', result.message);
       }
@@ -176,31 +248,57 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     }
   };
 
-  const selfCheckInButtonState = () => {
-    if (isCheckedIn) {
-      return {
-        label: '✅ Already Checked In',
-        disabled: true,
-        style: styles.btnCheckedIn,
-        textStyle: styles.checkInBtnTextDark,
-      };
+  const selfCheckInButtonState = (): {
+    label: string;
+    disabled: boolean;
+    style: object;
+    textStyle: object;
+  } => {
+    switch (checkInMode) {
+      case 'already_checked_in':
+        return {
+          label: '✅ Already Checked In',
+          disabled: true,
+          style: styles.btnCheckedIn,
+          textStyle: styles.checkInBtnTextDark,
+        };
+      case 'no_credits':
+        return {
+          label: 'No Credits Remaining',
+          disabled: true,
+          style: styles.btnDisabled,
+          textStyle: styles.checkInBtnTextDark,
+        };
+      case 'live':
+        return {
+          label: 'Check In',
+          disabled: false,
+          style: styles.btnCheckIn,
+          textStyle: styles.checkInBtnTextLight,
+        };
+      case 'backfill':
+        return {
+          label: 'Backfill Check-In',
+          disabled: false,
+          style: styles.btnBackfill,
+          textStyle: styles.checkInBtnTextLight,
+        };
+      case 'not_allowed':
+        return {
+          label: 'Backfill Not Allowed',
+          disabled: true,
+          style: styles.btnDisabled,
+          textStyle: styles.checkInBtnTextDark,
+        };
+      case 'expired':
+      default:
+        return {
+          label: 'Missed Check-In',
+          disabled: true,
+          style: styles.btnDisabled,
+          textStyle: styles.checkInBtnTextDark,
+        };
     }
-
-    if (!hasCredits) {
-      return {
-        label: 'No Credits Remaining',
-        disabled: true,
-        style: styles.btnDisabled,
-        textStyle: styles.checkInBtnTextDark,
-      };
-    }
-
-    return {
-      label: 'Check In',
-      disabled: false,
-      style: styles.btnCheckIn,
-      textStyle: styles.checkInBtnTextLight,
-    };
   };
 
   const ciBtn = selfCheckInButtonState();
@@ -272,7 +370,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         <View style={styles.section}>
           <TouchableOpacity
             style={[styles.checkInBtn, ciBtn.style]}
-            onPress={handleSelfCheckIn}
+            onPress={openSelfCheckInPicker}
             disabled={ciBtn.disabled || checkingIn}>
             {checkingIn ? (
               <ActivityIndicator color="#FFF" />
@@ -282,6 +380,27 @@ export default function SessionDetailScreen({route, navigation}: Props) {
               </Text>
             )}
           </TouchableOpacity>
+
+          {!isCheckedIn &&
+            hasCredits &&
+            (checkInMode === 'live' || checkInMode === 'backfill') && (
+              <Text style={styles.helperText}>
+                You have {availableCredits} credit
+                {availableCredits === 1 ? '' : 's'} available.
+              </Text>
+            )}
+
+          {!isCheckedIn && checkInMode === 'not_allowed' && (
+            <Text style={styles.helperText}>
+              Member self backfill is disabled for this club.
+            </Text>
+          )}
+
+          {!isCheckedIn && checkInMode === 'expired' && (
+            <Text style={styles.helperText}>
+              The backfill window for this session has expired.
+            </Text>
+          )}
         </View>
 
         {canManualCheckIn && session && (
@@ -330,6 +449,101 @@ export default function SessionDetailScreen({route, navigation}: Props) {
             <Text style={styles.snackbarText}>{snackMsg}</Text>
           </View>
         )}
+
+        <Modal
+          visible={showPeoplePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={closePeoplePicker}>
+          <View style={styles.modalOverlay}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={closePeoplePicker}
+            />
+            <View style={styles.modalSheet}>
+              <Text style={styles.modalTitle}>
+                {checkInMode === 'backfill'
+                  ? 'Backfill Check-In'
+                  : 'How many people?'}
+              </Text>
+
+              <Text style={styles.modalSubtitle}>
+                You have {availableCredits} credit
+                {availableCredits === 1 ? '' : 's'} available for this check-in.
+              </Text>
+
+              <View style={styles.counterRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.counterButton,
+                    peopleCount <= 1 && styles.counterButtonDisabled,
+                  ]}
+                  onPress={() => setPeopleCount(prev => Math.max(1, prev - 1))}
+                  disabled={peopleCount <= 1 || checkingIn}>
+                  <Text
+                    style={[
+                      styles.counterButtonText,
+                      peopleCount <= 1 && styles.counterButtonTextDisabled,
+                    ]}>
+                    −
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={styles.counterValueWrap}>
+                  <Text style={styles.counterValue}>{peopleCount}</Text>
+                  <Text style={styles.counterValueLabel}>
+                    {peopleCount === 1 ? 'person' : 'people'}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.counterButton,
+                    peopleCount >= maxPeople && styles.counterButtonDisabled,
+                  ]}
+                  onPress={() =>
+                    setPeopleCount(prev => Math.min(maxPeople, prev + 1))
+                  }
+                  disabled={peopleCount >= maxPeople || checkingIn}>
+                  <Text
+                    style={[
+                      styles.counterButtonText,
+                      peopleCount >= maxPeople &&
+                        styles.counterButtonTextDisabled,
+                    ]}>
+                    +
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalSecondaryButton}
+                  onPress={closePeoplePicker}
+                  disabled={checkingIn}>
+                  <Text style={styles.modalSecondaryButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.modalPrimaryButton,
+                    checkingIn && styles.modalPrimaryButtonDisabled,
+                  ]}
+                  onPress={() => handleSelfCheckIn(peopleCount)}
+                  disabled={checkingIn}>
+                  {checkingIn ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.modalPrimaryButtonText}>
+                      {checkInMode === 'backfill' ? 'Backfill' : 'Check In'} (
+                      {peopleCount} {peopleCount === 1 ? 'person' : 'people'})
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -465,6 +679,9 @@ const styles = StyleSheet.create({
   btnCheckIn: {
     backgroundColor: '#34C759',
   },
+  btnBackfill: {
+    backgroundColor: '#FF9500',
+  },
   btnCheckedIn: {
     backgroundColor: '#E5E5EA',
   },
@@ -480,6 +697,12 @@ const styles = StyleSheet.create({
   },
   checkInBtnTextDark: {
     color: '#3A3A3C',
+  },
+  helperText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
   },
   hostButton: {
     backgroundColor: '#007AFF',
@@ -519,5 +742,114 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#8E8E93',
     fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 28,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: -2},
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 15,
+    color: '#6B7280',
+    lineHeight: 22,
+    marginBottom: 22,
+  },
+  counterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  counterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  counterButtonDisabled: {
+    backgroundColor: '#E5E5EA',
+  },
+  counterButtonText: {
+    fontSize: 28,
+    fontWeight: '500',
+    color: '#1C1C1E',
+    lineHeight: 30,
+  },
+  counterButtonTextDisabled: {
+    color: '#AEAEB2',
+  },
+  counterValueWrap: {
+    minWidth: 110,
+    alignItems: 'center',
+    marginHorizontal: 24,
+  },
+  counterValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  counterValueLabel: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#8E8E93',
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalSecondaryButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSecondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3A3A3C',
+  },
+  modalPrimaryButton: {
+    flex: 1.5,
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: '#34C759',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  modalPrimaryButtonDisabled: {
+    opacity: 0.7,
+  },
+  modalPrimaryButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

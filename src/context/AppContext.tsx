@@ -6,7 +6,7 @@ import React, {
   useCallback,
   ReactNode,
 } from 'react';
-import {Club, Membership, User} from '../types';
+import {Club, ClubSettings, Membership, User} from '../types';
 import {membershipService} from '../services/membershipService';
 import {clubService} from '../services/clubService';
 import {CURRENT_USER_ID} from '../data/mockData';
@@ -25,6 +25,7 @@ type AppContextValue = {
   isLoading: boolean;
   refresh: () => Promise<void>;
   decrementCurrentMembershipCredits: (amount: number) => void;
+  updateCurrentClubSettings: (settings: ClubSettings) => void;
 
   /**
    * Last successful check-in event.
@@ -34,8 +35,9 @@ type AppContextValue = {
 
   /**
    * Emit a successful check-in event.
-   * Also updates currentMembership credits immediately if the checked-in
-   * membership is the current user's membership.
+   * This is only for cross-screen UI sync.
+   * It must NOT mutate credits, because credits are already updated explicitly
+   * by the caller (for example via decrementCurrentMembershipCredits).
    */
   publishCheckInEvent: (event: CheckInEvent) => void;
 };
@@ -47,6 +49,7 @@ const AppContext = createContext<AppContextValue>({
   isLoading: true,
   refresh: async () => {},
   decrementCurrentMembershipCredits: () => {},
+  updateCurrentClubSettings: () => {},
   lastCheckInEvent: null,
   publishCheckInEvent: () => {},
 });
@@ -68,23 +71,12 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
     );
   }, []);
 
+  const updateCurrentClubSettings = useCallback((settings: ClubSettings) => {
+    setCurrentClub(prev => (prev ? {...prev, settings} : prev));
+  }, []);
+
   const publishCheckInEvent = useCallback((event: CheckInEvent) => {
     setLastCheckInEvent(event);
-
-    setCurrentMembership(prev => {
-      if (!prev) {
-        return prev;
-      }
-
-      if (prev.id !== event.membershipId) {
-        return prev;
-      }
-
-      return {
-        ...prev,
-        credits: Math.max(0, prev.credits - 1),
-      };
-    });
   }, []);
 
   const load = useCallback(async () => {
@@ -114,6 +106,7 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
         isLoading,
         refresh: load,
         decrementCurrentMembershipCredits,
+        updateCurrentClubSettings,
         lastCheckInEvent,
         publishCheckInEvent,
       }}>

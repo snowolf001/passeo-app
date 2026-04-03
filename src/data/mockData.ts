@@ -2,6 +2,7 @@ import {
   User,
   Club,
   ClubLocation,
+  ClubSettings,
   Membership,
   Session,
   Attendance,
@@ -37,6 +38,11 @@ let clubs: Club[] = [
     name: 'Iron Club',
     joinCode: 'IRON2024',
     createdBy: 'u2',
+    settings: {
+      allowMemberBackfill: true,
+      memberBackfillHours: 24,
+      hostBackfillHours: 72,
+    },
   },
 ];
 
@@ -192,6 +198,16 @@ let sessions: Session[] = [
     capacity: 10,
     createdBy: 'm7',
   },
+  {
+    id: 's6',
+    clubId: 'c1',
+    title: 'Past Bootcamp',
+    startTime: daysFromNow(-1, 6),
+    endTime: daysFromNow(-1, 7),
+    locationId: 'l1',
+    capacity: 10,
+    createdBy: 'm7',
+  },
 ];
 
 // ────────────────────────────────────────────────────────────
@@ -286,5 +302,8 @@ export const db = {
   },
   updateClub: (updated: Club) => {
     clubs = clubs.map(c => (c.id === updated.id ? updated : c));
+  },
+  updateClubSettings: (clubId: string, settings: ClubSettings) => {
+    clubs = clubs.map(c => (c.id === clubId ? {...c, settings} : c));
   },
 };

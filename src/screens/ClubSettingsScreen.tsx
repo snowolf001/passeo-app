@@ -9,24 +9,29 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useApp} from '../context/AppContext';
 import {clubService} from '../services/clubService';
-import {ClubLocation} from '../types';
+import {ClubLocation, ClubSettings, DEFAULT_CLUB_SETTINGS} from '../types';
 import {RootStackParamList} from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClubSettings'>;
 
 export default function ClubSettingsScreen({navigation}: Props) {
-  const {currentMembership, currentClub, refresh} = useApp();
+  const {currentMembership, currentClub, updateCurrentClubSettings, refresh} =
+    useApp();
 
   const [locations, setLocations] = useState<ClubLocation[]>([]);
   const [locationName, setLocationName] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
   const [addingLocation, setAddingLocation] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [localSettings, setLocalSettings] = useState<ClubSettings>(
+    currentClub?.settings ?? DEFAULT_CLUB_SETTINGS,
+  );
 
   const loadLocations = useCallback(async () => {
     if (!currentMembership) return;
@@ -72,11 +77,23 @@ export default function ClubSettingsScreen({navigation}: Props) {
     );
   };
 
+  const handleSettingChange = async <K extends keyof ClubSettings>(
+    key: K,
+    value: ClubSettings[K],
+  ) => {
+    if (!currentMembership) return;
+    const updated: ClubSettings = {...localSettings, [key]: value};
+    setLocalSettings(updated);
+    await clubService.updateClubSettings(currentMembership.clubId, updated);
+    updateCurrentClubSettings(updated);
+  };
+
   if (!currentClub || !currentMembership) {
     return null;
   }
 
   const isOwner = currentMembership.role === 'owner';
+  const isAdminOrOwner = ['admin', 'owner'].includes(currentMembership.role);
 
   const renderLocation = ({item}: {item: ClubLocation}) => (
     <View style={styles.locationCard}>
@@ -153,6 +170,89 @@ export default function ClubSettingsScreen({navigation}: Props) {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Check-In Policy */}
+        {isAdminOrOwner && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Check-In Policy</Text>
+
+            {/* Allow member backfill */}
+            <View style={styles.settingRow}>
+              <View style={styles.settingLabelWrap}>
+                <Text style={styles.settingLabel}>
+                  Allow Member Self Backfill
+                </Text>
+                <Text style={styles.settingHint}>
+                  Members can check in after a session ends
+                </Text>
+              </View>
+              <Switch
+                value={localSettings.allowMemberBackfill}
+                onValueChange={val =>
+                  handleSettingChange('allowMemberBackfill', val)
+                }
+                trackColor={{false: '#E5E5EA', true: '#34C759'}}
+                thumbColor="#FFF"
+              />
+            </View>
+
+            {localSettings.allowMemberBackfill && (
+              <>
+                <Text style={styles.settingGroupLabel}>
+                  Member Backfill Window
+                </Text>
+                <View style={styles.optionRow}>
+                  {[12, 24, 48].map(h => (
+                    <TouchableOpacity
+                      key={h}
+                      style={[
+                        styles.optionPill,
+                        localSettings.memberBackfillHours === h &&
+                          styles.optionPillActive,
+                      ]}
+                      onPress={() =>
+                        handleSettingChange('memberBackfillHours', h)
+                      }>
+                      <Text
+                        style={[
+                          styles.optionPillText,
+                          localSettings.memberBackfillHours === h &&
+                            styles.optionPillTextActive,
+                        ]}>
+                        {h}h
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            <Text style={styles.settingGroupLabel}>
+              Host / Admin Backfill Window
+            </Text>
+            <View style={styles.optionRow}>
+              {([24, 48, 72, 168] as const).map(h => (
+                <TouchableOpacity
+                  key={h}
+                  style={[
+                    styles.optionPill,
+                    localSettings.hostBackfillHours === h &&
+                      styles.optionPillActive,
+                  ]}
+                  onPress={() => handleSettingChange('hostBackfillHours', h)}>
+                  <Text
+                    style={[
+                      styles.optionPillText,
+                      localSettings.hostBackfillHours === h &&
+                        styles.optionPillTextActive,
+                    ]}>
+                    {h === 168 ? '7d' : `${h}h`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Owner-only danger zone */}
         {isOwner && (
@@ -235,4 +335,41 @@ const styles = StyleSheet.create({
     borderColor: '#FF3B30',
   },
   dangerButtonText: {color: '#FF3B30', fontSize: 15, fontWeight: '700'},
+
+  // Check-In Policy styles
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
+    marginBottom: 4,
+  },
+  settingLabelWrap: {flex: 1, paddingRight: 12},
+  settingLabel: {fontSize: 15, fontWeight: '500', color: '#1C1C1E'},
+  settingHint: {fontSize: 12, color: '#8E8E93', marginTop: 2},
+  settingGroupLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  optionRow: {flexDirection: 'row', gap: 8, flexWrap: 'wrap'},
+  optionPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F2F2F7',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  optionPillActive: {
+    backgroundColor: '#EAF3FF',
+    borderColor: '#007AFF',
+  },
+  optionPillText: {fontSize: 14, fontWeight: '600', color: '#3A3A3C'},
+  optionPillTextActive: {color: '#007AFF'},
 });

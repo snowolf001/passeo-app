@@ -10,12 +10,35 @@ export type User = {
   name: string;
 };
 
+// Check-in / backfill policy for a club.
+export type ClubSettings = {
+  allowMemberBackfill: boolean;
+  memberBackfillHours: number;
+  hostBackfillHours: number;
+};
+
+export const DEFAULT_CLUB_SETTINGS: ClubSettings = {
+  allowMemberBackfill: true,
+  memberBackfillHours: 24,
+  hostBackfillHours: 72,
+};
+
+// Check-in mode for a given membership + session combination.
+export type CheckInMode =
+  | 'live' // session not ended, can check in normally
+  | 'backfill' // session ended, within backfill window
+  | 'expired' // session ended, outside backfill window
+  | 'already_checked_in'
+  | 'no_credits'
+  | 'not_allowed'; // member backfill disabled by club policy
+
 // A club entity. Not tied permanently to one person.
 export type Club = {
   id: string;
   name: string;
   joinCode: string;
   createdBy: string; // userId
+  settings?: ClubSettings;
 };
 
 // A physical location belonging to a club.
@@ -57,6 +80,8 @@ export type Attendance = {
   membershipId: string;
   checkedInAt: string; // ISO string
   creditsUsed: number; // how many credits were consumed for this check-in
+  source?: 'self' | 'manual' | 'backfill-self' | 'backfill-host';
+  createdByMembershipId?: string; // for manual / backfill-host
 };
 
 // A flattened view of an attendance record for display in history lists.

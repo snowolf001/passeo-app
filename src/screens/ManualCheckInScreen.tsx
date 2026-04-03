@@ -17,7 +17,7 @@ import {useApp} from '../context/AppContext';
 import {membershipService} from '../services/membershipService';
 import {attendanceService} from '../services/attendanceService';
 import {db} from '../data/mockData';
-import {MembershipWithUser} from '../types';
+import {MembershipWithUser, DEFAULT_CLUB_SETTINGS} from '../types';
 import {RootStackParamList} from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManualCheckIn'>;
@@ -26,6 +26,11 @@ type ListRow =
   | {
       type: 'summary';
       key: string;
+    }
+  | {
+      type: 'banner';
+      key: string;
+      message: string;
     }
   | {
       type: 'section';
@@ -44,7 +49,7 @@ type ListRow =
 
 export default function ManualCheckInScreen({route, navigation}: Props) {
   const {sessionId} = route.params;
-  const {currentMembership, publishCheckInEvent} = useApp();
+  const {currentMembership, currentClub, publishCheckInEvent} = useApp();
 
   const [members, setMembers] = useState<MembershipWithUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +66,21 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
   const [snackVisible, setSnackVisible] = useState(false);
   const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Determine session backfill state (reads from in-memory db synchronously)
+  const sessionRecord = useMemo(
+    () => db.getSessions().find(s => s.id === sessionId) ?? null,
+    [sessionId],
+  );
+
+  const sessionMode = useMemo((): 'live' | 'backfill' | 'expired' => {
+    if (!sessionRecord) return 'live';
+    const settings = currentClub?.settings ?? DEFAULT_CLUB_SETTINGS;
+    if (!attendanceService.isSessionEnded(sessionRecord)) return 'live';
+    if (attendanceService.canHostBackfill(sessionRecord, settings))
+      return 'backfill';
+    return 'expired';
+  }, [sessionRecord, currentClub]);
+
   const showSnackbar = useCallback((message: string) => {
     if (snackTimer.current) {
       clearTimeout(snackTimer.current);
@@ -76,9 +96,12 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
   }, []);
 
   const closePeoplePicker = useCallback(() => {
+    if (checkingInId) {
+      return;
+    }
     setSelectedMember(null);
     setPeopleCount(1);
-  }, []);
+  }, [checkingInId]);
 
   const loadMembers = useCallback(async () => {
     if (!currentMembership) {
@@ -166,11 +189,22 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
   const listData = useMemo((): ListRow[] => {
     const rows: ListRow[] = [{type: 'summary', key: 'summary'}];
 
+    if (sessionMode === 'expired') {
+      rows.push({
+        type: 'banner',
+        key: 'banner-expired',
+        message: 'This session is no longer eligible for backfill check-in.',
+      });
+    }
+
     if (readyMembers.length > 0) {
       rows.push({
         type: 'section',
         key: 'section-ready',
-        title: `Ready to Check In (${readyMembers.length})`,
+        title:
+          sessionMode === 'backfill'
+            ? `Ready to Backfill (${readyMembers.length})`
+            : `Ready to Check In (${readyMembers.length})`,
       });
 
       readyMembers.forEach(member => {
@@ -284,10 +318,11 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
           checkedInAt,
         });
 
+        const verb = sessionMode === 'backfill' ? 'backfilled' : 'checked in';
         showSnackbar(
-          `${target.user.name} checked in · ${creditsUsed} ${
-            creditsUsed === 1 ? 'person' : 'people'
-          }`,
+          `${target.user.name} ${verb} · ${creditsUsed} credit${
+            creditsUsed !== 1 ? 's' : ''
+          } used`,
         );
       } else {
         Alert.alert('Failed', result.message);
@@ -374,7 +409,8 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
   const renderMemberCard = (item: MembershipWithUser) => {
     const isCheckedIn = checkedInIds.has(item.id);
     const hasNoCredits = item.credits <= 0;
-    const isDisabled = isCheckedIn || hasNoCredits;
+    const isSessionExpired = sessionMode === 'expired';
+    const isDisabled = isCheckedIn || hasNoCredits || isSessionExpired;
     const isProcessing = checkingInId === item.id;
 
     return (
@@ -409,11 +445,18 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
             </View>
           )}
 
-          {!isProcessing && !isCheckedIn && !hasNoCredits && (
-            <View style={styles.badgeAction}>
-              <Text style={styles.badgeActionText}>Tap to Check In</Text>
-            </View>
-          )}
+          {!isProcessing &&
+            !isCheckedIn &&
+            !hasNoCredits &&
+            !isSessionExpired && (
+              <View style={styles.badgeAction}>
+                <Text style={styles.badgeActionText}>
+                  {sessionMode === 'backfill'
+                    ? 'Tap to Backfill'
+                    : 'Tap to Check In'}
+                </Text>
+              </View>
+            )}
 
           <TouchableOpacity
             style={styles.historyButton}
@@ -441,6 +484,14 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
         item.collapsible,
         item.collapsed,
         item.onPress,
+      );
+    }
+
+    if (item.type === 'banner') {
+      return (
+        <View style={styles.bannerCard}>
+          <Text style={styles.bannerText}>{item.message}</Text>
+        </View>
       );
     }
 
@@ -554,14 +605,22 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.modalPrimaryButton}
+                  style={[
+                    styles.modalPrimaryButton,
+                    !!checkingInId && styles.modalPrimaryButtonDisabled,
+                  ]}
                   onPress={() =>
                     selectedMember && doCheckIn(selectedMember, peopleCount)
-                  }>
-                  <Text style={styles.modalPrimaryButtonText}>
-                    Check In ({peopleCount}{' '}
-                    {peopleCount === 1 ? 'person' : 'people'})
-                  </Text>
+                  }
+                  disabled={!!checkingInId}>
+                  {!!checkingInId ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.modalPrimaryButtonText}>
+                      {sessionMode === 'backfill' ? 'Backfill' : 'Check In'} (
+                      {peopleCount} {peopleCount === 1 ? 'person' : 'people'})
+                    </Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -875,5 +934,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  modalPrimaryButtonDisabled: {
+    opacity: 0.7,
+  },
+  bannerCard: {
+    backgroundColor: '#FFF3CD',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF3B30',
+  },
+  bannerText: {
+    fontSize: 13,
+    color: '#1C1C1E',
+    lineHeight: 18,
   },
 });
