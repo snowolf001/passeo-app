@@ -14,7 +14,7 @@ import {
 // Current user – the person using this device in MVP
 // ────────────────────────────────────────────────────────────
 export const CURRENT_USER_ID = 'u1';
-export const CURRENT_MEMBERSHIP_ID = 'm1';
+export const CURRENT_MEMBERSHIP_ID = 'm3';
 
 // ────────────────────────────────────────────────────────────
 // Users
@@ -134,20 +134,33 @@ let memberships: Membership[] = [
 ];
 
 // ────────────────────────────────────────────────────────────
-// Sessions  (one today, others in the near future)
+// Sessions
+// Includes:
+// - upcoming
+// - ended 2 hours ago
+// - ended 30 hours ago
+// - ended 96 hours ago
+// for backfill testing
 // ────────────────────────────────────────────────────────────
 const now = new Date();
+
+const HOUR = 60 * 60 * 1000;
+const MIN = 60 * 1000;
+
 const today = (hour: number) => {
   const d = new Date(now);
   d.setHours(hour, 0, 0, 0);
   return d.toISOString();
 };
+
 const daysFromNow = (days: number, hour: number) => {
   const d = new Date(now);
   d.setDate(d.getDate() + days);
   d.setHours(hour, 0, 0, 0);
   return d.toISOString();
 };
+
+const offset = (ms: number) => new Date(Date.now() + ms).toISOString();
 
 let sessions: Session[] = [
   {
@@ -208,11 +221,42 @@ let sessions: Session[] = [
     capacity: 10,
     createdBy: 'm7',
   },
+  {
+    id: 's7',
+    clubId: 'c1',
+    title: 'Backfill Test - 2h Ago (Member Allowed)',
+    startTime: offset(-(2 * HOUR + 60 * MIN)),
+    endTime: offset(-2 * HOUR),
+    locationId: 'l1',
+    capacity: 10,
+    createdBy: 'm1',
+  },
+  {
+    id: 's8',
+    clubId: 'c1',
+    title: 'Backfill Test - 30h Ago (Host/Admin Only)',
+    startTime: offset(-(30 * HOUR + 60 * MIN)),
+    endTime: offset(-30 * HOUR),
+    locationId: 'l1',
+    capacity: 10,
+    createdBy: 'm7',
+  },
+  {
+    id: 's9',
+    clubId: 'c1',
+    title: 'Backfill Test - 96h Ago (Expired)',
+    startTime: offset(-(96 * HOUR + 60 * MIN)),
+    endTime: offset(-96 * HOUR),
+    locationId: 'l2',
+    capacity: 10,
+    createdBy: 'm7',
+  },
 ];
 
 // ────────────────────────────────────────────────────────────
 // Attendances  (a few pre-existing records)
 // Sam and Morgan are already checked in to today's session
+// Keep s7 / s8 / s9 without attendances so backfill can be tested
 // ────────────────────────────────────────────────────────────
 let attendances: Attendance[] = [
   {

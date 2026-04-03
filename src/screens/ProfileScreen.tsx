@@ -36,6 +36,11 @@ export default function ProfileScreen({navigation}: Props) {
 
   const role = currentMembership.role;
   const isAdminOrOwner = ['admin', 'owner'].includes(role);
+  const canAccessBackfill =
+    role === 'member' ||
+    role === 'host' ||
+    role === 'admin' ||
+    role === 'owner';
 
   const ROLE_LABELS: Record<string, string> = {
     member: 'Member',
@@ -50,6 +55,18 @@ export default function ProfileScreen({navigation}: Props) {
       'This feature will allow you to transfer club ownership to another member. (Coming soon)',
     );
   };
+
+  const handleOpenBackfill = () => {
+    navigation.navigate('BackfillSessions');
+  };
+
+  const backfillTitle =
+    role === 'member' ? 'Missed Check-Ins' : 'Backfill Sessions';
+
+  const backfillDescription =
+    role === 'member'
+      ? 'View past sessions and complete eligible self backfill check-ins.'
+      : 'View past sessions and perform eligible backfill check-ins.';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -135,6 +152,24 @@ export default function ProfileScreen({navigation}: Props) {
           </TouchableOpacity>
         </View>
 
+        {/* Backfill */}
+        {canAccessBackfill && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Backfill</Text>
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={handleOpenBackfill}>
+              <View style={styles.actionTextBlock}>
+                <Text style={styles.actionItemText}>{backfillTitle}</Text>
+                <Text style={styles.actionItemSubtext}>
+                  {backfillDescription}
+                </Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Admin section */}
         {isAdminOrOwner && (
           <View style={styles.card}>
@@ -218,7 +253,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
   },
+  actionTextBlock: {
+    flex: 1,
+    paddingRight: 12,
+  },
   actionItemText: {fontSize: 15, color: '#1C1C1E'},
+  actionItemSubtext: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#8E8E93',
+  },
   dangerText: {color: '#FF3B30'},
   chevron: {fontSize: 22, color: '#C7C7CC'},
 });

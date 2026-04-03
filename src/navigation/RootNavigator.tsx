@@ -12,6 +12,7 @@ import ManualCheckInScreen from '../screens/ManualCheckInScreen';
 import CreateSessionScreen from '../screens/CreateSessionScreen';
 import ClubSettingsScreen from '../screens/ClubSettingsScreen';
 import AttendanceHistoryScreen from '../screens/AttendanceHistoryScreen';
+import BackfillSessionsScreen from '../screens/BackfillSessionsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -32,16 +33,13 @@ export default function RootNavigator() {
     <Stack.Navigator
       initialRouteName={hasMembership ? 'MainTabs' : 'JoinOrCreateClub'}
       screenOptions={{headerShown: false}}>
-      {/* Onboarding – shown when the user has no club */}
       <Stack.Screen
         name="JoinOrCreateClub"
         component={JoinOrCreateClubScreen}
       />
 
-      {/* Main app – bottom tabs */}
       <Stack.Screen name="MainTabs" component={MainTabNavigator} />
 
-      {/* Stack screens pushed over the tabs */}
       <Stack.Screen
         name="SessionDetail"
         component={SessionDetailScreen}
@@ -66,6 +64,11 @@ export default function RootNavigator() {
         name="AttendanceHistory"
         component={AttendanceHistoryScreen}
         options={{headerShown: true, title: 'Attendance History'}}
+      />
+      <Stack.Screen
+        name="BackfillSessions"
+        component={BackfillSessionsScreen}
+        options={{headerShown: true, title: 'Backfill Sessions'}}
       />
     </Stack.Navigator>
   );
