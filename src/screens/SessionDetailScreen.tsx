@@ -22,6 +22,10 @@ import {
   checkInToSession,
   getCheckInErrorMessage,
 } from '../services/api/sessionApi';
+import {
+  getSessionAttendees,
+  SessionAttendeesResponse,
+} from '../services/api/reportApi';
 import {DEFAULT_CLUB_SETTINGS, CheckInMode} from '../types';
 import {attendanceService} from '../services/attendanceService';
 import {RootStackParamList} from '../navigation/types';
@@ -45,6 +49,8 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const [checkedInMembers, setCheckedInMembers] = useState<
     ApiCheckedInMember[]
   >([]);
+  const [attendeesReport, setAttendeesReport] =
+    useState<SessionAttendeesResponse | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
 
@@ -79,7 +85,8 @@ export default function SessionDetailScreen({route, navigation}: Props) {
 
   const loadData = useCallback(async () => {
     setLoadingSession(true);
-    setCheckedInMembers([]); // clear stale data from any previous session visit
+    setCheckedInMembers([]);
+    setAttendeesReport(null);
     try {
       const [loadedSession, members] = await Promise.all([
         apiGetSessionById(sessionId),
@@ -87,12 +94,20 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       ]);
       setSession(loadedSession);
       setCheckedInMembers(members);
+
+      // Load rich attendee report for hosts/admins
+      const myRole = currentMembership?.role ?? '';
+      if (['host', 'admin', 'owner'].includes(myRole)) {
+        getSessionAttendees(sessionId)
+          .then(setAttendeesReport)
+          .catch(() => {});
+      }
     } catch (err) {
       console.warn('[SessionDetailScreen] loadData failed:', err);
     } finally {
       setLoadingSession(false);
     }
-  }, [sessionId]);
+  }, [sessionId, currentMembership?.role]);
 
   useEffect(() => {
     loadData();
@@ -494,21 +509,101 @@ export default function SessionDetailScreen({route, navigation}: Props) {
           </View>
         )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Checked In ({checkedInMembers.length})
-          </Text>
-          {checkedInMembers.length === 0 ? (
-            <Text style={styles.emptyText}>No members checked in yet.</Text>
-          ) : (
-            <FlatList
-              data={checkedInMembers}
-              keyExtractor={item => item.membershipId}
-              renderItem={renderMemberRow}
-              scrollEnabled={false}
-            />
-          )}
-        </View>
+        {/* Rich attendee report for hosts/admins */}
+        {canManualCheckIn ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Attendees
+              {attendeesReport
+                ? ` (${attendeesReport.summary.totalAttendees})`
+                : checkedInMembers.length > 0
+                ? ` (${checkedInMembers.length})`
+                : ''}
+            </Text>
+
+            {attendeesReport && (
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryValue}>
+                    {attendeesReport.summary.totalAttendees}
+                  </Text>
+                  <Text style={styles.summaryLabel}>Total</Text>
+                </View>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryValue}>
+                    {attendeesReport.summary.totalCreditsUsed}
+                  </Text>
+                  <Text style={styles.summaryLabel}>Credits Used</Text>
+                </View>
+              </View>
+            )}
+
+            {attendeesReport && attendeesReport.attendees.length === 0 ? (
+              <Text style={styles.emptyText}>No attendees yet.</Text>
+            ) : attendeesReport ? (
+              <FlatList
+                data={attendeesReport.attendees}
+                keyExtractor={item => item.attendanceId}
+                renderItem={({item}) => (
+                  <View style={styles.attendeeRow}>
+                    <View style={styles.attendeeLeft}>
+                      <Text style={styles.memberName}>{item.memberName}</Text>
+                      <View style={styles.attendeeMeta}>
+                        <View
+                          style={[
+                            styles.checkInTypeBadge,
+                            checkInTypeColor(item.checkInType),
+                          ]}>
+                          <Text style={styles.checkInTypeBadgeText}>
+                            {item.checkInType}
+                          </Text>
+                        </View>
+                        <Text style={styles.attendeeDetail}>
+                          {item.creditsUsed} credit
+                          {item.creditsUsed !== 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                      {item.checkedInByName && (
+                        <Text style={styles.checkedInByText}>
+                          by {item.checkedInByName}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={styles.attendeeTime}>
+                      {formatDate(item.checkedInAt)}
+                    </Text>
+                  </View>
+                )}
+                scrollEnabled={false}
+              />
+            ) : checkedInMembers.length === 0 ? (
+              <Text style={styles.emptyText}>No attendees yet.</Text>
+            ) : (
+              <FlatList
+                data={checkedInMembers}
+                keyExtractor={item => item.membershipId}
+                renderItem={renderMemberRow}
+                scrollEnabled={false}
+              />
+            )}
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Checked In ({checkedInMembers.length})
+            </Text>
+            {checkedInMembers.length === 0 ? (
+              <Text style={styles.emptyText}>No members checked in yet.</Text>
+            ) : (
+              <FlatList
+                data={checkedInMembers}
+                keyExtractor={item => item.membershipId}
+                renderItem={renderMemberRow}
+                scrollEnabled={false}
+              />
+            )}
+          </View>
+        )}
       </>
     );
   };
@@ -631,6 +726,15 @@ const roleColor = (role: string): object => {
     member: {backgroundColor: '#F3F4F6'},
   };
   return map[role] ?? map.member;
+};
+
+const checkInTypeColor = (type: string): object => {
+  const map: Record<string, object> = {
+    live: {backgroundColor: '#DCFCE7'},
+    backfill: {backgroundColor: '#FEF3C7'},
+    manual: {backgroundColor: '#DBEAFE'},
+  };
+  return map[type] ?? {backgroundColor: '#F3F4F6'};
 };
 
 const styles = StyleSheet.create({
@@ -843,6 +947,73 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#8E8E93',
     fontSize: 14,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+  },
+  summaryValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  summaryLabel: {
+    fontSize: 11,
+    color: '#8E8E93',
+    marginTop: 2,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  attendeeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
+  },
+  attendeeLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  attendeeMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 3,
+  },
+  attendeeDetail: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  attendeeTime: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  checkedInByText: {
+    fontSize: 11,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  checkInTypeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  checkInTypeBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    color: '#374151',
   },
   modalOverlay: {
     flex: 1,

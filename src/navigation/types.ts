@@ -17,6 +17,11 @@ export type RootStackParamList = {
   BackfillSessions: undefined;
   AttendanceHistory: {membershipId: string; title?: string};
   CreditHistory: undefined;
+
+  // Reports & admin
+  MemberHistory: {membershipId: string; title?: string};
+  Reports: undefined;
+  AuditLog: undefined;
 };
 
 export type MainTabParamList = {

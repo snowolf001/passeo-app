@@ -14,6 +14,9 @@ import ClubSettingsScreen from '../screens/ClubSettingsScreen';
 import AttendanceHistoryScreen from '../screens/AttendanceHistoryScreen';
 import BackfillSessionsScreen from '../screens/BackfillSessionsScreen';
 import CreditHistoryScreen from '../screens/CreditHistoryScreen';
+import MemberHistoryScreen from '../screens/MemberHistoryScreen';
+import ReportsScreen from '../screens/ReportsScreen';
+import AuditLogScreen from '../screens/AuditLogScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -75,6 +78,24 @@ export default function RootNavigator() {
         name="CreditHistory"
         component={CreditHistoryScreen}
         options={{headerShown: true, title: 'Credit History'}}
+      />
+      <Stack.Screen
+        name="MemberHistory"
+        component={MemberHistoryScreen}
+        options={({route}) => ({
+          headerShown: true,
+          title: route.params?.title ?? 'Member History',
+        })}
+      />
+      <Stack.Screen
+        name="Reports"
+        component={ReportsScreen}
+        options={{headerShown: true, title: 'Reports'}}
+      />
+      <Stack.Screen
+        name="AuditLog"
+        component={AuditLogScreen}
+        options={{headerShown: true, title: 'Audit Log'}}
       />
     </Stack.Navigator>
   );

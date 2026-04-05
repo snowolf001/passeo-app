@@ -34,7 +34,8 @@ type SessionListItem = {
     | 'expired'
     | 'already_checked_in'
     | 'no_credits'
-    | 'not_allowed';
+    | 'not_allowed'
+    | 'upcoming';
 };
 
 export default function BackfillSessionsScreen({navigation}: Props) {
