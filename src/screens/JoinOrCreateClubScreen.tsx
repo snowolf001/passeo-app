@@ -24,6 +24,8 @@ export default function JoinOrCreateClubScreen(_: Props) {
   const {setActiveMembershipSession} = useApp();
 
   const [joinCode, setJoinCode] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [clubName, setClubName] = useState('');
   const [memberCode, setMemberCode] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
@@ -35,9 +37,21 @@ export default function JoinOrCreateClubScreen(_: Props) {
       Alert.alert('Required', 'Please enter a join code.');
       return;
     }
+    if (!firstName.trim()) {
+      Alert.alert('Required', 'Please enter your first name.');
+      return;
+    }
+    if (!lastName.trim()) {
+      Alert.alert('Required', 'Please enter your last name.');
+      return;
+    }
     setJoiningClub(true);
     try {
-      const {membershipId, clubId} = await joinClub(joinCode.trim());
+      const {membershipId, clubId} = await joinClub(
+        joinCode.trim(),
+        firstName.trim(),
+        lastName.trim(),
+      );
       const {membership} = await getMembershipById(membershipId);
       await setActiveMembershipSession({
         membershipId,
@@ -105,6 +119,26 @@ export default function JoinOrCreateClubScreen(_: Props) {
             <Text style={styles.cardHint}>
               Enter the join code provided by your club admin.
             </Text>
+            <View style={styles.nameRow}>
+              <TextInput
+                style={[styles.input, styles.nameInput]}
+                placeholder="First name"
+                placeholderTextColor="#AEAEB2"
+                value={firstName}
+                onChangeText={setFirstName}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+              <TextInput
+                style={[styles.input, styles.nameInput]}
+                placeholder="Last name"
+                placeholderTextColor="#AEAEB2"
+                value={lastName}
+                onChangeText={setLastName}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Join code (e.g. IRON2024)"
@@ -115,9 +149,19 @@ export default function JoinOrCreateClubScreen(_: Props) {
               autoCorrect={false}
             />
             <TouchableOpacity
-              style={styles.primaryButton}
+              style={[
+                styles.primaryButton,
+                !(firstName.trim() && lastName.trim() && joinCode.trim()) &&
+                  styles.primaryButtonDisabled,
+              ]}
               onPress={handleJoin}
-              disabled={joiningClub || creatingClub}>
+              disabled={
+                joiningClub ||
+                creatingClub ||
+                !firstName.trim() ||
+                !lastName.trim() ||
+                !joinCode.trim()
+              }>
               {joiningClub ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
@@ -145,9 +189,12 @@ export default function JoinOrCreateClubScreen(_: Props) {
               autoCorrect={false}
             />
             <TouchableOpacity
-              style={styles.primaryButton}
+              style={[
+                styles.primaryButton,
+                !clubName.trim() && styles.primaryButtonDisabled,
+              ]}
               onPress={handleCreate}
-              disabled={joiningClub || creatingClub}>
+              disabled={joiningClub || creatingClub || !clubName.trim()}>
               {creatingClub ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
@@ -242,11 +289,21 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
     marginBottom: 12,
   },
+  nameRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  nameInput: {
+    flex: 1,
+  },
   primaryButton: {
     backgroundColor: '#007AFF',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+  },
+  primaryButtonDisabled: {
+    backgroundColor: '#B0C4DE',
   },
   primaryButtonText: {color: '#FFF', fontSize: 16, fontWeight: '700'},
   secondaryButton: {

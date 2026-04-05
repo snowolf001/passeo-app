@@ -96,6 +96,7 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
         id: result.membership.membershipId,
         userId: result.membership.userId,
         clubId: result.membership.clubId,
+        userName: result.membership.userName,
         role: result.membership.role as Membership['role'],
         credits: result.membership.credits,
         recoveryCode: '',

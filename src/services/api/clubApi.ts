@@ -93,10 +93,12 @@ export async function addClubLocation(
  */
 export async function joinClub(
   joinCode: string,
+  firstName: string,
+  lastName: string,
 ): Promise<{membershipId: string; clubId: string}> {
   return apiRequest<{membershipId: string; clubId: string}>('/api/clubs/join', {
     method: 'POST',
-    body: {joinCode},
+    body: {joinCode, firstName, lastName},
   });
 }
 

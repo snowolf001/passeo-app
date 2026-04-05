@@ -137,7 +137,9 @@ export default function HomeScreen({navigation}: Props) {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.clubName}>{currentClub.name}</Text>
-          <Text style={styles.greeting}>Welcome back</Text>
+          <Text style={styles.greeting}>
+            Welcome back, {currentMembership.userName ?? 'there'}
+          </Text>
         </View>
 
         {/* Stats row */}

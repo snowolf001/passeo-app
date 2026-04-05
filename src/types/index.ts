@@ -56,6 +56,7 @@ export type Membership = {
   id: string;
   userId: string;
   clubId: string;
+  userName: string;
   role: UserRole;
   credits: number;
   recoveryCode: string;

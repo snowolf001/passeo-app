@@ -53,7 +53,8 @@ export default function ProfileScreen({navigation}: Props) {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* ===== HEADER SUMMARY ===== */}
         <View style={styles.summaryCard}>
-          <Text style={styles.userName}>{currentClub.name}</Text>
+          <Text style={styles.userName}>{currentMembership.userName}</Text>
+          <Text style={styles.userSub}>{currentClub.name}</Text>
 
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
@@ -190,6 +191,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     color: '#1C1C1E',
+  },
+  userSub: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 2,
+    marginBottom: 4,
   },
   summaryRow: {
     flexDirection: 'row',
