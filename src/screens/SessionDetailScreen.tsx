@@ -1,12 +1,12 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  Alert,
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   Modal,
   Pressable,
@@ -14,34 +14,36 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useApp} from '../context/AppContext';
-import {sessionService} from '../services/sessionService';
-import {attendanceService} from '../services/attendanceService';
 import {
-  SessionWithLocation,
-  MembershipWithUser,
-  DEFAULT_CLUB_SETTINGS,
-  CheckInMode,
-} from '../types';
+  ApiSession,
+  ApiCheckedInMember,
+  getSessionById as apiGetSessionById,
+  getCheckedInMembers as apiGetCheckedInMembers,
+  checkInToSession,
+  getCheckInErrorMessage,
+} from '../services/api/sessionApi';
+import {DEFAULT_CLUB_SETTINGS, CheckInMode} from '../types';
+import {attendanceService} from '../services/attendanceService';
 import {RootStackParamList} from '../navigation/types';
 import {formatDate} from '../utils/date';
-import {openInMaps} from '../utils/maps';
-import {db} from '../data/mockData';
+import {ApiError} from '../types/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SessionDetail'>;
 
 export default function SessionDetailScreen({route, navigation}: Props) {
   const {sessionId} = route.params;
+  console.log('🧭 sessionId from route:', sessionId);
   const {
     currentMembership,
     currentClub,
-    decrementCurrentMembershipCredits,
+    setCurrentMembershipCredits,
     lastCheckInEvent,
     publishCheckInEvent,
   } = useApp();
 
-  const [session, setSession] = useState<SessionWithLocation | null>(null);
+  const [session, setSession] = useState<ApiSession | null>(null);
   const [checkedInMembers, setCheckedInMembers] = useState<
-    MembershipWithUser[]
+    ApiCheckedInMember[]
   >([]);
   const [loadingSession, setLoadingSession] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
@@ -79,11 +81,13 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     setLoadingSession(true);
     try {
       const [loadedSession, members] = await Promise.all([
-        sessionService.getSessionById(sessionId),
-        attendanceService.getCheckedInMembers(sessionId),
+        apiGetSessionById(sessionId),
+        apiGetCheckedInMembers(sessionId),
       ]);
       setSession(loadedSession);
       setCheckedInMembers(members);
+    } catch (err) {
+      console.warn('[SessionDetailScreen] loadData failed:', err);
     } finally {
       setLoadingSession(false);
     }
@@ -115,32 +119,14 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       return;
     }
 
-    setCheckedInMembers(prev => {
-      const alreadyExists = prev.some(
-        m => m.id === lastCheckInEvent.membershipId,
-      );
-      if (alreadyExists) {
-        return prev;
-      }
-
-      const membership = db
-        .getMemberships()
-        .find(m => m.id === lastCheckInEvent.membershipId);
-      if (!membership) {
-        return prev;
-      }
-
-      const user = db.getUsers().find(u => u.id === membership.userId);
-      if (!user) {
-        return prev;
-      }
-
-      return [{...membership, user}, ...prev];
-    });
+    // Re-fetch the checked-in list so we have the correct flat API shape.
+    apiGetCheckedInMembers(sessionId)
+      .then(setCheckedInMembers)
+      .catch(() => {});
   }, [lastCheckInEvent, sessionId]);
 
   const isCheckedIn = currentMembership
-    ? checkedInMembers.some(m => m.id === currentMembership.id)
+    ? checkedInMembers.some(m => m.membershipId === currentMembership.id)
     : false;
 
   const availableCredits = currentMembership?.credits ?? 0;
@@ -156,9 +142,10 @@ export default function SessionDetailScreen({route, navigation}: Props) {
 
     const settings = currentClub?.settings ?? DEFAULT_CLUB_SETTINGS;
 
+    // Cast ApiSession → Session for the backfill helper (only endTime is used internally)
     return attendanceService.getCheckInMode({
       membership: currentMembership,
-      session,
+      session: session as any,
       settings,
       isAlreadyCheckedIn: isCheckedIn,
     });
@@ -240,67 +227,100 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   };
 
   const handleSelfCheckIn = async (creditsUsed: number) => {
-    if (!currentMembership || !session || checkingIn || isCheckedIn) {
+    console.log('🔥 [CHECK-IN] button pressed');
+    console.log('👉 session:', session?.id);
+    console.log('👉 creditsUsed:', creditsUsed);
+    console.log('👉 checkingIn:', checkingIn);
+    console.log('👉 isCheckedIn:', isCheckedIn);
+    console.log('👉 membership:', currentMembership?.id);
+
+    if (!currentMembership || !session) {
+      console.log('❌ missing membership or session');
+      Alert.alert('Error', 'Missing membership or session');
+      return;
+    }
+
+    if (checkingIn) {
+      console.log('⚠️ already submitting');
+      return;
+    }
+
+    if (isCheckedIn) {
+      console.log('⚠️ already checked in');
+      Alert.alert('Info', 'You are already checked in.');
       return;
     }
 
     setCheckingIn(true);
+
     try {
-      const result = await attendanceService.selfCheckIn({
-        membershipId: currentMembership.id,
-        sessionId: session.id,
-        creditsUsed,
+      console.log('🚀 calling API...');
+
+      const result = await checkInToSession(session.id, creditsUsed);
+
+      console.log('✅ API SUCCESS:', result);
+
+      const checkedInAt = result.checkedInAt ?? new Date().toISOString();
+      const wasBackfill = checkInMode === 'backfill';
+
+      showSnackbar(
+        `${
+          wasBackfill ? 'Backfilled' : 'Checked in'
+        } successfully · ${creditsUsed} credit${
+          creditsUsed === 1 ? '' : 's'
+        } used`,
+      );
+
+      console.log('💰 syncing credits from API response');
+      setCurrentMembershipCredits(result.creditsRemaining);
+
+      console.log('👥 updating checked-in members list');
+      setCheckedInMembers(prev => {
+        const alreadyExists = prev.some(
+          m => m.membershipId === currentMembership.id,
+        );
+        if (alreadyExists) {
+          return prev;
+        }
+        const newEntry: ApiCheckedInMember = {
+          membershipId: currentMembership.id,
+          userId: currentMembership.userId,
+          userName: '',
+          role: currentMembership.role as ApiCheckedInMember['role'],
+          checkedInAt,
+          creditsUsed,
+        };
+        return [newEntry, ...prev];
       });
 
-      if (result.success) {
-        const checkedInAt = new Date().toISOString();
-        const wasBackfill = checkInMode === 'backfill';
+      console.log('📢 publish check-in event');
+      publishCheckInEvent({
+        membershipId: currentMembership.id,
+        sessionId: session.id,
+        checkedInAt,
+      });
 
-        showSnackbar(
-          `${
-            wasBackfill ? 'Backfilled' : 'Checked in'
-          } successfully · ${creditsUsed} credit${
-            creditsUsed === 1 ? '' : 's'
-          } used`,
-        );
+      console.log('✅ closing modal');
+      setShowPeoplePicker(false);
+      setPeopleCount(1);
 
-        decrementCurrentMembershipCredits(creditsUsed);
+      Alert.alert('Success', 'Check-in completed!');
+    } catch (error) {
+      console.log('❌ API ERROR:', error);
 
-        setCheckedInMembers(prev => {
-          const alreadyExists = prev.some(m => m.id === currentMembership.id);
-          if (alreadyExists) {
-            return prev;
-          }
+      let message = 'Network error. Please try again.';
 
-          const user = db
-            .getUsers()
-            .find(u => u.id === currentMembership.userId);
-          if (!user) {
-            return prev;
-          }
-
-          return [
-            {
-              ...currentMembership,
-              user,
-              credits: Math.max(0, currentMembership.credits - creditsUsed),
-            },
-            ...prev,
-          ];
-        });
-
-        publishCheckInEvent({
-          membershipId: currentMembership.id,
-          sessionId: session.id,
-          checkedInAt,
-        });
-
-        setShowPeoplePicker(false);
-        setPeopleCount(1);
-      } else {
-        Alert.alert('Check-In Failed', result.message);
+      if (error instanceof ApiError) {
+        console.log('⚠️ ApiError code:', error.code);
+        message = getCheckInErrorMessage(error);
       }
+
+      // 🔥 关键：一定让用户看到
+      Alert.alert('Check-in failed', message);
+
+      showSnackbar(message);
     } finally {
+      console.log('🔄 done, resetting checkingIn');
       setCheckingIn(false);
     }
   };
@@ -361,13 +381,13 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const ciBtn = selfCheckInButtonState();
   const helperText = getHelperText();
 
-  const renderMemberRow = ({item}: {item: MembershipWithUser}) => {
-    const isYou = currentMembership?.id === item.id;
+  const renderMemberRow = ({item}: {item: ApiCheckedInMember}) => {
+    const isYou = currentMembership?.id === item.membershipId;
 
     return (
       <View style={styles.memberRow}>
         <View style={styles.memberLeft}>
-          <Text style={styles.memberName}>{item.user.name}</Text>
+          <Text style={styles.memberName}>{item.userName}</Text>
 
           {isYou && (
             <View style={styles.youBadge}>
@@ -417,23 +437,9 @@ export default function SessionDetailScreen({route, navigation}: Props) {
             </Text>
           )}
 
-          {session.location && (
-            <>
-              <Text style={styles.detailRow}>📍 {session.location.name}</Text>
-              <Text style={styles.addressText}>{session.location.address}</Text>
-              <TouchableOpacity
-                style={styles.mapsButton}
-                onPress={() => openInMaps(session.location!.address)}>
-                <Text style={styles.mapsButtonText}>Open in Maps</Text>
-              </TouchableOpacity>
-            </>
-          )}
-
           <View style={styles.capacityRow}>
             <Text style={styles.capacityText}>
-              👥 {checkedInMembers.length}
-              {session.capacity != null ? ` / ${session.capacity}` : ''} checked
-              in
+              👥 {checkedInMembers.length} checked in
             </Text>
           </View>
 
@@ -481,7 +487,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
           ) : (
             <FlatList
               data={checkedInMembers}
-              keyExtractor={item => item.id}
+              keyExtractor={item => item.membershipId}
               renderItem={renderMemberRow}
               scrollEnabled={false}
             />

@@ -14,9 +14,8 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useApp} from '../context/AppContext';
-import {clubService} from '../services/clubService';
-import {sessionService} from '../services/sessionService';
-import {ClubLocation} from '../types';
+import {getClubLocations, ApiClubLocation} from '../services/api/clubApi';
+import {createSession} from '../services/api/sessionApi';
 import {RootStackParamList} from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateSession'>;
@@ -32,15 +31,17 @@ export default function CreateSessionScreen({navigation}: Props) {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
     null,
   );
-  const [locations, setLocations] = useState<ClubLocation[]>([]);
+  const [locations, setLocations] = useState<ApiClubLocation[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!currentMembership) return;
-    clubService.getLocations(currentMembership.clubId).then(locs => {
-      setLocations(locs);
-      if (locs.length > 0) setSelectedLocationId(locs[0].id);
-    });
+    getClubLocations(currentMembership.clubId)
+      .then(locs => {
+        setLocations(locs);
+        if (locs.length > 0) setSelectedLocationId(locs[0].id);
+      })
+      .catch(() => {});
   }, [currentMembership]);
 
   const buildISOString = (dateStr: string, timeStr: string): string | null => {
@@ -62,10 +63,6 @@ export default function CreateSessionScreen({navigation}: Props) {
       Alert.alert('Required', 'Please enter a date and start time.');
       return;
     }
-    if (!selectedLocationId) {
-      Alert.alert('Required', 'Please select a location.');
-      return;
-    }
 
     const startISO = buildISOString(date, startTime);
     if (!startISO) {
@@ -76,26 +73,23 @@ export default function CreateSessionScreen({navigation}: Props) {
       return;
     }
 
-    const endISO = endTime.trim() ? buildISOString(date, endTime) : undefined;
+    const endISO = endTime.trim() ? buildISOString(date, endTime) : null;
 
     setLoading(true);
-    const result = await sessionService.createSession({
-      clubId: currentMembership.clubId,
-      title: title.trim(),
-      startTime: startISO,
-      endTime: endISO ?? undefined,
-      locationId: selectedLocationId,
-      capacity: capacity ? parseInt(capacity, 10) : undefined,
-      createdBy: currentMembership.id,
-    });
-    setLoading(false);
-
-    if (result.success) {
-      Alert.alert('Session Created', result.message, [
+    try {
+      await createSession({
+        clubId: currentMembership.clubId,
+        title: title.trim(),
+        startTime: startISO,
+        endTime: endISO,
+      });
+      Alert.alert('Session Created', 'The session has been created.', [
         {text: 'OK', onPress: () => navigation.goBack()},
       ]);
-    } else {
-      Alert.alert('Error', result.message);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to create session.');
+    } finally {
+      setLoading(false);
     }
   };
 

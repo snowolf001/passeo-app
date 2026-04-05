@@ -14,8 +14,14 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useApp} from '../context/AppContext';
-import {clubService} from '../services/clubService';
-import {ClubLocation, ClubSettings, DEFAULT_CLUB_SETTINGS} from '../types';
+import {
+  getClubLocations,
+  addClubLocation,
+  updateClubSettings as apiUpdateClubSettings,
+  getClubSettings,
+  ApiClubLocation,
+} from '../services/api/clubApi';
+import {ClubSettings, DEFAULT_CLUB_SETTINGS} from '../types';
 import {RootStackParamList} from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClubSettings'>;
@@ -23,7 +29,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ClubSettings'>;
 export default function ClubSettingsScreen({navigation}: Props) {
   const {currentMembership, currentClub, updateCurrentClubSettings} = useApp();
 
-  const [locations, setLocations] = useState<ClubLocation[]>([]);
+  const [locations, setLocations] = useState<ApiClubLocation[]>([]);
   const [locationName, setLocationName] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
   const [addingLocation, setAddingLocation] = useState(false);
@@ -32,26 +38,33 @@ export default function ClubSettingsScreen({navigation}: Props) {
     currentClub?.settings ?? DEFAULT_CLUB_SETTINGS,
   );
 
-  useEffect(() => {
-    if (currentClub?.settings) {
-      setLocalSettings(currentClub.settings);
-    }
-  }, [currentClub?.settings]);
-
-  const loadLocations = useCallback(async () => {
+  const loadData = useCallback(async () => {
     if (!currentMembership) {
       return;
     }
 
     setLoading(true);
-    const locs = await clubService.getLocations(currentMembership.clubId);
-    setLocations(locs);
-    setLoading(false);
+    try {
+      const [locs, settings] = await Promise.all([
+        getClubLocations(currentMembership.clubId),
+        getClubSettings(currentMembership.clubId),
+      ]);
+      setLocations(locs);
+      setLocalSettings({
+        allowMemberBackfill: settings.allowMemberBackfill,
+        memberBackfillHours: settings.memberBackfillHours,
+        hostBackfillHours: settings.hostBackfillHours,
+      });
+    } catch (err) {
+      console.warn('[ClubSettings] loadData error:', err);
+    } finally {
+      setLoading(false);
+    }
   }, [currentMembership]);
 
   useEffect(() => {
-    loadLocations();
-  }, [loadLocations]);
+    loadData();
+  }, [loadData]);
 
   const handleAddLocation = async () => {
     if (!currentMembership) {
@@ -67,19 +80,19 @@ export default function ClubSettingsScreen({navigation}: Props) {
     }
 
     setAddingLocation(true);
-    const result = await clubService.addLocation(
-      currentMembership.clubId,
-      locationName,
-      locationAddress,
-    );
-    setAddingLocation(false);
-
-    if (result.success) {
+    try {
+      const newLoc = await addClubLocation(
+        currentMembership.clubId,
+        locationName.trim(),
+        locationAddress.trim(),
+      );
       setLocationName('');
       setLocationAddress('');
-      loadLocations();
-    } else {
-      Alert.alert('Error', result.message);
+      setLocations(prev => [...prev, newLoc]);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to add location.');
+    } finally {
+      setAddingLocation(false);
     }
   };
 
@@ -105,7 +118,15 @@ export default function ClubSettingsScreen({navigation}: Props) {
 
     setLocalSettings(updated);
     updateCurrentClubSettings(updated);
-    await clubService.updateClubSettings(currentMembership.clubId, updated);
+    try {
+      await apiUpdateClubSettings(currentMembership.clubId, {
+        allowMemberBackfill: updated.allowMemberBackfill,
+        memberBackfillHours: updated.memberBackfillHours,
+        hostBackfillHours: updated.hostBackfillHours,
+      });
+    } catch (err) {
+      console.warn('[ClubSettings] updateClubSettings error:', err);
+    }
   };
 
   if (!currentClub || !currentMembership) {
@@ -115,7 +136,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
   const isOwner = currentMembership.role === 'owner';
   const isAdminOrOwner = ['admin', 'owner'].includes(currentMembership.role);
 
-  const renderLocation = ({item}: {item: ClubLocation}) => (
+  const renderLocation = ({item}: {item: ApiClubLocation}) => (
     <View style={styles.locationCard}>
       <Text style={styles.locationName}>{item.name}</Text>
       <Text style={styles.locationAddress}>{item.address}</Text>

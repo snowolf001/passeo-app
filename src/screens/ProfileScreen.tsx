@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -9,28 +9,13 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
-import {clubService} from '../services/clubService';
-import {ClubSubscription} from '../types';
 
 type Props = {navigation: any};
 
 export default function ProfileScreen({navigation}: Props) {
-  const {currentUser, currentMembership, currentClub} = useApp();
-  const [subscription, setSubscription] = useState<ClubSubscription | null>(
-    null,
-  );
+  const {currentMembership, currentClub} = useApp();
 
-  const loadSubscription = useCallback(async () => {
-    if (!currentMembership) return;
-    const sub = await clubService.getSubscription(currentMembership.clubId);
-    setSubscription(sub);
-  }, [currentMembership]);
-
-  useEffect(() => {
-    loadSubscription();
-  }, [loadSubscription]);
-
-  if (!currentUser || !currentMembership || !currentClub) {
+  if (!currentMembership || !currentClub) {
     return null;
   }
 
@@ -68,7 +53,7 @@ export default function ProfileScreen({navigation}: Props) {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* ===== HEADER SUMMARY ===== */}
         <View style={styles.summaryCard}>
-          <Text style={styles.userName}>{currentUser.name}</Text>
+          <Text style={styles.userName}>{currentClub.name}</Text>
 
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
@@ -104,28 +89,6 @@ export default function ProfileScreen({navigation}: Props) {
             </View>
           )}
         </View>
-
-        {/* ===== SUBSCRIPTION ===== */}
-        {subscription && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Subscription</Text>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Plan</Text>
-              <Text style={styles.infoValue}>
-                {subscription.plan.charAt(0).toUpperCase() +
-                  subscription.plan.slice(1)}
-              </Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Expires</Text>
-              <Text style={styles.infoValue}>
-                {new Date(subscription.expiresAt).toLocaleDateString()}
-              </Text>
-            </View>
-          </View>
-        )}
 
         {/* ===== QUICK ACTIONS ===== */}
         <View style={styles.card}>

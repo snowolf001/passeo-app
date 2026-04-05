@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {membershipService} from '../services/membershipService';
+import {joinClub, createClub} from '../services/api/clubApi';
 import {useApp} from '../context/AppContext';
 import {RootStackParamList} from '../navigation/types';
 
@@ -34,13 +34,14 @@ export default function JoinOrCreateClubScreen({navigation}: Props) {
       return;
     }
     setLoading(true);
-    const result = await membershipService.joinClub(joinCode);
-    setLoading(false);
-    if (result.success) {
+    try {
+      await joinClub(joinCode.trim());
       await refresh();
       navigation.replace('MainTabs');
-    } else {
-      Alert.alert('Error', result.message);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to join club.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -50,13 +51,14 @@ export default function JoinOrCreateClubScreen({navigation}: Props) {
       return;
     }
     setLoading(true);
-    const result = await membershipService.createClub(clubName);
-    setLoading(false);
-    if (result.success) {
+    try {
+      await createClub(clubName.trim());
       await refresh();
       navigation.replace('MainTabs');
-    } else {
-      Alert.alert('Error', result.message);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to create club.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -68,18 +70,10 @@ export default function JoinOrCreateClubScreen({navigation}: Props) {
       );
       return;
     }
-    setLoading(true);
-    const result = await membershipService.restoreMembership(
-      memberCode,
-      recoveryCode,
+    Alert.alert(
+      'Coming Soon',
+      'Membership restore is not yet available in this version.',
     );
-    setLoading(false);
-    if (result.success) {
-      await refresh();
-      navigation.replace('MainTabs');
-    } else {
-      Alert.alert('Error', result.message);
-    }
   };
 
   return (
@@ -181,13 +175,7 @@ export default function JoinOrCreateClubScreen({navigation}: Props) {
               style={styles.secondaryButton}
               onPress={handleRestore}
               disabled={loading}>
-              {loading ? (
-                <ActivityIndicator color="#007AFF" />
-              ) : (
-                <Text style={styles.secondaryButtonText}>
-                  Restore Membership
-                </Text>
-              )}
+              <Text style={styles.secondaryButtonText}>Restore Membership</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

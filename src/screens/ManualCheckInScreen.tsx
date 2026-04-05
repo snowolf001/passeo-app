@@ -14,11 +14,26 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useApp} from '../context/AppContext';
-import {membershipService} from '../services/membershipService';
-import {attendanceService} from '../services/attendanceService';
-import {db} from '../data/mockData';
-import {MembershipWithUser, DEFAULT_CLUB_SETTINGS} from '../types';
+import {getClubMembers, ApiClubMember} from '../services/api/clubApi';
+import {
+  getSessionById,
+  getCheckedInMembers,
+  manualCheckIn,
+} from '../services/api/sessionApi';
+import {DEFAULT_CLUB_SETTINGS} from '../types';
 import {RootStackParamList} from '../navigation/types';
+
+function isSessionEnded(endTime: string | null | undefined): boolean {
+  if (!endTime) return false;
+  const endMs = new Date(endTime).getTime();
+  if (Number.isNaN(endMs)) return false;
+  return endMs < Date.now();
+}
+
+function hoursSinceEnd(endTime: string): number {
+  const endMs = new Date(endTime).getTime();
+  return Math.max(0, (Date.now() - endMs) / (1000 * 60 * 60));
+}
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ManualCheckIn'>;
 
@@ -44,42 +59,40 @@ type ListRow =
   | {
       type: 'member';
       key: string;
-      member: MembershipWithUser;
+      member: ApiClubMember;
     };
 
 export default function ManualCheckInScreen({route, navigation}: Props) {
   const {sessionId} = route.params;
   const {currentMembership, currentClub, publishCheckInEvent} = useApp();
 
-  const [members, setMembers] = useState<MembershipWithUser[]>([]);
+  const [members, setMembers] = useState<ApiClubMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkingInId, setCheckingInId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
   const [showCheckedInSection, setShowCheckedInSection] = useState(false);
+  const [sessionEndTime, setSessionEndTime] = useState<string | null>(null);
 
-  const [selectedMember, setSelectedMember] =
-    useState<MembershipWithUser | null>(null);
+  const [selectedMember, setSelectedMember] = useState<ApiClubMember | null>(
+    null,
+  );
   const [peopleCount, setPeopleCount] = useState(1);
 
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
   const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Determine session backfill state (reads from in-memory db synchronously)
-  const sessionRecord = useMemo(
-    () => db.getSessions().find(s => s.id === sessionId) ?? null,
-    [sessionId],
-  );
-
   const sessionMode = useMemo((): 'live' | 'backfill' | 'expired' => {
-    if (!sessionRecord) return 'live';
+    if (!sessionEndTime || !isSessionEnded(sessionEndTime)) return 'live';
     const settings = currentClub?.settings ?? DEFAULT_CLUB_SETTINGS;
-    if (!attendanceService.isSessionEnded(sessionRecord)) return 'live';
-    if (attendanceService.canHostBackfill(sessionRecord, settings))
-      return 'backfill';
-    return 'expired';
-  }, [sessionRecord, currentClub]);
+    const hours = hoursSinceEnd(sessionEndTime);
+    const hostWindow =
+      typeof settings?.hostBackfillHours === 'number'
+        ? settings.hostBackfillHours
+        : DEFAULT_CLUB_SETTINGS.hostBackfillHours;
+    return hours <= hostWindow ? 'backfill' : 'expired';
+  }, [sessionEndTime, currentClub]);
 
   const showSnackbar = useCallback((message: string) => {
     if (snackTimer.current) {
@@ -111,25 +124,19 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
     setLoading(true);
 
     try {
-      const [memberships, attendances] = await Promise.all([
-        membershipService.getMembershipsByClub(currentMembership.clubId),
-        attendanceService.getAttendancesForSession(sessionId),
+      const [apiMembers, checkedIn, session] = await Promise.all([
+        getClubMembers(currentMembership.clubId),
+        getCheckedInMembers(sessionId),
+        getSessionById(sessionId),
       ]);
 
-      const users = db.getUsers();
-
-      const enriched: MembershipWithUser[] = memberships
-        .filter(m => m.role === 'member' || m.role === 'host')
-        .map(m => ({
-          ...m,
-          user: users.find(u => u.id === m.userId) ?? {
-            id: m.userId,
-            name: 'Unknown',
-          },
-        }));
-
-      setMembers(enriched);
-      setCheckedInIds(new Set(attendances.map(a => a.membershipId)));
+      setMembers(
+        apiMembers.filter(m => m.role === 'member' || m.role === 'host'),
+      );
+      setCheckedInIds(new Set(checkedIn.map(a => a.membershipId)));
+      setSessionEndTime(session.endTime ?? null);
+    } catch (err) {
+      console.warn('[ManualCheckIn] loadMembers error:', err);
     } finally {
       setLoading(false);
     }
@@ -149,35 +156,32 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
 
   const filteredMembers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-
-    const base = q
-      ? members.filter(m => m.user.name.toLowerCase().includes(q))
+    return q
+      ? members.filter(m => m.userName.toLowerCase().includes(q))
       : members;
-
-    return base;
   }, [members, searchQuery]);
 
   const readyMembers = useMemo(
     () =>
       filteredMembers
-        .filter(m => !checkedInIds.has(m.id) && m.credits > 0)
-        .sort((a, b) => a.user.name.localeCompare(b.user.name)),
+        .filter(m => !checkedInIds.has(m.membershipId) && m.credits > 0)
+        .sort((a, b) => a.userName.localeCompare(b.userName)),
     [filteredMembers, checkedInIds],
   );
 
   const noCreditMembers = useMemo(
     () =>
       filteredMembers
-        .filter(m => !checkedInIds.has(m.id) && m.credits <= 0)
-        .sort((a, b) => a.user.name.localeCompare(b.user.name)),
+        .filter(m => !checkedInIds.has(m.membershipId) && m.credits <= 0)
+        .sort((a, b) => a.userName.localeCompare(b.userName)),
     [filteredMembers, checkedInIds],
   );
 
   const checkedInMembers = useMemo(
     () =>
       filteredMembers
-        .filter(m => checkedInIds.has(m.id))
-        .sort((a, b) => a.user.name.localeCompare(b.user.name)),
+        .filter(m => checkedInIds.has(m.membershipId))
+        .sort((a, b) => a.userName.localeCompare(b.userName)),
     [filteredMembers, checkedInIds],
   );
 
@@ -210,7 +214,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
       readyMembers.forEach(member => {
         rows.push({
           type: 'member',
-          key: `member-${member.id}`,
+          key: `member-${member.membershipId}`,
           member,
         });
       });
@@ -227,7 +231,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
       noCreditMembers.forEach(member => {
         rows.push({
           type: 'member',
-          key: `member-${member.id}`,
+          key: `member-${member.membershipId}`,
           member,
         });
       });
@@ -248,7 +252,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
         checkedInMembers.forEach(member => {
           rows.push({
             type: 'member',
-            key: `member-${member.id}`,
+            key: `member-${member.membershipId}`,
             member,
           });
         });
@@ -271,74 +275,74 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
   }, [readyMembers, noCreditMembers, checkedInMembers, showCheckedInSection]);
 
   const handleOpenHistory = useCallback(
-    (member: MembershipWithUser) => {
+    (member: ApiClubMember) => {
       navigation.navigate('AttendanceHistory', {
-        membershipId: member.id,
-        title: `${member.user.name} History`,
+        membershipId: member.membershipId,
+        title: `${member.userName} History`,
       });
     },
     [navigation],
   );
 
-  const doCheckIn = async (target: MembershipWithUser, creditsUsed: number) => {
+  const doCheckIn = async (target: ApiClubMember, creditsUsed: number) => {
     if (!currentMembership || checkingInId) {
       return;
     }
 
-    setCheckingInId(target.id);
+    setCheckingInId(target.membershipId);
 
     try {
-      const result = await attendanceService.manualCheckIn({
-        actingMembershipId: currentMembership.id,
-        targetMembershipId: target.id,
+      const result = await manualCheckIn(
         sessionId,
+        target.membershipId,
         creditsUsed,
+      );
+
+      const checkedInAt = result.checkedInAt;
+
+      setCheckedInIds(prev => {
+        const next = new Set(prev);
+        next.add(target.membershipId);
+        return next;
       });
 
-      if (result.success) {
-        const checkedInAt = new Date().toISOString();
+      setMembers(prev =>
+        prev.map(member =>
+          member.membershipId === target.membershipId
+            ? {...member, credits: result.creditsRemaining}
+            : member,
+        ),
+      );
 
-        setCheckedInIds(prev => {
-          const next = new Set(prev);
-          next.add(target.id);
-          return next;
-        });
+      publishCheckInEvent({
+        membershipId: target.membershipId,
+        sessionId,
+        checkedInAt,
+      });
 
-        setMembers(prev =>
-          prev.map(member =>
-            member.id === target.id
-              ? {...member, credits: Math.max(0, member.credits - creditsUsed)}
-              : member,
-          ),
-        );
-
-        publishCheckInEvent({
-          membershipId: target.id,
-          sessionId,
-          checkedInAt,
-        });
-
-        const verb = sessionMode === 'backfill' ? 'backfilled' : 'checked in';
-        showSnackbar(
-          `${target.user.name} ${verb} · ${creditsUsed} credit${
-            creditsUsed !== 1 ? 's' : ''
-          } used`,
-        );
-      } else {
-        Alert.alert('Failed', result.message);
-      }
+      const verb = sessionMode === 'backfill' ? 'backfilled' : 'checked in';
+      showSnackbar(
+        `${target.userName} ${verb} · ${creditsUsed} credit${
+          creditsUsed !== 1 ? 's' : ''
+        } used`,
+      );
+    } catch (err: any) {
+      Alert.alert(
+        'Failed',
+        err?.message || 'Check-in failed. Please try again.',
+      );
     } finally {
       setCheckingInId(null);
       closePeoplePicker();
     }
   };
 
-  const handleCheckIn = (target: MembershipWithUser) => {
+  const handleCheckIn = (target: ApiClubMember) => {
     if (!currentMembership || checkingInId) {
       return;
     }
 
-    if (checkedInIds.has(target.id)) {
+    if (checkedInIds.has(target.membershipId)) {
       return;
     }
 
@@ -406,12 +410,12 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
     return content;
   };
 
-  const renderMemberCard = (item: MembershipWithUser) => {
-    const isCheckedIn = checkedInIds.has(item.id);
+  const renderMemberCard = (item: ApiClubMember) => {
+    const isCheckedIn = checkedInIds.has(item.membershipId);
     const hasNoCredits = item.credits <= 0;
     const isSessionExpired = sessionMode === 'expired';
     const isDisabled = isCheckedIn || hasNoCredits || isSessionExpired;
-    const isProcessing = checkingInId === item.id;
+    const isProcessing = checkingInId === item.membershipId;
 
     return (
       <TouchableOpacity
@@ -421,7 +425,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
         disabled={isDisabled || !!checkingInId}>
         <View style={styles.memberInfo}>
           <Text style={[styles.memberName, isDisabled && styles.textMuted]}>
-            {item.user.name}
+            {item.userName}
           </Text>
           <Text style={styles.memberRole}>{item.role}</Text>
         </View>
@@ -460,8 +464,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
 
           <TouchableOpacity
             style={styles.historyButton}
-            onPress={e => {
-              e.stopPropagation?.();
+            onPress={() => {
               handleOpenHistory(item);
             }}
             disabled={!!checkingInId}>
@@ -548,7 +551,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
 
               {!!selectedMember && (
                 <Text style={styles.modalSubtitle}>
-                  {selectedMember.user.name} has {selectedMember.credits} credit
+                  {selectedMember.userName} has {selectedMember.credits} credit
                   {selectedMember.credits !== 1 ? 's' : ''} available
                 </Text>
               )}

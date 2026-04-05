@@ -10,17 +10,14 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {sessionService} from '../services/sessionService';
-import {attendanceService} from '../services/attendanceService';
-import {SessionWithLocation} from '../types';
+import {ApiSession} from '../services/api/sessionApi';
 import {formatDate} from '../utils/date';
 
 type Props = {navigation: any};
 
 export default function HomeScreen({navigation}: Props) {
-  const {currentUser, currentMembership, currentClub} = useApp();
-  const [nextSession, setNextSession] = useState<SessionWithLocation | null>(
-    null,
-  );
+  const {currentMembership, currentClub} = useApp();
+  const [nextSession, setNextSession] = useState<ApiSession | null>(null);
   const [isTodayCheckedIn, setIsTodayCheckedIn] = useState(false);
   const [hasTodaySession, setHasTodaySession] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -33,7 +30,16 @@ export default function HomeScreen({navigation}: Props) {
   };
 
   const loadData = useCallback(async () => {
-    if (!currentMembership) return;
+    console.log(
+      '[HomeScreen] loadData — currentMembership:',
+      currentMembership?.id ?? 'null',
+      'currentClub:',
+      currentClub?.id ?? 'null',
+    );
+    if (!currentMembership) {
+      console.log('[HomeScreen] loadData skipped — no currentMembership');
+      return;
+    }
     setLoading(true);
 
     const sessions = await sessionService.getSessionsByClub(
@@ -55,11 +61,7 @@ export default function HomeScreen({navigation}: Props) {
 
     if (todaySession) {
       setHasTodaySession(true);
-      const checkedIn = attendanceService.isCheckedIn(
-        currentMembership.id,
-        todaySession.id,
-      );
-      setIsTodayCheckedIn(checkedIn);
+      setIsTodayCheckedIn(false); // checked-in state now comes from the API checked-in list
     } else {
       setHasTodaySession(false);
       setIsTodayCheckedIn(false);
@@ -72,7 +74,16 @@ export default function HomeScreen({navigation}: Props) {
     loadData();
   }, [loadData]);
 
-  if (!currentUser || !currentMembership || !currentClub) {
+  console.log(
+    '[HomeScreen] render — currentMembership:',
+    currentMembership?.id ?? 'null',
+    'currentClub:',
+    currentClub?.id ?? 'null',
+    'loading:',
+    loading,
+  );
+  if (!currentMembership || !currentClub) {
+    console.log('[HomeScreen] showing spinner — waiting for AppContext data');
     return (
       <SafeAreaView style={styles.container}>
         <ActivityIndicator style={{marginTop: 60}} color="#007AFF" />
@@ -126,7 +137,7 @@ export default function HomeScreen({navigation}: Props) {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.clubName}>{currentClub.name}</Text>
-          <Text style={styles.greeting}>Welcome back, {currentUser.name}</Text>
+          <Text style={styles.greeting}>Welcome back</Text>
         </View>
 
         {/* Stats row */}
@@ -156,11 +167,6 @@ export default function HomeScreen({navigation}: Props) {
             <Text style={styles.nextSessionDetail}>
               ⏱ {formatDate(nextSession.startTime)}
             </Text>
-            {nextSession.location && (
-              <Text style={styles.nextSessionDetail}>
-                📍 {nextSession.location.name}
-              </Text>
-            )}
           </TouchableOpacity>
         )}
 

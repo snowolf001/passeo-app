@@ -8,8 +8,10 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {attendanceService} from '../services/attendanceService';
-import {AttendanceHistoryItem} from '../types';
+import {
+  getMyAttendance,
+  ApiAttendanceItem,
+} from '../services/api/attendanceApi';
 import {RootStackParamList} from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AttendanceHistory'>;
@@ -56,7 +58,7 @@ function isThisMonth(iso: string): boolean {
   );
 }
 
-function HistoryRow({item}: {item: AttendanceHistoryItem}) {
+function HistoryRow({item}: {item: ApiAttendanceItem}) {
   return (
     <View style={styles.row}>
       <Text style={styles.sessionTitle}>{item.sessionTitle}</Text>
@@ -74,14 +76,6 @@ function HistoryRow({item}: {item: AttendanceHistoryItem}) {
           {item.creditsUsed} credit{item.creditsUsed !== 1 ? 's' : ''} used
         </Text>
       )}
-
-      {item.locationName ? (
-        <Text style={styles.secondary}>{item.locationName}</Text>
-      ) : null}
-
-      {item.locationAddress ? (
-        <Text style={styles.secondaryMuted}>{item.locationAddress}</Text>
-      ) : null}
     </View>
   );
 }
@@ -89,7 +83,7 @@ function HistoryRow({item}: {item: AttendanceHistoryItem}) {
 export default function AttendanceHistoryScreen({navigation, route}: Props) {
   const {membershipId, title} = route.params;
 
-  const [history, setHistory] = useState<AttendanceHistoryItem[]>([]);
+  const [history, setHistory] = useState<ApiAttendanceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -104,9 +98,7 @@ export default function AttendanceHistoryScreen({navigation, route}: Props) {
     setError('');
 
     try {
-      const data = await attendanceService.getAttendanceHistoryForMembership(
-        membershipId,
-      );
+      const data = await getMyAttendance();
       setHistory(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[AttendanceHistoryScreen] load failed:', err);
@@ -115,7 +107,7 @@ export default function AttendanceHistoryScreen({navigation, route}: Props) {
     } finally {
       setLoading(false);
     }
-  }, [membershipId]);
+  }, []);
 
   useEffect(() => {
     load();

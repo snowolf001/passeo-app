@@ -1,8 +1,15 @@
-import React, {useMemo} from 'react';
-import {View, Text, FlatList, TouchableOpacity, StyleSheet} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
-import {db} from '../data/mockData';
+import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {attendanceService} from '../services/attendanceService';
 
 type Props = {
@@ -31,43 +38,65 @@ type SessionListItem = {
 
 export default function BackfillSessionsScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
+  const [apiSessions, setApiSessions] = useState<ApiSession[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const clubSettings = currentClub?.settings ?? FALLBACK_SETTINGS;
+
+  const loadSessions = useCallback(async () => {
+    if (!currentMembership) return;
+    setLoading(true);
+    try {
+      const data = await getSessions(currentMembership.clubId);
+      setApiSessions(data);
+    } catch (err) {
+      console.warn('[BackfillSessions] failed to load sessions:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentMembership]);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
 
   if (!currentMembership || !currentClub) {
     return null;
   }
 
-  const sessions = db.getSessions();
-  const attendances = db.getAttendances();
-  const clubSettings = currentClub.settings ?? FALLBACK_SETTINGS;
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ActivityIndicator style={{marginTop: 60}} color="#007AFF" />
+      </SafeAreaView>
+    );
+  }
 
-  const filteredSessions = useMemo<SessionListItem[]>(() => {
+  const filteredSessions = (() => {
     const now = Date.now();
 
-    return sessions
+    return apiSessions
       .map(session => {
-        const isAlreadyCheckedIn = attendances.some(
-          a =>
-            a.sessionId === session.id &&
-            a.membershipId === currentMembership.id,
-        );
+        // Build a minimal shape attendanceService.getCheckInMode expects
+        const sessionForMode = {
+          ...session,
+          startTime: session.startTime,
+          endTime: session.endTime,
+        };
 
         const mode = attendanceService.getCheckInMode({
-          session,
+          session: sessionForMode as any,
           membership: currentMembership,
           settings: clubSettings,
-          isAlreadyCheckedIn,
+          isAlreadyCheckedIn: false, // backfill screen — checked-in filtering handled by API
         });
 
-        return {
-          session,
-          mode,
-        };
+        return {session, mode};
       })
       .filter(item => {
-        if (!attendanceService.isSessionEnded(item.session)) {
+        if (!attendanceService.isSessionEnded(item.session as any)) {
           return false;
         }
-
         const startMs = new Date(item.session.startTime).getTime();
         return startMs >= now - FOURTEEN_DAYS_MS;
       })
@@ -77,7 +106,7 @@ export default function BackfillSessionsScreen({navigation}: Props) {
           new Date(a.session.startTime).getTime(),
       )
       .slice(0, MAX_BACKFILL_SESSIONS);
-  }, [sessions, attendances, currentMembership, clubSettings]);
+  })();
 
   const getStatusLabel = (mode: SessionListItem['mode']) => {
     switch (mode) {

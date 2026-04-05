@@ -9,9 +9,7 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
-import {sessionService} from '../services/sessionService';
-import {attendanceService} from '../services/attendanceService';
-import {SessionWithLocation} from '../types';
+import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {formatDate} from '../utils/date';
 
 type Props = {navigation: any};
@@ -20,27 +18,31 @@ const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_VISIBLE_SESSIONS = 50;
 
 export default function SessionsScreen({navigation}: Props) {
-  const {currentMembership} = useApp();
-  const [sessions, setSessions] = useState<SessionWithLocation[]>([]);
+  const {currentMembership, currentClub} = useApp();
+  const [sessions, setSessions] = useState<ApiSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadSessions = useCallback(async () => {
-    if (!currentMembership) {
+    const clubId = currentClub?.id;
+    if (!clubId) {
       setSessions([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
+    setError(null);
     try {
-      const data = await sessionService.getSessionsByClub(
-        currentMembership.clubId,
-      );
+      const data = await getSessions(clubId);
       setSessions(data);
+      console.log('📡 sessions loaded:', data);
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load sessions');
     } finally {
       setLoading(false);
     }
-  }, [currentMembership]);
+  }, [currentClub]);
 
   useEffect(() => {
     loadSessions();
@@ -57,13 +59,8 @@ export default function SessionsScreen({navigation}: Props) {
     return sessions
       .filter(session => {
         const startMs = new Date(session.startTime).getTime();
-        const endMs = session.endTime
-          ? new Date(session.endTime).getTime()
-          : startMs;
-
-        const withinUpcomingWindow = startMs <= now + FOURTEEN_DAYS_MS;
-
-        return withinUpcomingWindow && endMs >= now;
+        const endMs = new Date(session.endTime).getTime();
+        return startMs <= now + FOURTEEN_DAYS_MS && endMs >= now;
       })
       .sort(
         (a, b) =>
@@ -77,7 +74,7 @@ export default function SessionsScreen({navigation}: Props) {
 
     const liveSession = visibleSessions.find(session => {
       const start = new Date(session.startTime).getTime();
-      const end = new Date(session.endTime ?? session.startTime).getTime();
+      const end = new Date(session.endTime).getTime();
       return now >= start && now <= end;
     });
 
@@ -124,25 +121,10 @@ export default function SessionsScreen({navigation}: Props) {
     }
   };
 
-  const getStatusBadge = (session: SessionWithLocation) => {
-    if (!currentMembership) return null;
-
+  const getStatusBadge = (session: ApiSession) => {
     const now = Date.now();
     const start = new Date(session.startTime).getTime();
-    const end = new Date(session.endTime ?? session.startTime).getTime();
-
-    const isCheckedIn = attendanceService.isCheckedIn(
-      currentMembership.id,
-      session.id,
-    );
-
-    if (isCheckedIn) {
-      return {
-        label: 'Checked In',
-        textColor: '#166534',
-        backgroundColor: '#DCFCE7',
-      };
-    }
+    const end = new Date(session.endTime).getTime();
 
     if (now < start) {
       const diffHours = (start - now) / 3600000;
@@ -177,7 +159,7 @@ export default function SessionsScreen({navigation}: Props) {
     };
   };
 
-  const renderItem = ({item}: {item: SessionWithLocation}) => {
+  const renderItem = ({item}: {item: ApiSession}) => {
     const badge = getStatusBadge(item);
 
     return (
@@ -202,10 +184,6 @@ export default function SessionsScreen({navigation}: Props) {
         </View>
 
         <Text style={styles.detailText}>⏱ {formatDate(item.startTime)}</Text>
-
-        {item.location && (
-          <Text style={styles.detailText}>📍 {item.location.name}</Text>
-        )}
       </TouchableOpacity>
     );
   };
@@ -214,6 +192,19 @@ export default function SessionsScreen({navigation}: Props) {
     return (
       <SafeAreaView style={styles.container}>
         <ActivityIndicator style={styles.loader} color="#007AFF" />
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={loadSessions} style={styles.retryButton}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -480,5 +471,28 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 14,
     lineHeight: 20,
+  },
+  errorWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    fontSize: 15,
+    color: '#FF3B30',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#007AFF',
+  },
+  retryText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

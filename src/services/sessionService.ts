@@ -1,6 +1,11 @@
-import {Session, SessionWithLocation} from '../types';
+import {Session} from '../types';
 import {db} from '../data/mockData';
 import {nanoid} from 'nanoid/non-secure';
+import {
+  ApiSession,
+  getSessions as apiGetSessions,
+  getSessionById as apiGetSessionById,
+} from './api/sessionApi';
 
 // ────────────────────────────────────────────────────────────
 // Session Service
@@ -9,33 +14,25 @@ import {nanoid} from 'nanoid/non-secure';
 
 export const sessionService = {
   /**
-   * Get all upcoming sessions for a club, sorted chronologically.
+   * Get all sessions for a club from the backend, sorted chronologically.
    */
-  getSessionsByClub: async (clubId: string): Promise<SessionWithLocation[]> => {
-    const allSessions = db.getSessions().filter(s => s.clubId === clubId);
-    const sorted = allSessions.sort(
+  getSessionsByClub: async (clubId: string): Promise<ApiSession[]> => {
+    const data = await apiGetSessions(clubId);
+    return data.sort(
       (a, b) =>
         new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
     );
-    return sorted.map(s => ({
-      ...s,
-      location: db.getLocations().find(l => l.id === s.locationId) ?? null,
-    }));
   },
 
   /**
-   * Get a single session with its location data.
+   * Get a single session from the backend.
    */
-  getSessionById: async (
-    sessionId: string,
-  ): Promise<SessionWithLocation | null> => {
-    const session = db.getSessions().find(s => s.id === sessionId);
-    if (!session) return null;
-    return {
-      ...session,
-      location:
-        db.getLocations().find(l => l.id === session.locationId) ?? null,
-    };
+  getSessionById: async (sessionId: string): Promise<ApiSession | null> => {
+    try {
+      return await apiGetSessionById(sessionId);
+    } catch {
+      return null;
+    }
   },
 
   /**
