@@ -16,6 +16,7 @@ export type RootStackParamList = {
   ClubSettings: undefined;
   BackfillSessions: undefined;
   AttendanceHistory: {membershipId: string; title?: string};
+  CreditHistory: undefined;
 };
 
 export type MainTabParamList = {

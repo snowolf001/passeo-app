@@ -79,6 +79,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
 
   const loadData = useCallback(async () => {
     setLoadingSession(true);
+    setCheckedInMembers([]); // clear stale data from any previous session visit
     try {
       const [loadedSession, members] = await Promise.all([
         apiGetSessionById(sessionId),
@@ -171,6 +172,9 @@ export default function SessionDetailScreen({route, navigation}: Props) {
           availableCredits === 1 ? '' : 's'
         } left`;
 
+      case 'upcoming':
+        return 'Session has not started yet';
+
       case 'not_allowed':
         return 'Backfill is disabled for members';
 
@@ -203,6 +207,8 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         return '✅ You are checked in';
       case 'expired':
         return '⚪ Backfill expired';
+      case 'upcoming':
+        return '🔵 Upcoming';
       case 'not_allowed':
         return '⚪ Backfill not allowed';
       case 'no_credits':
@@ -303,8 +309,6 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       console.log('✅ closing modal');
       setShowPeoplePicker(false);
       setPeopleCount(1);
-
-      Alert.alert('Success', 'Check-in completed!');
     } catch (error) {
       console.log('❌ API ERROR:', error);
 
@@ -359,6 +363,13 @@ export default function SessionDetailScreen({route, navigation}: Props) {
           disabled: false,
           style: styles.btnBackfill,
           textStyle: styles.checkInBtnTextLight,
+        };
+      case 'upcoming':
+        return {
+          label: 'Not Started Yet',
+          disabled: true,
+          style: styles.btnDisabled,
+          textStyle: styles.checkInBtnTextDark,
         };
       case 'not_allowed':
         return {

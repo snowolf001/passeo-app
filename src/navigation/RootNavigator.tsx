@@ -13,6 +13,7 @@ import CreateSessionScreen from '../screens/CreateSessionScreen';
 import ClubSettingsScreen from '../screens/ClubSettingsScreen';
 import AttendanceHistoryScreen from '../screens/AttendanceHistoryScreen';
 import BackfillSessionsScreen from '../screens/BackfillSessionsScreen';
+import CreditHistoryScreen from '../screens/CreditHistoryScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -69,6 +70,11 @@ export default function RootNavigator() {
         name="BackfillSessions"
         component={BackfillSessionsScreen}
         options={{headerShown: true, title: 'Backfill Sessions'}}
+      />
+      <Stack.Screen
+        name="CreditHistory"
+        component={CreditHistoryScreen}
+        options={{headerShown: true, title: 'Credit History'}}
       />
     </Stack.Navigator>
   );

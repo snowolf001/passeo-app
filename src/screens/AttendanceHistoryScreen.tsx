@@ -5,6 +5,7 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -15,6 +16,37 @@ import {
 import {RootStackParamList} from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AttendanceHistory'>;
+
+type RangeFilter = '30D' | '90D' | '1Y' | 'ALL';
+
+const FILTERS: RangeFilter[] = ['30D', '90D', '1Y', 'ALL'];
+
+function getCutoffDate(filter: RangeFilter): Date | null {
+  if (filter === 'ALL') return null;
+  const now = new Date();
+  const days = filter === '30D' ? 30 : filter === '90D' ? 90 : 365;
+  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+}
+
+function applyRangeFilter(
+  items: ApiAttendanceItem[],
+  filter: RangeFilter,
+): ApiAttendanceItem[] {
+  const cutoff = getCutoffDate(filter);
+  if (!cutoff) return items;
+  return items.filter(item => {
+    const d = new Date(item.checkedInAt);
+    return !isNaN(d.getTime()) && d >= cutoff;
+  });
+}
+
+function emptyLabel(filter: RangeFilter, hasAny: boolean): string {
+  if (!hasAny) return 'No attendance history yet.';
+  if (filter === '30D') return 'No check-ins in the last 30 days.';
+  if (filter === '90D') return 'No check-ins in the last 90 days.';
+  if (filter === '1Y') return 'No check-ins in the past year.';
+  return 'No attendance history yet.';
+}
 
 function formatCheckedInAt(iso: string): string {
   const d = new Date(iso);
@@ -76,6 +108,39 @@ function HistoryRow({item}: {item: ApiAttendanceItem}) {
           {item.creditsUsed} credit{item.creditsUsed !== 1 ? 's' : ''} used
         </Text>
       )}
+
+      <Text style={styles.checkInMethod}>
+        {item.checkInMethod === 'manual'
+          ? '👤 Checked in by host/admin'
+          : '✋ Self check-in'}
+      </Text>
+    </View>
+  );
+}
+
+function FilterBar({
+  selected,
+  onSelect,
+}: {
+  selected: RangeFilter;
+  onSelect: (f: RangeFilter) => void;
+}) {
+  return (
+    <View style={styles.filterBar}>
+      {FILTERS.map(f => (
+        <TouchableOpacity
+          key={f}
+          onPress={() => onSelect(f)}
+          style={[styles.filterBtn, selected === f && styles.filterBtnActive]}>
+          <Text
+            style={[
+              styles.filterBtnText,
+              selected === f && styles.filterBtnTextActive,
+            ]}>
+            {f}
+          </Text>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }
@@ -86,6 +151,7 @@ export default function AttendanceHistoryScreen({navigation, route}: Props) {
   const [history, setHistory] = useState<ApiAttendanceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [rangeFilter, setRangeFilter] = useState<RangeFilter>('30D');
 
   useEffect(() => {
     if (title) {
@@ -113,23 +179,28 @@ export default function AttendanceHistoryScreen({navigation, route}: Props) {
     load();
   }, [load]);
 
-  const totalCheckIns = history.length;
+  const filteredHistory = useMemo(
+    () => applyRangeFilter(history, rangeFilter),
+    [history, rangeFilter],
+  );
+
+  const totalCheckIns = filteredHistory.length;
 
   const thisMonthCount = useMemo(
-    () => history.filter(item => isThisMonth(item.checkedInAt)).length,
-    [history],
+    () => filteredHistory.filter(item => isThisMonth(item.checkedInAt)).length,
+    [filteredHistory],
   );
 
   const lastCheckIn = useMemo(
-    () => formatLastCheckIn(history[0]?.checkedInAt),
-    [history],
+    () => formatLastCheckIn(filteredHistory[0]?.checkedInAt),
+    [filteredHistory],
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <View style={styles.summaryCard}>
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Total</Text>
+          <Text style={styles.summaryLabel}>Sessions</Text>
           <Text style={styles.summaryValue}>{totalCheckIns}</Text>
         </View>
 
@@ -148,6 +219,8 @@ export default function AttendanceHistoryScreen({navigation, route}: Props) {
         </View>
       </View>
 
+      <FilterBar selected={rangeFilter} onSelect={setRangeFilter} />
+
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#007AFF" />
@@ -157,13 +230,15 @@ export default function AttendanceHistoryScreen({navigation, route}: Props) {
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
-      ) : history.length === 0 ? (
+      ) : filteredHistory.length === 0 ? (
         <View style={styles.centered}>
-          <Text style={styles.emptyText}>No attendance history yet</Text>
+          <Text style={styles.emptyText}>
+            {emptyLabel(rangeFilter, history.length > 0)}
+          </Text>
         </View>
       ) : (
         <FlatList
-          data={history}
+          data={filteredHistory}
           keyExtractor={item => item.attendanceId}
           renderItem={({item}) => <HistoryRow item={item} />}
           contentContainerStyle={styles.listContent}
@@ -176,6 +251,33 @@ export default function AttendanceHistoryScreen({navigation, route}: Props) {
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#F5F5F7'},
+
+  filterBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 4,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    gap: 4,
+  },
+  filterBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  filterBtnActive: {
+    backgroundColor: '#007AFF',
+  },
+  filterBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E8E93',
+  },
+  filterBtnTextActive: {
+    color: '#FFFFFF',
+  },
 
   summaryCard: {
     flexDirection: 'row',
@@ -277,6 +379,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FF9500',
     fontWeight: '600',
+    marginTop: 2,
+  },
+  checkInMethod: {
+    fontSize: 12,
+    color: '#8E8E93',
     marginTop: 2,
   },
   secondary: {

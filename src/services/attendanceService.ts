@@ -55,16 +55,20 @@ function _hasExistingAttendance(
     .some(a => a.membershipId === membershipId && a.sessionId === sessionId);
 }
 
+function _getSessionEndMs(session: Session): number {
+  const field = (session as any).endTime ?? (session as any).endsAt;
+  if (!field) return NaN;
+  return new Date(field).getTime();
+}
+
 function _isSessionEnded(session: Session): boolean {
-  if (!session?.endTime) return false;
-  const endMs = new Date(session.endTime).getTime();
+  const endMs = _getSessionEndMs(session);
   if (Number.isNaN(endMs)) return false;
   return endMs < Date.now();
 }
 
 function _getHoursSinceSessionEnd(session: Session): number {
-  if (!session?.endTime) return 0;
-  const endMs = new Date(session.endTime).getTime();
+  const endMs = _getSessionEndMs(session);
   if (Number.isNaN(endMs)) return 0;
   return Math.max(0, (Date.now() - endMs) / (1000 * 60 * 60));
 }
@@ -134,7 +138,15 @@ export const attendanceService = {
     if (isAlreadyCheckedIn) return 'already_checked_in';
     if (_getSafeCredits(membership) <= 0) return 'no_credits';
 
-    if (!_isSessionEnded(session)) return 'live';
+    const sessionEnded = _isSessionEnded(session);
+    if (!sessionEnded) {
+      // Only allow live check-in once the session has actually started
+      const startField =
+        (session as any).startTime ?? (session as any).startsAt;
+      const startMs = startField ? new Date(startField).getTime() : NaN;
+      if (Number.isNaN(startMs) || startMs > Date.now()) return 'upcoming';
+      return 'live';
+    }
 
     if (!settings.allowMemberBackfill) return 'not_allowed';
 

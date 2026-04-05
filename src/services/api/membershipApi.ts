@@ -10,12 +10,27 @@ export type ApiMembership = {
   active: boolean;
 };
 
+export type ApiMembershipWithClub = {
+  membership: ApiMembership;
+  club: {
+    clubId: string;
+    name: string;
+    joinCode: string | null;
+  };
+};
+
 /**
  * GET /api/memberships/me?clubId=<clubId>
  */
 export async function getMyMembership(clubId: string): Promise<ApiMembership> {
-  console.log('[membershipApi] getMyMembership url:', `/api/memberships/me?clubId=${clubId}`);
-  const data = await apiRequest<ApiMembership>(`/api/memberships/me?clubId=${clubId}`);
-  console.log('[membershipApi] getMyMembership response:', data);
-  return data;
+  return apiRequest<ApiMembership>(`/api/memberships/me?clubId=${clubId}`);
+}
+
+/**
+ * GET /api/memberships/:membershipId
+ */
+export async function getMembershipById(
+  membershipId: string,
+): Promise<ApiMembershipWithClub> {
+  return apiRequest<ApiMembershipWithClub>(`/api/memberships/${membershipId}`);
 }

@@ -9,6 +9,7 @@ export type ApiAttendanceItem = {
   creditsUsed: number;
   sessionStartTime: string;
   sessionEndTime: string;
+  checkInMethod: string; // 'self' | 'manual'
 };
 
 /**
@@ -20,4 +21,20 @@ export async function getMyAttendance(): Promise<ApiAttendanceItem[]> {
   const data = await apiRequest<ApiAttendanceItem[]>('/api/attendance/me');
   console.log('[attendanceApi] getMyAttendance response:', data);
   return data;
+}
+
+export type ApiCreditTransaction = {
+  transactionId: string;
+  amount: number; // negative = used, positive = added
+  transactionType: string; // 'checkin' | 'add'
+  note: string | null;
+  sessionTitle: string | null;
+  actorName: string | null; // who added credits (null for check-in deductions)
+  createdAt: string;
+};
+
+export async function getMyCreditTransactions(): Promise<
+  ApiCreditTransaction[]
+> {
+  return apiRequest<ApiCreditTransaction[]>('/api/credits/me');
 }

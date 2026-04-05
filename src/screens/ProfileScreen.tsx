@@ -103,6 +103,15 @@ export default function ProfileScreen({navigation}: Props) {
             <Text style={styles.actionItemText}>My History</Text>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
+
+          <View style={styles.actionDivider} />
+
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={() => navigation.navigate('CreditHistory')}>
+            <Text style={styles.actionItemText}>Credit History</Text>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ===== BACKFILL (重点功能入口) ===== */}
@@ -228,6 +237,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     alignItems: 'center',
+  },
+  actionDivider: {
+    height: 1,
+    backgroundColor: '#E5E5EA',
   },
 
   highlightAction: {

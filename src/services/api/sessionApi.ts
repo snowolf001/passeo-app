@@ -102,6 +102,8 @@ export function getCheckInErrorMessage(error: unknown): string {
   switch (code) {
     case 'ALREADY_CHECKED_IN':
       return 'You have already checked in to this session.';
+    case 'SESSION_NOT_STARTED':
+      return 'This session has not started yet.';
     case 'INSUFFICIENT_CREDITS':
       return 'Not enough credits remaining.';
     case 'MEMBERSHIP_NOT_FOUND':

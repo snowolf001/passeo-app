@@ -7,11 +7,13 @@ import React, {
   ReactNode,
 } from 'react';
 import {Club, ClubSettings, Membership} from '../types';
-import {getMyMembership} from '../services/api/membershipApi';
-import {getClub as apiGetClub} from '../services/api/clubApi';
-
-// Seed club ID – replace with a real lookup / stored value once auth is added.
-const SEED_CLUB_ID = '22222222-2222-2222-2222-222222222222';
+import {getMembershipById} from '../services/api/membershipApi';
+import {
+  getStoredMembershipSession,
+  saveStoredMembershipSession,
+  clearStoredMembershipSession,
+  StoredMembershipSession,
+} from '../storage/membershipSessionStorage';
 
 export type CheckInEvent = {
   membershipId: string;
@@ -29,6 +31,10 @@ type AppContextValue = {
   updateCurrentClubSettings: (settings: ClubSettings) => void;
   lastCheckInEvent: CheckInEvent | null;
   publishCheckInEvent: (event: CheckInEvent) => void;
+  setActiveMembershipSession: (
+    session: StoredMembershipSession,
+  ) => Promise<void>;
+  clearMembershipSession: () => Promise<void>;
 };
 
 const AppContext = createContext<AppContextValue>({
@@ -41,6 +47,8 @@ const AppContext = createContext<AppContextValue>({
   updateCurrentClubSettings: () => {},
   lastCheckInEvent: null,
   publishCheckInEvent: () => {},
+  setActiveMembershipSession: async () => {},
+  clearMembershipSession: async () => {},
 });
 
 export const AppProvider = ({children}: {children: ReactNode}) => {
@@ -71,61 +79,73 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
     setLastCheckInEvent(event);
   }, []);
 
-  const load = useCallback(async () => {
-    console.log('[AppContext] load() START — SEED_CLUB_ID:', SEED_CLUB_ID);
+  // Load membership from backend using a stored membershipId.
+  const loadFromStorage = useCallback(async () => {
     setIsLoading(true);
     try {
-      console.log('[AppContext] calling getMyMembership...');
-      const apiMembership = await getMyMembership(SEED_CLUB_ID);
-      console.log(
-        '[AppContext] getMyMembership OK:',
-        JSON.stringify(apiMembership),
-      );
+      const stored = await getStoredMembershipSession();
+      if (!stored) {
+        setCurrentMembership(null);
+        setCurrentClub(null);
+        return;
+      }
 
-      // Map backend shape (membershipId) → app Membership type (id)
+      const result = await getMembershipById(stored.membershipId);
+
       const membership: Membership = {
-        id: apiMembership.membershipId,
-        userId: apiMembership.userId,
-        clubId: apiMembership.clubId,
-        role: apiMembership.role,
-        credits: apiMembership.credits,
+        id: result.membership.membershipId,
+        userId: result.membership.userId,
+        clubId: result.membership.clubId,
+        role: result.membership.role as Membership['role'],
+        credits: result.membership.credits,
         recoveryCode: '',
         memberCode: '',
       };
-      console.log(
-        '[AppContext] mapped membership id:',
-        membership.id,
-        'clubId:',
-        membership.clubId,
-      );
-
-      console.log('[AppContext] calling getClub for:', membership.clubId);
-      const apiClub = await apiGetClub(membership.clubId);
-      console.log('[AppContext] getClub OK:', JSON.stringify(apiClub));
 
       const club: Club = {
-        id: apiClub.clubId,
-        name: apiClub.name,
-        joinCode: apiClub.joinCode ?? '',
-        createdBy: membership.userId,
+        id: result.club.clubId,
+        name: result.club.name,
+        joinCode: result.club.joinCode ?? '',
+        createdBy: result.membership.userId,
       };
 
       setCurrentMembership(membership);
       setCurrentClub(club);
-      console.log('[AppContext] load() DONE — membership and club set');
-    } catch (err: any) {
-      console.warn('[AppContext] load() failed:', err?.message ?? String(err));
+    } catch {
+      // Invalid or not found — clear stale storage and show join flow
+      await clearStoredMembershipSession();
       setCurrentMembership(null);
       setCurrentClub(null);
     } finally {
       setIsLoading(false);
-      console.log('[AppContext] load() finally — isLoading set to false');
     }
   }, []);
 
+  // Refresh revalidates the currently stored session against the backend.
+  const refresh = useCallback(async () => {
+    await loadFromStorage();
+  }, [loadFromStorage]);
+
+  // Called after successful join/create to persist session and update state immediately.
+  const setActiveMembershipSession = useCallback(
+    async (session: StoredMembershipSession) => {
+      await saveStoredMembershipSession(session);
+      // Reload from backend to get full membership + club shape
+      await loadFromStorage();
+    },
+    [loadFromStorage],
+  );
+
+  // Clear local session — returns app to JoinOrCreate flow.
+  const clearMembershipSession = useCallback(async () => {
+    await clearStoredMembershipSession();
+    setCurrentMembership(null);
+    setCurrentClub(null);
+  }, []);
+
   useEffect(() => {
-    load();
-  }, [load]);
+    loadFromStorage();
+  }, [loadFromStorage]);
 
   return (
     <AppContext.Provider
@@ -133,12 +153,14 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
         currentMembership,
         currentClub,
         isLoading,
-        refresh: load,
+        refresh,
         decrementCurrentMembershipCredits,
         setCurrentMembershipCredits,
         updateCurrentClubSettings,
         lastCheckInEvent,
         publishCheckInEvent,
+        setActiveMembershipSession,
+        clearMembershipSession,
       }}>
       {children}
     </AppContext.Provider>

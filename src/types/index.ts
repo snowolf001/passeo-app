@@ -26,6 +26,7 @@ export const DEFAULT_CLUB_SETTINGS: ClubSettings = {
 // Check-in mode for a given membership + session combination.
 export type CheckInMode =
   | 'live' // session not ended, can check in normally
+  | 'upcoming' // session not started yet
   | 'backfill' // session ended, within backfill window
   | 'expired' // session ended, outside backfill window
   | 'already_checked_in'

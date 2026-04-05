@@ -14,34 +14,40 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {joinClub, createClub} from '../services/api/clubApi';
+import {getMembershipById} from '../services/api/membershipApi';
 import {useApp} from '../context/AppContext';
 import {RootStackParamList} from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JoinOrCreateClub'>;
 
-export default function JoinOrCreateClubScreen({navigation}: Props) {
-  const {refresh} = useApp();
+export default function JoinOrCreateClubScreen(_: Props) {
+  const {setActiveMembershipSession} = useApp();
 
   const [joinCode, setJoinCode] = useState('');
   const [clubName, setClubName] = useState('');
   const [memberCode, setMemberCode] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [joiningClub, setJoiningClub] = useState(false);
+  const [creatingClub, setCreatingClub] = useState(false);
 
   const handleJoin = async () => {
     if (!joinCode.trim()) {
       Alert.alert('Required', 'Please enter a join code.');
       return;
     }
-    setLoading(true);
+    setJoiningClub(true);
     try {
-      await joinClub(joinCode.trim());
-      await refresh();
-      navigation.replace('MainTabs');
+      const {membershipId, clubId} = await joinClub(joinCode.trim());
+      const {membership} = await getMembershipById(membershipId);
+      await setActiveMembershipSession({
+        membershipId,
+        clubId,
+        userId: membership.userId,
+      });
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to join club.');
     } finally {
-      setLoading(false);
+      setJoiningClub(false);
     }
   };
 
@@ -50,15 +56,19 @@ export default function JoinOrCreateClubScreen({navigation}: Props) {
       Alert.alert('Required', 'Please enter a club name.');
       return;
     }
-    setLoading(true);
+    setCreatingClub(true);
     try {
-      await createClub(clubName.trim());
-      await refresh();
-      navigation.replace('MainTabs');
+      const {membershipId, clubId} = await createClub(clubName.trim());
+      const {membership} = await getMembershipById(membershipId);
+      await setActiveMembershipSession({
+        membershipId,
+        clubId,
+        userId: membership.userId,
+      });
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to create club.');
     } finally {
-      setLoading(false);
+      setCreatingClub(false);
     }
   };
 
@@ -107,8 +117,8 @@ export default function JoinOrCreateClubScreen({navigation}: Props) {
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleJoin}
-              disabled={loading}>
-              {loading ? (
+              disabled={joiningClub || creatingClub}>
+              {joiningClub ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
                 <Text style={styles.primaryButtonText}>Join Club</Text>
@@ -137,8 +147,8 @@ export default function JoinOrCreateClubScreen({navigation}: Props) {
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleCreate}
-              disabled={loading}>
-              {loading ? (
+              disabled={joiningClub || creatingClub}>
+              {creatingClub ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
                 <Text style={styles.primaryButtonText}>Create Club</Text>
@@ -174,7 +184,7 @@ export default function JoinOrCreateClubScreen({navigation}: Props) {
             <TouchableOpacity
               style={styles.secondaryButton}
               onPress={handleRestore}
-              disabled={loading}>
+              disabled={joiningClub || creatingClub}>
               <Text style={styles.secondaryButtonText}>Restore Membership</Text>
             </TouchableOpacity>
           </View>

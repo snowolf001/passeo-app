@@ -10,6 +10,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
+import {getMyAttendance} from '../services/api/attendanceApi';
 import {attendanceService} from '../services/attendanceService';
 
 type Props = {
@@ -39,6 +40,9 @@ type SessionListItem = {
 export default function BackfillSessionsScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
   const [apiSessions, setApiSessions] = useState<ApiSession[]>([]);
+  const [attendedSessionIds, setAttendedSessionIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [loading, setLoading] = useState(true);
 
   const clubSettings = currentClub?.settings ?? FALLBACK_SETTINGS;
@@ -47,8 +51,12 @@ export default function BackfillSessionsScreen({navigation}: Props) {
     if (!currentMembership) return;
     setLoading(true);
     try {
-      const data = await getSessions(currentMembership.clubId);
+      const [data, attendance] = await Promise.all([
+        getSessions(currentMembership.clubId),
+        getMyAttendance().catch(() => []),
+      ]);
       setApiSessions(data);
+      setAttendedSessionIds(new Set(attendance.map(a => a.sessionId)));
     } catch (err) {
       console.warn('[BackfillSessions] failed to load sessions:', err);
     } finally {
@@ -88,7 +96,7 @@ export default function BackfillSessionsScreen({navigation}: Props) {
           session: sessionForMode as any,
           membership: currentMembership,
           settings: clubSettings,
-          isAlreadyCheckedIn: false, // backfill screen — checked-in filtering handled by API
+          isAlreadyCheckedIn: attendedSessionIds.has(session.id),
         });
 
         return {session, mode};
