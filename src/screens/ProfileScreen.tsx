@@ -162,14 +162,15 @@ export default function ProfileScreen({navigation}: Props) {
           </View>
         )}
 
-        {/* ===== DEBUG INFO（可选） ===== */}
+        {/* ===== RECOVERY CODE ===== */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Account Info</Text>
-          <Text style={styles.metaText}>
-            Member ID: {currentMembership.memberCode}
+          <Text style={styles.cardTitle}>Recovery Code</Text>
+          <Text style={styles.metaDesc}>
+            Use this code to restore access to your membership if you lose or
+            change your device. Keep it somewhere safe.
           </Text>
-          <Text style={styles.metaText}>
-            Recovery Code: {currentMembership.recoveryCode}
+          <Text style={styles.recoveryCode}>
+            {currentMembership.recoveryCode || '—'}
           </Text>
         </View>
       </ScrollView>
@@ -284,5 +285,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     marginTop: 4,
+  },
+  metaDesc: {
+    fontSize: 13,
+    color: '#8E8E93',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  recoveryCode: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    letterSpacing: 2,
+    marginTop: 12,
+    fontVariant: ['tabular-nums'],
   },
 });

@@ -99,7 +99,7 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
         userName: result.membership.userName,
         role: result.membership.role as Membership['role'],
         credits: result.membership.credits,
-        recoveryCode: '',
+        recoveryCode: result.membership.recoveryCode,
         memberCode: '',
       };
 

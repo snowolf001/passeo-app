@@ -6,6 +6,7 @@ export type ApiMembership = {
   clubId: string;
   userId: string;
   userName: string;
+  recoveryCode: string;
   role: 'member' | 'host' | 'owner';
   credits: number;
   active: boolean;

@@ -7,10 +7,12 @@ import {apiRequest} from './apiClient';
 export type ApiSession = {
   id: string;
   clubId: string;
-  title: string;
+  title: string | null;
   startTime: string;
   endTime: string;
   createdAt: string;
+  locationId: string | null;
+  locationName: string | null;
 };
 
 export type ApiCheckedInMember = {
@@ -120,7 +122,8 @@ export function getCheckInErrorMessage(error: unknown): string {
  */
 export async function createSession(params: {
   clubId: string;
-  title: string;
+  title?: string | null;
+  locationId: string;
   startTime: string;
   endTime?: string | null;
 }): Promise<ApiSession> {

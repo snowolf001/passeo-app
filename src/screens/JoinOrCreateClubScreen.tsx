@@ -59,7 +59,15 @@ export default function JoinOrCreateClubScreen(_: Props) {
         userId: membership.userId,
       });
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to join club.');
+      if (err?.code === 'POSSIBLE_EXISTING_MEMBER') {
+        Alert.alert(
+          'Already in this club?',
+          'Looks like you may already be in this club. Please use your recovery code to restore your membership.',
+          [{text: 'OK'}],
+        );
+      } else {
+        Alert.alert('Error', err?.message || 'Failed to join club.');
+      }
     } finally {
       setJoiningClub(false);
     }
@@ -110,14 +118,16 @@ export default function JoinOrCreateClubScreen(_: Props) {
           keyboardShouldPersistTaps="handled">
           <Text style={styles.appTitle}>Club App</Text>
           <Text style={styles.subtitle}>
-            Get started by joining or creating a club.
+            {
+              'First time? Join or create a club.\nComing back? Recover your membership below.'
+            }
           </Text>
 
           {/* ── Join a Club ── */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Join a Club</Text>
             <Text style={styles.cardHint}>
-              Enter the join code provided by your club admin.
+              Use this if you are joining for the first time.
             </Text>
             <View style={styles.nameRow}>
               <TextInput
@@ -203,12 +213,17 @@ export default function JoinOrCreateClubScreen(_: Props) {
             </TouchableOpacity>
           </View>
 
-          {/* ── Restore Membership ── */}
+          {/* ── Recover Membership ── */}
+          <View style={styles.sectionLabelRow}>
+            <View style={styles.divider} />
+            <Text style={styles.sectionLabelText}>Already a member?</Text>
+            <View style={styles.divider} />
+          </View>
+
           <View style={[styles.card, styles.restoreCard]}>
-            <Text style={styles.cardTitle}>Restore Membership</Text>
+            <Text style={styles.cardTitle}>Recover Membership</Text>
             <Text style={styles.cardHint}>
-              Had a membership before? Restore it with your Member ID and
-              Recovery Code.
+              Already joined before? Enter your recovery code to restore access.
             </Text>
             <TextInput
               style={styles.input}
@@ -279,6 +294,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8E8E93',
     marginBottom: 16,
+  },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  sectionLabelText: {
+    marginHorizontal: 12,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1C1C1E',
   },
   input: {
     backgroundColor: '#F2F2F7',

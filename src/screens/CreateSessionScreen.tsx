@@ -32,16 +32,22 @@ export default function CreateSessionScreen({navigation}: Props) {
     null,
   );
   const [locations, setLocations] = useState<ApiClubLocation[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!currentMembership) return;
+    setLocationsLoading(true);
     getClubLocations(currentMembership.clubId)
       .then(locs => {
         setLocations(locs);
-        if (locs.length > 0) setSelectedLocationId(locs[0].id);
+        // Auto-select the only location (or first when multiple)
+        if (locs.length === 1) {
+          setSelectedLocationId(locs[0].id);
+        }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLocationsLoading(false));
   }, [currentMembership]);
 
   const buildISOString = (dateStr: string, timeStr: string): string | null => {
@@ -55,8 +61,18 @@ export default function CreateSessionScreen({navigation}: Props) {
   const handleSubmit = async () => {
     if (!currentMembership) return;
 
-    if (!title.trim()) {
-      Alert.alert('Required', 'Please enter a session title.');
+    if (locations.length === 0) {
+      Alert.alert(
+        'No Locations',
+        'Add a club location in Club Settings before creating a session.',
+      );
+      return;
+    }
+    if (!selectedLocationId) {
+      Alert.alert(
+        'Location Required',
+        'Please select a location for this session.',
+      );
       return;
     }
     if (!date.trim() || !startTime.trim()) {
@@ -79,7 +95,8 @@ export default function CreateSessionScreen({navigation}: Props) {
     try {
       await createSession({
         clubId: currentMembership.clubId,
-        title: title.trim(),
+        title: title.trim() || null,
+        locationId: selectedLocationId,
         startTime: startISO,
         endTime: endISO,
       });
@@ -93,6 +110,77 @@ export default function CreateSessionScreen({navigation}: Props) {
     }
   };
 
+  const canSubmit = !loading && !locationsLoading && locations.length > 0;
+
+  const renderLocationSection = () => {
+    if (locationsLoading) {
+      return (
+        <View style={styles.locationLoadingRow}>
+          <ActivityIndicator size="small" color="#007AFF" />
+          <Text style={styles.locationLoadingText}>Loading locations…</Text>
+        </View>
+      );
+    }
+
+    if (locations.length === 0) {
+      return (
+        <View style={styles.noLocationCard}>
+          <Text style={styles.noLocationTitle}>No locations added yet</Text>
+          <Text style={styles.noLocationBody}>
+            A session needs a location. Add one in Club Settings first.
+          </Text>
+          <TouchableOpacity
+            style={styles.noLocationButton}
+            onPress={() => navigation.navigate('ClubSettings')}>
+            <Text style={styles.noLocationButtonText}>Go to Club Settings</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <>
+        {locations.length === 1 && (
+          <Text style={styles.locationHint}>
+            Your club's location is preselected.
+          </Text>
+        )}
+        {locations.map(loc => {
+          const isSelected = selectedLocationId === loc.id;
+          return (
+            <TouchableOpacity
+              key={loc.id}
+              style={[
+                styles.locationOption,
+                isSelected && styles.locationOptionSelected,
+              ]}
+              activeOpacity={0.7}
+              onPress={() => setSelectedLocationId(loc.id)}>
+              <View style={styles.locationRadio}>
+                {isSelected && <View style={styles.locationRadioDot} />}
+              </View>
+              <View style={styles.locationTextWrap}>
+                <Text
+                  style={[
+                    styles.locationName,
+                    isSelected && styles.locationNameSelected,
+                  ]}>
+                  {loc.name}
+                </Text>
+                {!!loc.address && (
+                  <Text style={styles.locationAddress} numberOfLines={1}>
+                    {loc.address}
+                  </Text>
+                )}
+              </View>
+              {isSelected && <Text style={styles.locationCheck}>✓</Text>}
+            </TouchableOpacity>
+          );
+        })}
+      </>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <KeyboardAvoidingView
@@ -101,8 +189,14 @@ export default function CreateSessionScreen({navigation}: Props) {
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled">
+          {/* Location — first, since it is required and the core choice */}
           <View style={styles.field}>
-            <Text style={styles.label}>Session Title *</Text>
+            <Text style={styles.label}>Location *</Text>
+            {renderLocationSection()}
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Session Name (Optional)</Text>
             <TextInput
               style={styles.input}
               value={title}
@@ -162,43 +256,13 @@ export default function CreateSessionScreen({navigation}: Props) {
             />
           </View>
 
-          {/* Location selector */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Location *</Text>
-            {locations.length === 0 ? (
-              <Text style={styles.noLocations}>
-                No locations saved yet. Add one in Club Settings.
-              </Text>
-            ) : (
-              locations.map(loc => (
-                <TouchableOpacity
-                  key={loc.id}
-                  style={[
-                    styles.locationOption,
-                    selectedLocationId === loc.id &&
-                      styles.locationOptionSelected,
-                  ]}
-                  onPress={() => setSelectedLocationId(loc.id)}>
-                  <View style={styles.locationRadio}>
-                    {selectedLocationId === loc.id && (
-                      <View style={styles.locationRadioDot} />
-                    )}
-                  </View>
-                  <View>
-                    <Text style={styles.locationName}>{loc.name}</Text>
-                    <Text style={styles.locationAddress} numberOfLines={1}>
-                      {loc.address}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-
           <TouchableOpacity
-            style={styles.submitButton}
+            style={[
+              styles.submitButton,
+              !canSubmit && styles.submitButtonDisabled,
+            ]}
             onPress={handleSubmit}
-            disabled={loading}>
+            disabled={!canSubmit}>
             {loading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
@@ -233,7 +297,50 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
   },
   row: {flexDirection: 'row'},
-  noLocations: {fontSize: 14, color: '#FF3B30', fontStyle: 'italic'},
+  // Location loading
+  locationLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+  },
+  locationLoadingText: {fontSize: 14, color: '#8E8E93'},
+  // No-location empty state
+  noLocationCard: {
+    backgroundColor: '#FFF9F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FBBF24',
+    padding: 16,
+  },
+  noLocationTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  noLocationBody: {
+    fontSize: 14,
+    color: '#78350F',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  noLocationButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F59E0B',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  noLocationButtonText: {fontSize: 14, fontWeight: '600', color: '#FFF'},
+  // Location hint (single location)
+  locationHint: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  // Location rows
   locationOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -254,6 +361,7 @@ const styles = StyleSheet.create({
     borderColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
   locationRadioDot: {
     width: 8,
@@ -261,14 +369,26 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#007AFF',
   },
+  locationTextWrap: {flex: 1},
   locationName: {fontSize: 15, fontWeight: '600', color: '#1C1C1E'},
+  locationNameSelected: {color: '#0059C7'},
   locationAddress: {fontSize: 12, color: '#8E8E93', marginTop: 2},
+  locationCheck: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#007AFF',
+    flexShrink: 0,
+  },
+  // Submit
   submitButton: {
     backgroundColor: '#007AFF',
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#AEAEB2',
   },
   submitButtonText: {color: '#FFF', fontSize: 17, fontWeight: '700'},
 });

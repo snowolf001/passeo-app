@@ -213,7 +213,9 @@ export default function BackfillSessionsScreen({navigation}: Props) {
           });
         }}>
         <View style={styles.row}>
-          <Text style={styles.title}>{session.title}</Text>
+          <Text style={styles.title}>
+            {session.title ?? session.locationName ?? 'Session'}
+          </Text>
 
           <View
             style={[

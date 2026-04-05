@@ -169,7 +169,9 @@ export default function SessionsScreen({navigation}: Props) {
           navigation.navigate('SessionDetail', {sessionId: item.id})
         }>
         <View style={styles.cardTop}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
+          <Text style={styles.cardTitle}>
+            {item.title ?? item.locationName ?? 'Session'}
+          </Text>
           {badge && (
             <View
               style={[
@@ -256,7 +258,9 @@ export default function SessionsScreen({navigation}: Props) {
                   {highlightedSession.title}
                 </Text>
                 <Text style={styles.highlightTitle}>
-                  {highlightedSession.session.title}
+                  {highlightedSession.session.title ??
+                    highlightedSession.session.locationName ??
+                    'Session'}
                 </Text>
                 <Text style={styles.highlightSubtitle}>
                   {highlightedSession.subtitle}

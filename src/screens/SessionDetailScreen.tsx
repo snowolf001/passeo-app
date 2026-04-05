@@ -437,7 +437,12 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     return (
       <>
         <View style={styles.infoBlock}>
-          <Text style={styles.sessionTitle}>{session.title}</Text>
+          <Text style={styles.sessionTitle}>
+            {session.title ?? session.locationName ?? 'Session'}
+          </Text>
+          {session.title != null && session.locationName != null && (
+            <Text style={styles.detailRow}>📍 {session.locationName}</Text>
+          )}
           <Text style={styles.detailRow}>
             ⏱ {formatDate(session.startTime)}
           </Text>
