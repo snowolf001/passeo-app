@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CreateSession'>;
 
 export default function CreateSessionScreen({navigation}: Props) {
   const {currentMembership} = useApp();
+  const isAdmin = ['admin', 'owner'].includes(currentMembership?.role ?? '');
+  const isHost = currentMembership?.role === 'host';
 
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(''); // format: YYYY-MM-DD
@@ -35,20 +37,33 @@ export default function CreateSessionScreen({navigation}: Props) {
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const loadLocations = useCallback(() => {
     if (!currentMembership) return;
     setLocationsLoading(true);
     getClubLocations(currentMembership.clubId)
       .then(locs => {
         setLocations(locs);
-        // Auto-select the only location (or first when multiple)
+        // Auto-select when exactly one location exists
         if (locs.length === 1) {
           setSelectedLocationId(locs[0].id);
+        } else if (locs.length === 0) {
+          setSelectedLocationId(null);
         }
       })
       .catch(() => {})
       .finally(() => setLocationsLoading(false));
   }, [currentMembership]);
+
+  // Load on mount
+  useEffect(() => {
+    loadLocations();
+  }, [loadLocations]);
+
+  // Reload when returning from ClubSettings (screen regains focus)
+  useEffect(() => {
+    const unsub = navigation.addListener('focus', loadLocations);
+    return unsub;
+  }, [navigation, loadLocations]);
 
   const buildISOString = (dateStr: string, timeStr: string): string | null => {
     if (!dateStr || !timeStr) return null;
@@ -126,20 +141,38 @@ export default function CreateSessionScreen({navigation}: Props) {
       return (
         <View style={styles.noLocationCard}>
           <Text style={styles.noLocationTitle}>No locations added yet</Text>
-          <Text style={styles.noLocationBody}>
-            A session needs a location. Add one in Club Settings first.
-          </Text>
-          <TouchableOpacity
-            style={styles.noLocationButton}
-            onPress={() => navigation.navigate('ClubSettings')}>
-            <Text style={styles.noLocationButtonText}>Go to Club Settings</Text>
-          </TouchableOpacity>
+          {isHost ? (
+            <Text style={styles.noLocationBody}>
+              You can't create a session yet because no locations have been
+              added. Please ask an admin to add one in Club Settings.
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.noLocationBody}>
+                A session needs a location. Add one in Club Settings first.
+              </Text>
+              <TouchableOpacity
+                style={styles.noLocationButton}
+                onPress={() => navigation.navigate('ClubSettings')}>
+                <Text style={styles.noLocationButtonText}>
+                  Go to Club Settings
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       );
     }
 
     return (
       <>
+        {isHost && (
+          <View style={styles.hostInfoBanner}>
+            <Text style={styles.hostInfoText}>
+              ℹ️ Only admins can add or remove locations.
+            </Text>
+          </View>
+        )}
         {locations.length === 1 && (
           <Text style={styles.locationHint}>
             Your club's location is preselected.
@@ -297,6 +330,20 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5EA',
   },
   row: {flexDirection: 'row'},
+  // Host info banner
+  hostInfoBanner: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    padding: 10,
+    marginBottom: 10,
+  },
+  hostInfoText: {
+    fontSize: 13,
+    color: '#1D4ED8',
+    lineHeight: 18,
+  },
   // Location loading
   locationLoadingRow: {
     flexDirection: 'row',

@@ -168,7 +168,9 @@ export default function ClubSettingsScreen({navigation}: Props) {
             <ActivityIndicator color="#007AFF" />
           ) : locations.length === 0 ? (
             <Text style={styles.emptyText}>
-              No locations yet. Add one below.
+              {isAdminOrOwner
+                ? 'No locations yet. Add one below.'
+                : 'No locations have been added yet.'}
             </Text>
           ) : (
             <FlatList
@@ -178,36 +180,43 @@ export default function ClubSettingsScreen({navigation}: Props) {
               scrollEnabled={false}
             />
           )}
+          {!isAdminOrOwner && (
+            <Text style={styles.hostNote}>
+              Only admins can add or edit locations.
+            </Text>
+          )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Add Location</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Location name (e.g. Main Studio)"
-            placeholderTextColor="#AEAEB2"
-            value={locationName}
-            onChangeText={setLocationName}
-          />
-          <TextInput
-            style={[styles.input, styles.inputMulti]}
-            placeholder="Full address"
-            placeholderTextColor="#AEAEB2"
-            value={locationAddress}
-            onChangeText={setLocationAddress}
-            multiline
-          />
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={handleAddLocation}
-            disabled={addingLocation}>
-            {addingLocation ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.addButtonText}>Add Location</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        {isAdminOrOwner && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Add Location</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Location name (e.g. Main Studio)"
+              placeholderTextColor="#AEAEB2"
+              value={locationName}
+              onChangeText={setLocationName}
+            />
+            <TextInput
+              style={[styles.input, styles.inputMulti]}
+              placeholder="Full address"
+              placeholderTextColor="#AEAEB2"
+              value={locationAddress}
+              onChangeText={setLocationAddress}
+              multiline
+            />
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={handleAddLocation}
+              disabled={addingLocation}>
+              {addingLocation ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.addButtonText}>Add Location</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
         {isAdminOrOwner && (
           <View style={styles.section}>
@@ -344,6 +353,12 @@ const styles = StyleSheet.create({
   locationName: {fontSize: 15, fontWeight: '600', color: '#1C1C1E'},
   locationAddress: {fontSize: 13, color: '#8E8E93', marginTop: 2},
   emptyText: {fontSize: 14, color: '#AEAEB2', fontStyle: 'italic'},
+  hostNote: {
+    fontSize: 13,
+    color: '#8E8E93',
+    fontStyle: 'italic',
+    marginTop: 8,
+  },
   input: {
     backgroundColor: '#F2F2F7',
     borderRadius: 10,

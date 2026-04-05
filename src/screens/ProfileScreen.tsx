@@ -21,6 +21,7 @@ export default function ProfileScreen({navigation}: Props) {
 
   const role = currentMembership.role;
   const isAdminOrOwner = ['admin', 'owner'].includes(role);
+  const canManageClub = ['host', 'admin', 'owner'].includes(role);
 
   const ROLE_LABELS: Record<string, string> = {
     member: 'Member',
@@ -131,7 +132,7 @@ export default function ProfileScreen({navigation}: Props) {
         </View>
 
         {/* ===== ADMIN ===== */}
-        {isAdminOrOwner && (
+        {canManageClub && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Club Management</Text>
 
