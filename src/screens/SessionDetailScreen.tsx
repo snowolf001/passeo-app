@@ -26,6 +26,7 @@ import {
   getSessionAttendees,
   SessionAttendeesResponse,
 } from '../services/api/reportApi';
+import {exportSessionReportPdf} from '../services/reportPdfService';
 import {DEFAULT_CLUB_SETTINGS, CheckInMode} from '../types';
 import {attendanceService} from '../services/attendanceService';
 import {RootStackParamList} from '../navigation/types';
@@ -53,6 +54,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     useState<SessionAttendeesResponse | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const [showPeoplePicker, setShowPeoplePicker] = useState(false);
   const [peopleCount, setPeopleCount] = useState(1);
@@ -407,6 +409,23 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const ciBtn = selfCheckInButtonState();
   const helperText = getHelperText();
 
+  const handleExportSessionPdf = async () => {
+    if (!attendeesReport || exportingPdf) {
+      return;
+    }
+    setExportingPdf(true);
+    try {
+      await exportSessionReportPdf(
+        attendeesReport,
+        currentClub?.name ?? 'Club',
+      );
+    } catch (err: any) {
+      Alert.alert('Export Failed', err?.message ?? 'Could not generate PDF.');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const renderMemberRow = ({item}: {item: ApiCheckedInMember}) => {
     const isYou = currentMembership?.id === item.membershipId;
 
@@ -512,28 +531,51 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         {/* Rich attendee report for hosts/admins */}
         {canManualCheckIn ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Attendees
-              {attendeesReport
-                ? ` (${attendeesReport.summary.totalAttendees})`
-                : checkedInMembers.length > 0
-                ? ` (${checkedInMembers.length})`
-                : ''}
-            </Text>
+            <View style={styles.attendeesSectionHeader}>
+              <Text style={styles.sectionTitle}>
+                Attendees
+                {attendeesReport
+                  ? ` (${attendeesReport.summary.totalCheckIns})`
+                  : checkedInMembers.length > 0
+                  ? ` (${checkedInMembers.length})`
+                  : ''}
+              </Text>
+              {attendeesReport && (
+                <TouchableOpacity
+                  style={[
+                    styles.exportPdfBtn,
+                    exportingPdf && styles.exportPdfBtnDisabled,
+                  ]}
+                  onPress={handleExportSessionPdf}
+                  disabled={exportingPdf}>
+                  {exportingPdf ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={styles.exportPdfBtnText}>Export PDF</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
 
             {attendeesReport && (
               <View style={styles.summaryRow}>
                 <View style={styles.summaryCard}>
                   <Text style={styles.summaryValue}>
-                    {attendeesReport.summary.totalAttendees}
+                    {attendeesReport.summary.totalParticipation}
                   </Text>
-                  <Text style={styles.summaryLabel}>Total</Text>
+                  <Text style={styles.summaryLabel}>Total Participation</Text>
                 </View>
                 <View style={styles.summaryCard}>
                   <Text style={styles.summaryValue}>
-                    {attendeesReport.summary.totalCreditsUsed}
+                    {attendeesReport.summary.totalCheckIns}
                   </Text>
-                  <Text style={styles.summaryLabel}>Credits Used</Text>
+                  <Text style={styles.summaryLabel}>Check-ins</Text>
+                </View>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryValue}>
+                    {attendeesReport.summary.uniqueMembers}
+                  </Text>
+                  <Text style={styles.summaryLabel}>Unique Members</Text>
                 </View>
               </View>
             )}
@@ -859,6 +901,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1C1C1E',
     marginBottom: 12,
+  },
+  attendeesSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  exportPdfBtn: {
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 90,
+    alignItems: 'center',
+  },
+  exportPdfBtnDisabled: {
+    backgroundColor: '#A0C4FF',
+  },
+  exportPdfBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   checkInBtn: {
     borderRadius: 14,

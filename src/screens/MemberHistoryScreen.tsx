@@ -68,7 +68,7 @@ export default function MemberHistoryScreen({route}: Props) {
 
         <View style={styles.cardFooter}>
           <Text style={styles.footerText}>
-            {item.creditsUsed} credit{item.creditsUsed !== 1 ? 's' : ''} used
+            Participation: {item.creditsUsed}
           </Text>
           {item.checkedInByName && (
             <Text style={styles.footerText}>by {item.checkedInByName}</Text>
@@ -104,16 +104,16 @@ export default function MemberHistoryScreen({route}: Props) {
         <View style={styles.summaryBar}>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryValue}>
-              {data.summary.totalAttendances}
+              {data.summary.totalParticipation}
             </Text>
-            <Text style={styles.summaryLabel}>Sessions</Text>
+            <Text style={styles.summaryLabel}>Total Participation</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
             <Text style={styles.summaryValue}>
-              {data.summary.totalCreditsUsed}
+              {data.summary.totalAttendances}
             </Text>
-            <Text style={styles.summaryLabel}>Credits Used</Text>
+            <Text style={styles.summaryLabel}>Total Attendances</Text>
           </View>
         </View>
       )}

@@ -25,8 +25,9 @@ export type SessionAttendeesResponse = {
   };
   attendees: SessionAttendeeItem[];
   summary: {
-    totalAttendees: number;
-    totalCreditsUsed: number;
+    totalCheckIns: number;
+    totalParticipation: number;
+    uniqueMembers: number;
   };
 };
 
@@ -52,7 +53,7 @@ export type MemberHistoryResponse = {
   items: MemberHistoryItem[];
   summary: {
     totalAttendances: number;
-    totalCreditsUsed: number;
+    totalParticipation: number;
   };
 };
 
@@ -73,10 +74,10 @@ export type AttendanceReportItem = {
 export type AttendanceReportResponse = {
   items: AttendanceReportItem[];
   summary: {
-    totalAttendances: number;
-    totalCreditsUsed: number;
+    totalCheckIns: number;
+    totalParticipation: number;
     uniqueMembers: number;
-    uniqueSessions: number;
+    totalSessions: number;
   };
 };
 
@@ -100,8 +101,8 @@ export type SessionBreakdownItem = {
   locationName: string | null;
   startsAt: string;
   endsAt: string | null;
-  attendeeCount: number;
-  totalCreditsUsed: number;
+  totalCheckIns: number;
+  totalParticipation: number;
   attendees: SessionAttendeeItem[];
 };
 
@@ -109,9 +110,9 @@ export type SessionsBreakdownResponse = {
   sessions: SessionBreakdownItem[];
   summary: {
     totalSessions: number;
-    totalAttendances: number;
-    totalUniqueMembers: number;
-    totalCreditsUsed: number;
+    totalCheckIns: number;
+    uniqueMembers: number;
+    totalParticipation: number;
   };
 };
 

@@ -61,8 +61,8 @@ export default function JoinOrCreateClubScreen(_: Props) {
     } catch (err: any) {
       if (err?.code === 'POSSIBLE_EXISTING_MEMBER') {
         Alert.alert(
-          'Already in this club?',
-          'Looks like you may already be in this club. Please use your recovery code to restore your membership.',
+          'Name Already Taken',
+          'A member with this name already exists in this club.\n\n• If you joined before, use your recovery code to restore your membership.\n• If you lost your code, ask the host or admin to look it up for you.\n• Otherwise, try joining with a different name.',
           [{text: 'OK'}],
         );
       } else {

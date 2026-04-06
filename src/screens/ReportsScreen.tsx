@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {
+  Alert,
   View,
   Text,
   TouchableOpacity,
@@ -18,6 +19,7 @@ import {
   SessionsBreakdownResponse,
   SessionAttendeeItem,
 } from '../services/api/reportApi';
+import {exportSummaryReportPdf} from '../services/reportPdfService';
 import {formatDate} from '../utils/date';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Reports'>;
@@ -105,6 +107,7 @@ export default function ReportsScreen({navigation}: Props) {
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
     new Set(),
   );
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // Initial load
   useEffect(() => {
@@ -157,11 +160,32 @@ export default function ReportsScreen({navigation}: Props) {
     });
   };
 
+  const handleExportSummaryPdf = async () => {
+    if (!rangeData || exportingPdf) {
+      return;
+    }
+    setExportingPdf(true);
+    try {
+      await exportSummaryReportPdf(
+        rangeData,
+        currentClub?.name ?? 'Club',
+        startDate,
+        endDate,
+      );
+    } catch (err: any) {
+      Alert.alert('Export Failed', err?.message ?? 'Could not generate PDF.');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const renderAttendeeRow = (attendee: SessionAttendeeItem) => (
     <View key={attendee.attendanceId} style={styles.attendeeRow}>
       <Text style={styles.attendeeName}>{attendee.memberName}</Text>
       <View style={styles.attendeeRight}>
-        <Text style={styles.attendeeCredits}>{attendee.creditsUsed} cr</Text>
+        <Text style={styles.attendeeCredits}>
+          Participation: {attendee.creditsUsed}
+        </Text>
         <View
           style={[
             styles.typeBadge,
@@ -192,8 +216,8 @@ export default function ReportsScreen({navigation}: Props) {
             </Text>
           </View>
           <View style={styles.sessionHeaderRight}>
-            <Text style={styles.sessionCount}>{session.attendeeCount}</Text>
-            <Text style={styles.sessionCountLabel}>members</Text>
+            <Text style={styles.sessionCount}>{session.totalCheckIns}</Text>
+            <Text style={styles.sessionCountLabel}>check-ins</Text>
             <Text style={styles.chevron}>{isExpanded ? '▲' : '▼'}</Text>
           </View>
         </TouchableOpacity>
@@ -281,9 +305,9 @@ export default function ReportsScreen({navigation}: Props) {
                 </View>
                 <View style={styles.lastSessionBadge}>
                   <Text style={styles.lastSessionBadgeNum}>
-                    {lastSession.attendeeCount}
+                    {lastSession.totalCheckIns}
                   </Text>
-                  <Text style={styles.lastSessionBadgeLbl}>attended</Text>
+                  <Text style={styles.lastSessionBadgeLbl}>check-ins</Text>
                 </View>
               </View>
               <TouchableOpacity
@@ -373,27 +397,46 @@ export default function ReportsScreen({navigation}: Props) {
                 <Text style={styles.summaryValue}>
                   {rangeData.summary.totalSessions}
                 </Text>
-                <Text style={styles.summaryLabel}>Sessions</Text>
+                <Text style={styles.summaryLabel}>Total Sessions</Text>
               </View>
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryValue}>
-                  {rangeData.summary.totalUniqueMembers}
+                  {rangeData.summary.uniqueMembers}
                 </Text>
-                <Text style={styles.summaryLabel}>Members</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>
-                  {rangeData.summary.totalAttendances}
-                </Text>
-                <Text style={styles.summaryLabel}>Check-ins</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>
-                  {rangeData.summary.totalCreditsUsed}
-                </Text>
-                <Text style={styles.summaryLabel}>Credits</Text>
+                <Text style={styles.summaryLabel}>Unique Members</Text>
               </View>
             </View>
+            <View style={styles.summaryPrimaryCard}>
+              <Text style={styles.summaryPrimaryValue}>
+                {rangeData.summary.totalParticipation}
+              </Text>
+              <Text style={styles.summaryPrimaryLabel}>
+                Total Participation
+              </Text>
+            </View>
+            <View style={styles.summaryGrid}>
+              <View style={[styles.summaryCard, {width: '100%'}]}>
+                <Text style={styles.summaryValue}>
+                  {rangeData.summary.totalCheckIns}
+                </Text>
+                <Text style={styles.summaryLabel}>Total Check-ins</Text>
+              </View>
+            </View>
+
+            {/* Export PDF */}
+            <TouchableOpacity
+              style={[
+                styles.exportPdfBtn,
+                exportingPdf && styles.exportPdfBtnDisabled,
+              ]}
+              onPress={handleExportSummaryPdf}
+              disabled={exportingPdf}>
+              {exportingPdf ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.exportPdfBtnText}>⬇ Export PDF</Text>
+              )}
+            </TouchableOpacity>
 
             {/* Per-session breakdown */}
             <View style={styles.section}>
@@ -596,6 +639,32 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontWeight: '600',
   },
+  summaryPrimaryCard: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 10,
+    shadowColor: '#007AFF',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  summaryPrimaryValue: {
+    fontSize: 40,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 44,
+  },
+  summaryPrimaryLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 4,
+    textTransform: 'uppercase',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
   // Session cards
   sessionCard: {
     borderRadius: 10,
@@ -625,4 +694,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   emptyText: {fontSize: 14, color: '#8E8E93', paddingVertical: 6},
+  exportPdfBtn: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  exportPdfBtnDisabled: {backgroundColor: '#A0C4FF'},
+  exportPdfBtnText: {color: '#FFF', fontSize: 15, fontWeight: '700'},
 });
