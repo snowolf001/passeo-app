@@ -1,5 +1,5 @@
 // src/services/reportPdfService.ts
-// Generates text-based report PDFs using the existing PdfBuilder infrastructure.
+// Generates session and summary report PDFs using the existing PdfBuilder infrastructure.
 
 import {PDFDocument, rgb} from 'pdf-lib';
 import {Buffer} from 'buffer';
@@ -8,14 +8,7 @@ import RNFS from 'react-native-fs';
 import RNBlobUtil from 'react-native-blob-util';
 
 import {BRANDING} from '../config/branding';
-import {
-  PdfBuilder,
-  PAGE_MARGIN,
-  COLOR_BLACK,
-  COLOR_DARK_GRAY,
-  COLOR_GRAY,
-  FONT_SIZE_BODY,
-} from './pdf/PdfBuilder';
+import {PdfBuilder, PAGE_MARGIN} from './pdf/PdfBuilder';
 import type {
   SessionAttendeesResponse,
   SessionAttendeeItem,
@@ -47,50 +40,121 @@ function formatDateShort(iso: string): string {
   }
 }
 
-// ─── Layout constants — Pro Report ─────────────────────────────────────────────
+function formatDateLong(): string {
+  return new Date().toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 
-const REPORT_GAP = 26; // spacing between major sections
+function shortDateLabel(isoDate: string): string {
+  try {
+    const [yr, mo, dy] = isoDate.split('-').map(Number);
+    return new Date(yr, mo - 1, dy).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return isoDate.slice(5);
+  }
+}
 
-// Header typography
-const HEADER_BRAND_SIZE = 8; // brand label (small, muted)
-const HEADER_TITLE_SIZE = 24; // report title — primary document identity
-const HEADER_SUBTITLE_SIZE = 15; // club name — medium emphasis
-const HEADER_META_SIZE = 11; // period range — smaller, muted
+// ─── Layout constants ────────────────────────────────────────────────────────
 
-// Hero KPI card — Total Participation (primary business metric)
-const HERO_CARD_H = 100;
-const HERO_VALUE_SIZE = 38;
-const HERO_LABEL_SIZE = 12;
-const HERO_BG = rgb(0.08, 0.08, 0.1); // near-black — premium, print-safe
-const HERO_VALUE_COLOR = rgb(1, 1, 1); // white
-const HERO_LABEL_COLOR = rgb(0.72, 0.72, 0.74); // muted silver
+const REPORT_GAP = 22;
+const SECTION_GAP = 12;
 
-// Secondary KPI cards — Sessions / Check-ins / Unique Members
-const SEC_CARD_H = 74;
-const SEC_CARD_GAP = 10;
-const SEC_VALUE_SIZE = 22;
-const SEC_LABEL_SIZE = 9;
-const SEC_BG = rgb(0.96, 0.96, 0.96);
-const SEC_BORDER_COLOR = rgb(0.82, 0.82, 0.82);
-const SEC_BORDER_W = 0.6;
+// Typography
+const T_TITLE = 22;
+const T_SUBTITLE = 13;
+const T_META = 9;
+const T_HERO_VALUE = 48;
+const T_HERO_LABEL = 11;
+const T_TREND = 9;
+const T_METRIC_VAL = 22;
+const T_METRIC_LBL = 9;
+const T_SECTION = 11;
+const T_TH = 8;
+const T_BODY = 10;
+const T_SMALL = 8;
 
-// Section title strip
-const SECTION_TITLE_SIZE = 13;
-const SECTION_STRIP_H = 30;
-const SECTION_STRIP_BG = rgb(0.94, 0.94, 0.94);
+// Palette
+const C_INK = rgb(0.067, 0.067, 0.067); // #111111
+const C_SECONDARY = rgb(0.4, 0.4, 0.4); // #666666
+const C_MUTED = rgb(0.6, 0.6, 0.6); // #999999
+const C_DIVIDER = rgb(0.898, 0.898, 0.898); // #E5E5E5
+const C_BORDER = rgb(0.898, 0.906, 0.922); // #E5E7EB
+const C_LIGHT_BG = rgb(0.973, 0.98, 0.988); // #F8FAFC
+const C_SECTION_BG = rgb(0.984, 0.988, 0.992);
+const C_TH_BG = rgb(0.98, 0.98, 0.98); // #FAFAFA
+const C_STRIPE = rgb(0.992, 0.992, 0.992);
+const C_ROW_LINE = rgb(0.933, 0.933, 0.933);
+const C_HERO_BG = rgb(0.937, 0.965, 1.0); // #EFF6FF
+const C_HERO_BORDER = rgb(0.824, 0.886, 0.973);
+const C_CARD_BG = rgb(1, 1, 1);
+const C_CHART_LINE = rgb(0.231, 0.51, 0.965); // #3B82F6
 
 // Table
-const TABLE_TH_H = 28;
-const TABLE_TH_SIZE = 9;
-const TABLE_TH_BG = rgb(0.1, 0.1, 0.12);
-const TABLE_ROW_H = 23;
-const TABLE_ROW_STRIPE = rgb(0.965, 0.965, 0.97);
-const TABLE_ROW_DIVIDER = rgb(0.9, 0.9, 0.9);
+const TABLE_TH_H = 24;
+const TABLE_ROW_H = 26;
 
-// Generated-on footer line
-const GENERATED_SIZE = 8;
+// Chart
+const CHART_HEIGHT = 108;
+const CHART_HPAD = 10;
+const CHART_Y_AXIS_W = 26;
+const CHART_X_AXIS_H = 20;
+const CHART_DOT_R = 3;
 
-// ─── PDF drawing helpers ──────────────────────────────────────────────────────
+// Section shell
+const SECTION_TITLE_H = 24;
+const SECTION_INNER_PAD_X = 10;
+const SECTION_INNER_PAD_BOTTOM = 10;
+
+// ─── types ───────────────────────────────────────────────────────────────────
+
+type SummaryItem = {
+  label: string;
+  value: string;
+  trend?: string;
+};
+
+type Col = {
+  header: string;
+  widthFraction: number;
+  align?: 'left' | 'right';
+  bold?: boolean;
+};
+
+type TrendPoint = {
+  date: string;
+  participation: number;
+};
+
+// ─── PDF drawing helpers ─────────────────────────────────────────────────────
+
+function drawBox(
+  b: PdfBuilder,
+  x: number,
+  yTop: number,
+  width: number,
+  height: number,
+  options: {
+    background: ReturnType<typeof rgb>;
+    borderColor?: ReturnType<typeof rgb>;
+    borderWidth?: number;
+  },
+) {
+  b.currentPage.drawRectangle({
+    x,
+    y: yTop - height,
+    width,
+    height,
+    color: options.background,
+    borderColor: options.borderColor,
+    borderWidth: options.borderWidth ?? 0,
+  });
+}
 
 function drawHeader(
   b: PdfBuilder,
@@ -98,320 +162,553 @@ function drawHeader(
   subtitle: string,
   meta: string,
 ) {
-  // Thin top accent rule — anchors the content block at the page top
-  b.drawDivider(b.y + 2, 2.5, COLOR_BLACK);
-  b.moveDown(18);
+  b.moveDown(8);
 
-  // Brand label — small, muted, presented in uppercase for visual distinction
-  b.drawTextSafe(BRANDING.appDisplayName.toUpperCase(), {
-    x: PAGE_MARGIN,
-    y: b.y,
-    size: HEADER_BRAND_SIZE,
-    color: COLOR_GRAY,
-    fontType: 'regular',
-    kind: 'body',
-  });
-  b.moveDown(18);
-
-  // Report title — the document's primary identity, large and bold
+  const titleY = b.y;
   b.drawTextSafe(title, {
     x: PAGE_MARGIN,
-    y: b.y,
-    size: HEADER_TITLE_SIZE,
-    color: COLOR_BLACK,
+    y: titleY,
+    size: T_TITLE,
+    color: C_INK,
     fontType: 'bold',
     kind: 'title',
   });
-  b.moveDown(26);
 
-  // Club name — medium emphasis, bold to distinguish from meta below
+  const genText = `Generated on ${formatDateLong()}`;
+  const genW = b.fontAscii.widthOfTextAtSize(genText, T_META);
+  b.drawTextSafe(genText, {
+    x: b.width - PAGE_MARGIN - genW,
+    y: titleY,
+    size: T_META,
+    color: C_SECONDARY,
+    fontType: 'regular',
+    kind: 'body',
+  });
+
+  b.moveDown(24);
+
   if (subtitle) {
     b.drawTextSafe(subtitle, {
       x: PAGE_MARGIN,
       y: b.y,
-      size: HEADER_SUBTITLE_SIZE,
-      color: COLOR_DARK_GRAY,
+      size: T_SUBTITLE,
+      color: C_INK,
       fontType: 'bold',
+      kind: 'body',
+    });
+    b.moveDown(14);
+  }
+
+  if (meta) {
+    b.drawTextSafe(meta, {
+      x: PAGE_MARGIN,
+      y: b.y,
+      size: T_META,
+      color: C_SECONDARY,
+      fontType: 'regular',
       kind: 'body',
     });
     b.moveDown(16);
   }
 
-  // Period / date range — smaller and muted
-  if (meta) {
-    b.drawTextSafe(meta, {
-      x: PAGE_MARGIN,
-      y: b.y,
-      size: HEADER_META_SIZE,
-      color: COLOR_GRAY,
-      fontType: 'regular',
-      kind: 'body',
-    });
-    b.moveDown(20);
-  }
-
-  // Strong divider — visual break between header identity and KPI section
-  b.drawDivider(b.y, 1.8, COLOR_BLACK);
+  b.drawDivider(b.y, 0.5, C_DIVIDER);
   b.moveDown(REPORT_GAP);
 }
 
-type SummaryItem = {label: string; value: string};
-
-/**
- * Draws the Pro KPI section in a two-tier hero layout:
- *
- *   ┌──────────────────────────────────────┐
- *   │         6  ← large bold white        │  hero card — dark, full width
- *   │   Total Participation                │
- *   └──────────────────────────────────────┘
- *   ┌──────────┐  ┌──────────┐  ┌──────────┐
- *   │    11    │  │    5     │  │    3     │  secondary cards — light, bordered
- *   │ Sessions │  │Check-ins │  │ Unique   │
- *   └──────────┘  └──────────┘  └──────────┘
- *
- * heroItem      — Total Participation: the primary business KPI.
- *                 Full-width near-black card, white bold value, max visual weight.
- * secondaryItems — supporting KPIs: equal-width bordered cards, lighter styling.
- */
-function drawHeroKpiSection(
-  b: PdfBuilder,
-  heroItem: SummaryItem,
-  secondaryItems: SummaryItem[],
-) {
+function drawHeroMetric(b: PdfBuilder, item: SummaryItem) {
   const contentWidth = b.width - PAGE_MARGIN * 2;
+  const cardH = item.trend ? 96 : 82;
 
-  // ── Hero card ──────────────────────────────────────────────────────────────
-  b.checkPageBreak(HERO_CARD_H + 16);
-  const heroTopY = b.y;
+  b.checkPageBreak(cardH + 12);
 
-  b.currentPage.drawRectangle({
-    x: PAGE_MARGIN,
-    y: heroTopY - HERO_CARD_H,
-    width: contentWidth,
-    height: HERO_CARD_H,
-    color: HERO_BG,
-    borderWidth: 0,
+  const topY = b.y;
+
+  drawBox(b, PAGE_MARGIN, topY, contentWidth, cardH, {
+    background: C_HERO_BG,
+    borderColor: C_HERO_BORDER,
+    borderWidth: 0.6,
   });
 
-  // Large value — horizontally centred; baseline at ~44pt from card top
-  const heroValFont = b.pickFontForText(heroItem.value, 'bold');
-  const heroValW = heroValFont.widthOfTextAtSize(
-    heroItem.value,
-    HERO_VALUE_SIZE,
-  );
-  b.drawTextSafe(heroItem.value, {
-    x: PAGE_MARGIN + (contentWidth - heroValW) / 2,
-    y: heroTopY - 44,
-    size: HERO_VALUE_SIZE,
-    color: HERO_VALUE_COLOR,
+  const valFont = b.pickFontForText(item.value, 'bold');
+  const valW = valFont.widthOfTextAtSize(item.value, T_HERO_VALUE);
+  b.drawTextSafe(item.value, {
+    x: PAGE_MARGIN + (contentWidth - valW) / 2,
+    y: topY - 42,
+    size: T_HERO_VALUE,
+    color: C_INK,
     fontType: 'bold',
     kind: 'body',
   });
 
-  // Label — centred below value; baseline at ~72pt from card top
-  const heroLblFont = b.pickFontForText(heroItem.label, 'bold');
-  const heroLblW = heroLblFont.widthOfTextAtSize(
-    heroItem.label,
-    HERO_LABEL_SIZE,
-  );
-  b.drawTextSafe(heroItem.label, {
-    x: PAGE_MARGIN + (contentWidth - heroLblW) / 2,
-    y: heroTopY - 72,
-    size: HERO_LABEL_SIZE,
-    color: HERO_LABEL_COLOR,
-    fontType: 'bold',
+  const labelFont = b.pickFontForText(item.label, 'regular');
+  const labelW = labelFont.widthOfTextAtSize(item.label, T_HERO_LABEL);
+  b.drawTextSafe(item.label, {
+    x: PAGE_MARGIN + (contentWidth - labelW) / 2,
+    y: topY - 60,
+    size: T_HERO_LABEL,
+    color: C_SECONDARY,
+    fontType: 'regular',
     kind: 'body',
   });
 
-  b.moveDown(HERO_CARD_H + 10);
+  if (item.trend) {
+    const trendFont = b.pickFontForText(item.trend, 'regular');
+    const trendW = trendFont.widthOfTextAtSize(item.trend, T_TREND);
+    b.drawTextSafe(item.trend, {
+      x: PAGE_MARGIN + (contentWidth - trendW) / 2,
+      y: topY - 76,
+      size: T_TREND,
+      color: C_SECONDARY,
+      fontType: 'regular',
+      kind: 'body',
+    });
+  }
 
-  // ── Secondary cards ────────────────────────────────────────────────────────
-  if (!secondaryItems.length) {
-    b.moveDown(REPORT_GAP);
+  b.moveDown(cardH + 16);
+}
+
+function drawSummaryMetricsRow(b: PdfBuilder, items: SummaryItem[]) {
+  if (!items.length) {
     return;
   }
 
-  const count = secondaryItems.length;
-  const colW = (contentWidth - (count - 1) * SEC_CARD_GAP) / count;
-  b.checkPageBreak(SEC_CARD_H + 16);
-  const secTopY = b.y;
+  const contentWidth = b.width - PAGE_MARGIN * 2;
+  const gap = 10;
+  const cardH = 68;
+  const totalGaps = gap * (items.length - 1);
+  const cardW = (contentWidth - totalGaps) / items.length;
 
-  secondaryItems.forEach((item, i) => {
-    const cardX = PAGE_MARGIN + i * (colW + SEC_CARD_GAP);
+  b.checkPageBreak(cardH + 12);
 
-    // Light fill + thin border — clean, print-safe premium look
-    b.currentPage.drawRectangle({
-      x: cardX,
-      y: secTopY - SEC_CARD_H,
-      width: colW,
-      height: SEC_CARD_H,
-      color: SEC_BG,
-      borderColor: SEC_BORDER_COLOR,
-      borderWidth: SEC_BORDER_W,
+  const topY = b.y;
+
+  items.forEach((item, i) => {
+    const x = PAGE_MARGIN + i * (cardW + gap);
+
+    drawBox(b, x, topY, cardW, cardH, {
+      background: C_CARD_BG,
+      borderColor: C_BORDER,
+      borderWidth: 0.7,
     });
 
-    // Value — horizontally centred; baseline at ~28pt from card top
-    const valFont = b.pickFontForText(item.value, 'bold');
-    const valW = valFont.widthOfTextAtSize(item.value, SEC_VALUE_SIZE);
+    const valueFont = b.pickFontForText(item.value, 'bold');
+    const valueW = valueFont.widthOfTextAtSize(item.value, T_METRIC_VAL);
     b.drawTextSafe(item.value, {
-      x: cardX + (colW - valW) / 2,
-      y: secTopY - 28,
-      size: SEC_VALUE_SIZE,
-      color: COLOR_BLACK,
+      x: x + (cardW - valueW) / 2,
+      y: topY - 28,
+      size: T_METRIC_VAL,
+      color: C_INK,
       fontType: 'bold',
       kind: 'body',
     });
 
-    // Label — centred below value; baseline at ~54pt from card top
-    const lblFont = b.pickFontForText(item.label, 'regular');
-    const lblW = lblFont.widthOfTextAtSize(item.label, SEC_LABEL_SIZE);
+    const labelFont = b.pickFontForText(item.label, 'regular');
+    const labelW = labelFont.widthOfTextAtSize(item.label, T_METRIC_LBL);
     b.drawTextSafe(item.label, {
-      x: cardX + (colW - lblW) / 2,
-      y: secTopY - 54,
-      size: SEC_LABEL_SIZE,
-      color: COLOR_GRAY,
+      x: x + (cardW - labelW) / 2,
+      y: topY - 46,
+      size: T_METRIC_LBL,
+      color: C_SECONDARY,
       fontType: 'regular',
       kind: 'body',
     });
   });
 
-  b.moveDown(SEC_CARD_H + REPORT_GAP);
+  b.moveDown(cardH + 18);
 }
 
-/**
- * Draws a section title inside a light background strip.
- * Creates a clear visual band that separates the KPI area from the data table.
- */
-function drawSectionTitle(b: PdfBuilder, title: string) {
-  b.checkPageBreak(SECTION_STRIP_H + 10);
-  const contentWidth = b.width - PAGE_MARGIN * 2;
+function drawSectionHeaderOnly(b: PdfBuilder, title: string) {
+  const sectionX = PAGE_MARGIN;
+  const sectionW = b.width - PAGE_MARGIN * 2;
+  const shellH = SECTION_TITLE_H + 8;
+
+  b.checkPageBreak(shellH + 8);
+
+  const topY = b.y;
+
+  drawBox(b, sectionX, topY, sectionW, shellH, {
+    background: C_SECTION_BG,
+    borderColor: C_BORDER,
+    borderWidth: 0.5,
+  });
 
   b.currentPage.drawRectangle({
-    x: PAGE_MARGIN,
-    y: b.y - SECTION_STRIP_H,
-    width: contentWidth,
-    height: SECTION_STRIP_H,
-    color: SECTION_STRIP_BG,
+    x: sectionX,
+    y: topY - SECTION_TITLE_H,
+    width: sectionW,
+    height: SECTION_TITLE_H,
+    color: C_LIGHT_BG,
     borderWidth: 0,
   });
 
-  // Text vertically centred in strip — baseline ~10pt from strip top
   b.drawTextSafe(title, {
-    x: PAGE_MARGIN + 8,
-    y: b.y - 10,
-    size: SECTION_TITLE_SIZE,
-    color: COLOR_BLACK,
+    x: sectionX + 12,
+    y: topY - 16,
+    size: T_SECTION,
+    color: C_INK,
     fontType: 'bold',
     kind: 'title',
   });
 
-  b.moveDown(SECTION_STRIP_H + 8);
+  b.drawDivider(topY - SECTION_TITLE_H, 0.3, C_DIVIDER);
+  b.moveDown(shellH + SECTION_GAP);
 }
 
-type Col = {header: string; widthFraction: number; align?: 'left' | 'right'};
-
-function drawTableHeader(b: PdfBuilder, cols: Col[]) {
-  b.checkPageBreak(TABLE_TH_H + 4);
-  const contentWidth = b.width - PAGE_MARGIN * 2;
-
-  // Near-black header — high contrast, white text for premium table look
+function drawTableHeader(
+  b: PdfBuilder,
+  cols: Col[],
+  x: number,
+  yTop: number,
+  width: number,
+) {
   b.currentPage.drawRectangle({
-    x: PAGE_MARGIN,
-    y: b.y - TABLE_TH_H + 4,
-    width: contentWidth,
+    x,
+    y: yTop - TABLE_TH_H,
+    width,
     height: TABLE_TH_H,
-    color: TABLE_TH_BG,
+    color: C_TH_BG,
     borderWidth: 0,
   });
 
-  let x = PAGE_MARGIN + 8;
+  let colX = x + 8;
   for (const col of cols) {
-    const colW = contentWidth * col.widthFraction;
+    const colW = width * col.widthFraction;
     const headerText = col.header.toUpperCase();
+    const textW = b.fontAscii.widthOfTextAtSize(headerText, T_TH);
+
     b.drawTextSafe(headerText, {
-      x:
-        col.align === 'right'
-          ? x +
-            colW -
-            12 -
-            b.fontAscii.widthOfTextAtSize(headerText, TABLE_TH_SIZE)
-          : x,
-      y: b.y - TABLE_TH_H + 10,
-      size: TABLE_TH_SIZE,
-      color: rgb(1, 1, 1),
+      x: col.align === 'right' ? colX + colW - 12 - textW : colX,
+      y: yTop - TABLE_TH_H + 8,
+      size: T_TH,
+      color: C_SECONDARY,
       fontType: 'bold',
       kind: 'title',
     });
-    x += colW;
+
+    colX += colW;
   }
-  b.moveDown(TABLE_TH_H + 2);
 }
 
-function drawTableRow(
+function drawTableRowAt(
   b: PdfBuilder,
   cols: Col[],
   cells: string[],
   rowIndex: number,
+  x: number,
+  yTop: number,
+  width: number,
 ) {
-  const contentWidth = b.width - PAGE_MARGIN * 2;
-  const neededH = TABLE_ROW_H + 4;
-  b.checkPageBreak(neededH);
-
-  // Stripe even rows (0, 2, 4…) — very subtle, doesn't overpower content
   if (rowIndex % 2 === 0) {
     b.currentPage.drawRectangle({
-      x: PAGE_MARGIN,
-      y: b.y - neededH + 4,
-      width: contentWidth,
-      height: neededH,
-      color: TABLE_ROW_STRIPE,
+      x,
+      y: yTop - TABLE_ROW_H,
+      width,
+      height: TABLE_ROW_H,
+      color: C_STRIPE,
       borderWidth: 0,
     });
   }
 
-  let x = PAGE_MARGIN + 8;
+  let colX = x + 8;
   for (let i = 0; i < cols.length; i++) {
     const col = cols[i];
-    const colW = contentWidth * col.widthFraction;
+    const colW = width * col.widthFraction;
     const text = cells[i] ?? '';
-    const truncated = text.length > 40 ? text.slice(0, 38) + '…' : text;
+    const truncated = text.length > 40 ? `${text.slice(0, 38)}…` : text;
+    const textW = b.fontAscii.widthOfTextAtSize(truncated, T_BODY);
+    const isBold = col.bold === true;
+
     b.drawTextSafe(truncated, {
-      x:
-        col.align === 'right'
-          ? x +
-            colW -
-            12 -
-            b.fontAscii.widthOfTextAtSize(truncated, FONT_SIZE_BODY)
-          : x,
-      y: b.y - TABLE_ROW_H + 3,
-      size: FONT_SIZE_BODY,
-      color: COLOR_DARK_GRAY,
+      x: col.align === 'right' ? colX + colW - 12 - textW : colX,
+      y: yTop - TABLE_ROW_H + 8,
+      size: T_BODY,
+      color: isBold ? C_INK : C_SECONDARY,
+      fontType: isBold ? 'bold' : 'regular',
+      kind: 'body',
+    });
+
+    colX += colW;
+  }
+
+  b.currentPage.drawLine({
+    start: {x, y: yTop - TABLE_ROW_H},
+    end: {x: x + width, y: yTop - TABLE_ROW_H},
+    thickness: 0.3,
+    color: C_ROW_LINE,
+  });
+}
+
+function buildTrendData(sessions: SessionBreakdownItem[]): TrendPoint[] {
+  const map = new Map<string, number>();
+
+  for (const s of sessions) {
+    const d = s.startsAt.slice(0, 10);
+    map.set(d, (map.get(d) ?? 0) + s.totalParticipation);
+  }
+
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, participation]) => ({date, participation}));
+}
+
+function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
+  if (!trendData.length) {
+    return;
+  }
+
+  const contentWidth = b.width - PAGE_MARGIN * 2;
+  const chartShellH =
+    SECTION_TITLE_H +
+    8 +
+    8 +
+    (CHART_HEIGHT + 22 + CHART_X_AXIS_H) +
+    SECTION_INNER_PAD_BOTTOM;
+
+  b.checkPageBreak(chartShellH + 12);
+
+  const shellX = PAGE_MARGIN;
+  const shellW = contentWidth;
+  const topY = b.y;
+
+  drawBox(b, shellX, topY, shellW, chartShellH, {
+    background: C_SECTION_BG,
+    borderColor: C_BORDER,
+    borderWidth: 0.5,
+  });
+
+  b.currentPage.drawRectangle({
+    x: shellX,
+    y: topY - SECTION_TITLE_H,
+    width: shellW,
+    height: SECTION_TITLE_H,
+    color: C_LIGHT_BG,
+    borderWidth: 0,
+  });
+
+  b.drawTextSafe('Participation Trend', {
+    x: shellX + 12,
+    y: topY - 16,
+    size: T_SECTION,
+    color: C_INK,
+    fontType: 'bold',
+    kind: 'title',
+  });
+
+  b.drawDivider(topY - SECTION_TITLE_H, 0.3, C_DIVIDER);
+
+  const chartX = shellX + SECTION_INNER_PAD_X;
+  const chartYTop = topY - SECTION_TITLE_H - 8;
+  const chartW = shellW - SECTION_INNER_PAD_X * 2;
+  const chartH = CHART_HEIGHT + 22 + CHART_X_AXIS_H;
+
+  b.currentPage.drawRectangle({
+    x: chartX,
+    y: chartYTop - chartH,
+    width: chartW,
+    height: chartH,
+    color: rgb(1, 1, 1),
+    borderColor: C_DIVIDER,
+    borderWidth: 0.3,
+  });
+
+  const outerX = chartX + CHART_HPAD;
+  const outerW = chartW - CHART_HPAD * 2;
+  const plotLeft = outerX + CHART_Y_AXIS_W;
+  const plotRight = outerX + outerW - 4;
+  const plotTop = chartYTop - 14;
+  const plotBottom = plotTop - CHART_HEIGHT;
+  const plotW = plotRight - plotLeft;
+  const plotH = plotTop - plotBottom;
+
+  const maxVal = Math.max(...trendData.map(p => p.participation), 1);
+
+  [0.25, 0.5, 0.75, 1].forEach(frac => {
+    const gy = plotBottom + frac * plotH;
+    b.currentPage.drawLine({
+      start: {x: plotLeft, y: gy},
+      end: {x: plotRight, y: gy},
+      thickness: 0.3,
+      color: C_DIVIDER,
+    });
+
+    const labelVal = Math.round(frac * maxVal);
+    const label = String(labelVal);
+    const lw = b.fontAscii.widthOfTextAtSize(label, 7);
+
+    b.drawTextSafe(label, {
+      x: plotLeft - lw - 6,
+      y: gy - 3,
+      size: 7,
+      color: C_MUTED,
       fontType: 'regular',
       kind: 'body',
     });
-    x += colW;
+  });
+
+  b.currentPage.drawLine({
+    start: {x: plotLeft, y: plotBottom},
+    end: {x: plotLeft, y: plotTop},
+    thickness: 0.5,
+    color: rgb(0.78, 0.78, 0.78),
+  });
+
+  b.currentPage.drawLine({
+    start: {x: plotLeft, y: plotBottom},
+    end: {x: plotRight, y: plotBottom},
+    thickness: 0.5,
+    color: rgb(0.78, 0.78, 0.78),
+  });
+
+  const n = trendData.length;
+  const pts = trendData.map((p, i) => ({
+    x: n === 1 ? plotLeft + plotW / 2 : plotLeft + (i / (n - 1)) * plotW,
+    y: plotBottom + (maxVal === 0 ? 0 : (p.participation / maxVal) * plotH),
+  }));
+
+  if (pts.length >= 2) {
+    for (let i = 1; i < pts.length; i++) {
+      b.currentPage.drawLine({
+        start: {x: pts[i - 1].x, y: pts[i - 1].y},
+        end: {x: pts[i].x, y: pts[i].y},
+        thickness: 2.2,
+        color: C_CHART_LINE,
+      });
+    }
   }
 
-  b.drawDivider(b.y - neededH + 4, 0.3, TABLE_ROW_DIVIDER);
-  b.moveDown(neededH);
+  const peakIdx = trendData.reduce(
+    (mi, p, i, arr) => (p.participation > arr[mi].participation ? i : mi),
+    0,
+  );
+
+  pts.forEach((pt, i) => {
+    const isPeak = i === peakIdx;
+    const r = isPeak ? CHART_DOT_R + 2 : CHART_DOT_R;
+
+    if (isPeak) {
+      b.currentPage.drawEllipse({
+        x: pt.x,
+        y: pt.y,
+        xScale: r,
+        yScale: r,
+        color: C_CHART_LINE,
+        borderWidth: 0,
+      });
+
+      const peakLabel = String(trendData[i].participation);
+      const plw = b.fontAscii.widthOfTextAtSize(peakLabel, 7);
+      b.drawTextSafe(peakLabel, {
+        x: pt.x - plw / 2,
+        y: pt.y + r + 5,
+        size: 7,
+        color: C_CHART_LINE,
+        fontType: 'bold',
+        kind: 'body',
+      });
+    } else {
+      b.currentPage.drawEllipse({
+        x: pt.x,
+        y: pt.y,
+        xScale: r,
+        yScale: r,
+        color: rgb(1, 1, 1),
+        borderColor: C_CHART_LINE,
+        borderWidth: 1.2,
+      });
+    }
+  });
+
+  const maxLabels = 8;
+  const step = n <= maxLabels ? 1 : Math.ceil(n / maxLabels);
+
+  trendData.forEach((p, i) => {
+    if (i % step !== 0 && i !== n - 1) {
+      return;
+    }
+
+    const label = shortDateLabel(p.date);
+    const lw = b.fontAscii.widthOfTextAtSize(label, 7);
+    b.drawTextSafe(label, {
+      x: pts[i].x - lw / 2,
+      y: plotBottom - CHART_X_AXIS_H + 6,
+      size: 7,
+      color: C_MUTED,
+      fontType: 'regular',
+      kind: 'body',
+    });
+
+    b.currentPage.drawLine({
+      start: {x: pts[i].x, y: plotBottom},
+      end: {x: pts[i].x, y: plotBottom - 3},
+      thickness: 0.4,
+      color: rgb(0.78, 0.78, 0.78),
+    });
+  });
+
+  b.moveDown(chartShellH + 18);
 }
 
-/** Appends a right-aligned "Generated on: ..." timestamp line. */
+function ensureSpaceOrNewPage(b: PdfBuilder, neededHeight: number): boolean {
+  const beforeY = b.y;
+  b.checkPageBreak(neededHeight);
+  return b.y > beforeY;
+}
+
+function drawPagedTableSection<T>(
+  b: PdfBuilder,
+  title: string,
+  rows: T[],
+  cols: Col[],
+  mapRow: (row: T) => string[],
+) {
+  const contentWidth = b.width - PAGE_MARGIN * 2;
+  const tableX = PAGE_MARGIN;
+  const tableW = contentWidth;
+  const headerBlockH = TABLE_TH_H + 2;
+  const rowBlockH = TABLE_ROW_H;
+  const continuationTopPadding = 8;
+
+  drawSectionHeaderOnly(b, title);
+
+  let rowIndex = 0;
+
+  const drawRepeatedTableHeader = () => {
+    drawTableHeader(b, cols, tableX, b.y, tableW);
+    b.moveDown(headerBlockH);
+  };
+
+  // first page/table header
+  ensureSpaceOrNewPage(b, headerBlockH + rowBlockH + 8);
+  drawRepeatedTableHeader();
+
+  for (const row of rows) {
+    const movedToNewPage = ensureSpaceOrNewPage(b, rowBlockH + 8);
+
+    if (movedToNewPage) {
+      b.moveDown(continuationTopPadding);
+      ensureSpaceOrNewPage(b, headerBlockH + rowBlockH + 8);
+      drawRepeatedTableHeader();
+    }
+
+    drawTableRowAt(b, cols, mapRow(row), rowIndex, tableX, b.y, tableW);
+    b.moveDown(rowBlockH);
+    rowIndex += 1;
+  }
+
+  b.moveDown(18);
+}
+
 function drawGeneratedLine(b: PdfBuilder) {
-  const text = `Generated on: ${new Date().toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })}`;
-  b.checkPageBreak(32);
-  b.moveDown(REPORT_GAP);
+  const text = `Generated on: ${formatDateLong()}`;
   const font = b.pickFontForText(text, 'regular');
-  const textW = font.widthOfTextAtSize(text, GENERATED_SIZE);
+  const textW = font.widthOfTextAtSize(text, T_SMALL);
+
+  b.checkPageBreak(24);
   b.drawTextSafe(text, {
     x: b.width - PAGE_MARGIN - textW,
     y: b.y,
-    size: GENERATED_SIZE,
-    color: COLOR_GRAY,
+    size: T_SMALL,
+    color: C_MUTED,
     fontType: 'regular',
     kind: 'body',
   });
@@ -429,14 +726,19 @@ async function writePdf(
   if (!pdfBytes || pdfBytes.length === 0) {
     throw new Error('PDF generation produced empty output.');
   }
+
   const base64 = Buffer.from(pdfBytes).toString('base64');
   if (!base64) {
     throw new Error('Failed to encode PDF as base64.');
   }
+
   await RNFS.writeFile(outputPath, base64, 'base64');
+
   console.log(`[PDF Export] ${label} written to:`, outputPath);
+
   const exists = await RNFS.exists(outputPath);
   console.log(`[PDF Export] ${label} file exists:`, exists);
+
   if (!exists) {
     throw new Error(`PDF file was not found after write: ${outputPath}`);
   }
@@ -446,9 +748,6 @@ async function openPdf(outputPath: string): Promise<void> {
   try {
     if (Platform.OS === 'android') {
       console.log('[PDF Export] opening via actionViewIntent (android)');
-      // Do NOT pass chooserTitle: Intent.createChooser() wraps the intent in a
-      // new Intent object that loses FLAG_ACTIVITY_NEW_TASK, which crashes when
-      // startActivity() is called from ReactApplicationContext.
       await RNBlobUtil.android.actionViewIntent(outputPath, 'application/pdf');
     } else {
       console.log('[PDF Export] opening via openDocument (ios)');
@@ -469,9 +768,6 @@ async function openPdf(outputPath: string): Promise<void> {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-/**
- * Generate and share a Session Attendee Report PDF.
- */
 export async function exportSessionReportPdf(
   data: SessionAttendeesResponse,
   clubName: string,
@@ -494,7 +790,6 @@ export async function exportSessionReportPdf(
   const sessionLabel =
     data.session.title ?? data.session.locationName ?? 'Session';
 
-  // Header
   drawHeader(
     b,
     'Session Report',
@@ -502,59 +797,48 @@ export async function exportSessionReportPdf(
     `Date: ${sessionDate}`,
   );
 
-  // Hero KPI (Total Participation) + 2 secondary cards
-  drawHeroKpiSection(
+  drawHeroMetric(b, {
+    label: 'Total Participation',
+    value: String(data.summary.totalParticipation),
+  });
+
+  drawSummaryMetricsRow(b, [
+    {label: 'Check-ins', value: String(data.summary.totalCheckIns)},
+    {label: 'Unique Members', value: String(data.summary.uniqueMembers)},
+  ]);
+
+  drawPagedTableSection<SessionAttendeeItem>(
     b,
-    {
-      label: 'Total Participation',
-      value: String(data.summary.totalParticipation),
-    },
+    'Attendees',
+    data.attendees,
     [
-      {label: 'Check-ins', value: String(data.summary.totalCheckIns)},
-      {label: 'Unique Members', value: String(data.summary.uniqueMembers)},
+      {header: 'Name', widthFraction: 0.4},
+      {header: 'Type', widthFraction: 0.15},
+      {header: 'Participation', widthFraction: 0.15, align: 'right'},
+      {header: 'Checked In', widthFraction: 0.3},
+    ],
+    att => [
+      att.memberName,
+      att.checkInType,
+      String(att.creditsUsed),
+      formatDateShort(att.checkedInAt),
     ],
   );
 
-  // Attendees table
-  drawSectionTitle(b, 'Attendees');
-
-  const attendeeCols: Col[] = [
-    {header: 'Name', widthFraction: 0.4},
-    {header: 'Type', widthFraction: 0.15},
-    {header: 'Participation', widthFraction: 0.15, align: 'right'},
-    {header: 'Checked In', widthFraction: 0.3},
-  ];
-  drawTableHeader(b, attendeeCols);
-
-  data.attendees.forEach((att: SessionAttendeeItem, i: number) => {
-    drawTableRow(
-      b,
-      attendeeCols,
-      [
-        att.memberName,
-        att.checkInType,
-        String(att.creditsUsed),
-        formatDateShort(att.checkedInAt),
-      ],
-      i,
-    );
-  });
-
   drawGeneratedLine(b);
+
   await b.addFooterToAllPages(`session-${data.session.id.slice(0, 8)}`);
 
   await writePdf(doc, outputPath, 'session report');
   await openPdf(outputPath);
 }
 
-/**
- * Generate and share a Summary (date-range) Report PDF.
- */
 export async function exportSummaryReportPdf(
   data: SessionsBreakdownResponse,
   clubName: string,
   startDate: string,
   endDate: string,
+  trend?: string,
 ): Promise<void> {
   await ensureReportsDir();
 
@@ -569,7 +853,6 @@ export async function exportSummaryReportPdf(
   b.registerFontkit();
   await b.init();
 
-  // Header
   drawHeader(
     b,
     'Attendance Summary',
@@ -577,46 +860,46 @@ export async function exportSummaryReportPdf(
     `Period: ${startDate} to ${endDate}`,
   );
 
-  // Hero KPI (Total Participation) + 3 secondary cards
-  drawHeroKpiSection(
+  drawHeroMetric(b, {
+    label: 'Total Participation',
+    value: String(data.summary.totalParticipation),
+    trend,
+  });
+
+  drawSummaryMetricsRow(b, [
+    {label: 'Unique Members', value: String(data.summary.uniqueMembers)},
+    {label: 'Check-ins', value: String(data.summary.totalCheckIns)},
+    {label: 'Sessions', value: String(data.summary.totalSessions)},
+  ]);
+
+  const trendData = buildTrendData(data.sessions);
+  drawTrendChartSection(b, trendData);
+
+  drawPagedTableSection<SessionBreakdownItem>(
     b,
-    {
-      label: 'Total Participation',
-      value: String(data.summary.totalParticipation),
-    },
+    'Session Breakdown',
+    data.sessions,
     [
-      {label: 'Sessions', value: String(data.summary.totalSessions)},
-      {label: 'Check-ins', value: String(data.summary.totalCheckIns)},
-      {label: 'Unique Members', value: String(data.summary.uniqueMembers)},
+      {header: 'Session', widthFraction: 0.4},
+      {header: 'Date', widthFraction: 0.22},
+      {header: 'Check-ins', widthFraction: 0.16, align: 'right'},
+      {
+        header: 'Participation',
+        widthFraction: 0.22,
+        align: 'right',
+        bold: true,
+      },
+    ],
+    s => [
+      s.title ?? s.locationName ?? 'Session',
+      formatDateShort(s.startsAt),
+      String(s.totalCheckIns),
+      String(s.totalParticipation),
     ],
   );
 
-  // Session breakdown table
-  drawSectionTitle(b, 'Session Breakdown');
-
-  const sessionCols: Col[] = [
-    {header: 'Session', widthFraction: 0.4},
-    {header: 'Date', widthFraction: 0.25},
-    {header: 'Check-ins', widthFraction: 0.15, align: 'right'},
-    {header: 'Participation', widthFraction: 0.2, align: 'right'},
-  ];
-  drawTableHeader(b, sessionCols);
-
-  data.sessions.forEach((s: SessionBreakdownItem, i: number) => {
-    drawTableRow(
-      b,
-      sessionCols,
-      [
-        s.title ?? s.locationName ?? 'Session',
-        formatDateShort(s.startsAt),
-        String(s.totalCheckIns),
-        String(s.totalParticipation),
-      ],
-      i,
-    );
-  });
-
   drawGeneratedLine(b);
+
   await b.addFooterToAllPages(`summary-${startDate}-${endDate}`);
 
   await writePdf(doc, outputPath, 'summary report');
