@@ -75,7 +75,9 @@ export default function BackfillSessionsScreen({navigation}: Props) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView
+        style={styles.container}
+        edges={['bottom', 'left', 'right']}>
         <ActivityIndicator style={{marginTop: 60}} color="#007AFF" />
       </SafeAreaView>
     );
@@ -194,25 +196,31 @@ export default function BackfillSessionsScreen({navigation}: Props) {
     });
   };
 
+  const isPrivileged =
+    currentMembership.role === 'host' ||
+    currentMembership.role === 'admin' ||
+    currentMembership.role === 'owner';
+
   const renderItem = ({item}: {item: SessionListItem}) => {
     const {session, mode} = item;
     const statusColors = getStatusColors(mode);
     const helperText = getHelperText(mode);
-    const isClickable = mode === 'backfill' || mode === 'live';
+
+    // Members can only tap a card when backfill is available.
+    // Hosts/admins/owners can tap any card to open SessionDetailScreen.
+    const isBackfillable = mode === 'backfill' || mode === 'live';
+    const isTappable = isPrivileged || isBackfillable;
+
+    const handlePress = () => {
+      if (!isTappable) return;
+      navigation.navigate('SessionDetail', {sessionId: session.id});
+    };
 
     return (
       <TouchableOpacity
-        style={[styles.card, !isClickable && styles.cardDisabled]}
-        activeOpacity={isClickable ? 0.7 : 1}
-        onPress={() => {
-          if (!isClickable) {
-            return;
-          }
-
-          navigation.navigate('SessionDetail', {
-            sessionId: session.id,
-          });
-        }}>
+        style={[styles.card, !isTappable && styles.cardDisabled]}
+        activeOpacity={isTappable ? 0.7 : 1}
+        onPress={handlePress}>
         <View style={styles.row}>
           <Text style={styles.title}>
             {session.title ?? session.locationName ?? 'Session'}
@@ -235,15 +243,17 @@ export default function BackfillSessionsScreen({navigation}: Props) {
           <Text style={styles.helperText}>{helperText}</Text>
         ) : null}
 
-        {isClickable ? (
+        {isBackfillable && !isPrivileged ? (
           <Text style={styles.actionHint}>Tap to check in</Text>
+        ) : isPrivileged ? (
+          <Text style={styles.actionHint}>Tap to view session</Text>
         ) : null}
       </TouchableOpacity>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <FlatList
         data={filteredSessions}
         keyExtractor={item => item.session.id}

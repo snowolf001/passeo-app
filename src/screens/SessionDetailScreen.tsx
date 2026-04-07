@@ -540,7 +540,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
                   ? ` (${checkedInMembers.length})`
                   : ''}
               </Text>
-              {attendeesReport && (
+              {attendeesReport && attendeesReport.attendees.length > 0 && (
                 <TouchableOpacity
                   style={[
                     styles.exportPdfBtn,
@@ -651,7 +651,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       <View style={styles.screenRoot}>
         <ScrollView
           style={styles.container}
