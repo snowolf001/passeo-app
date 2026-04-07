@@ -11,6 +11,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {sessionService} from '../services/sessionService';
 import {ApiSession} from '../services/api/sessionApi';
+import {getMyAttendance} from '../services/api/attendanceApi';
 import {formatDate} from '../utils/date';
 
 type Props = {navigation: any};
@@ -61,7 +62,14 @@ export default function HomeScreen({navigation}: Props) {
 
     if (todaySession) {
       setHasTodaySession(true);
-      setIsTodayCheckedIn(false); // checked-in state now comes from the API checked-in list
+      try {
+        const attendance = await getMyAttendance();
+        setIsTodayCheckedIn(
+          attendance.some(a => a.sessionId === todaySession.id),
+        );
+      } catch {
+        setIsTodayCheckedIn(false);
+      }
     } else {
       setHasTodaySession(false);
       setIsTodayCheckedIn(false);
