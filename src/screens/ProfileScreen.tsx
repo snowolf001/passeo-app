@@ -154,6 +154,15 @@ export default function ProfileScreen({navigation}: Props) {
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
 
+            <View style={styles.actionDivider} />
+
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={() => navigation.navigate('MemberCredits')}>
+              <Text style={styles.actionItemText}>Manage Members</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
             {isAdminOrOwner && (
               <>
                 <View style={styles.actionDivider} />

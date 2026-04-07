@@ -22,6 +22,7 @@ export type RootStackParamList = {
   MemberHistory: {membershipId: string; title?: string};
   Reports: undefined;
   AuditLog: undefined;
+  MemberCredits: undefined;
 };
 
 export type MainTabParamList = {

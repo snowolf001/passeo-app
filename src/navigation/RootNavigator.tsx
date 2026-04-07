@@ -17,6 +17,7 @@ import CreditHistoryScreen from '../screens/CreditHistoryScreen';
 import MemberHistoryScreen from '../screens/MemberHistoryScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import AuditLogScreen from '../screens/AuditLogScreen';
+import MemberCreditsScreen from '../screens/MemberCreditsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -96,6 +97,11 @@ export default function RootNavigator() {
         name="AuditLog"
         component={AuditLogScreen}
         options={{headerShown: true, title: 'Audit Log'}}
+      />
+      <Stack.Screen
+        name="MemberCredits"
+        component={MemberCreditsScreen}
+        options={{headerShown: true, title: 'Manage Members'}}
       />
     </Stack.Navigator>
   );

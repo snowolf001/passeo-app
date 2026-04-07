@@ -36,3 +36,32 @@ export async function getMembershipById(
 ): Promise<ApiMembershipWithClub> {
   return apiRequest<ApiMembershipWithClub>(`/api/memberships/${membershipId}`);
 }
+
+/**
+ * POST /api/memberships/:membershipId/credits
+ * Adds credits to a member. Host/admin only.
+ */
+export async function adjustMemberCredits(
+  membershipId: string,
+  amount: number,
+  reason: string,
+): Promise<ApiMembership> {
+  return apiRequest<ApiMembership>(`/api/memberships/${membershipId}/credits`, {
+    method: 'POST',
+    body: {amount, reason},
+  });
+}
+
+/**
+ * PATCH /api/memberships/:membershipId/role
+ * Changes a member's role to 'member' or 'host'. Host/admin/owner only.
+ */
+export async function updateMemberRole(
+  membershipId: string,
+  role: 'member' | 'host',
+): Promise<ApiMembership> {
+  return apiRequest<ApiMembership>(`/api/memberships/${membershipId}/role`, {
+    method: 'PATCH',
+    body: {role},
+  });
+}
