@@ -69,7 +69,7 @@ const SECTION_GAP = 12;
 const T_TITLE = 22;
 const T_SUBTITLE = 13;
 const T_META = 9;
-const T_HERO_VALUE = 48;
+const T_HERO_VALUE = 54;
 const T_HERO_LABEL = 11;
 const T_TREND = 9;
 const T_METRIC_VAL = 22;
@@ -84,16 +84,19 @@ const C_INK = rgb(0.067, 0.067, 0.067); // #111111
 const C_SECONDARY = rgb(0.4, 0.4, 0.4); // #666666
 const C_MUTED = rgb(0.6, 0.6, 0.6); // #999999
 const C_DIVIDER = rgb(0.898, 0.898, 0.898); // #E5E5E5
-const C_BORDER = rgb(0.898, 0.906, 0.922); // #E5E7EB
+const C_BORDER = rgb(0.85, 0.88, 0.92); // crisper than before
 const C_LIGHT_BG = rgb(0.973, 0.98, 0.988); // #F8FAFC
-const C_SECTION_BG = rgb(0.984, 0.988, 0.992);
+const C_SECTION_BG = rgb(0.982, 0.986, 0.991);
+const C_SECTION_HEADER_BG = rgb(0.94, 0.96, 0.98);
 const C_TH_BG = rgb(0.98, 0.98, 0.98); // #FAFAFA
 const C_STRIPE = rgb(0.992, 0.992, 0.992);
 const C_ROW_LINE = rgb(0.933, 0.933, 0.933);
-const C_HERO_BG = rgb(0.937, 0.965, 1.0); // #EFF6FF
-const C_HERO_BORDER = rgb(0.824, 0.886, 0.973);
+const C_HERO_BG = rgb(0.9, 0.94, 0.99);
+const C_HERO_BORDER = rgb(0.76, 0.84, 0.95);
 const C_CARD_BG = rgb(1, 1, 1);
 const C_CHART_LINE = rgb(0.231, 0.51, 0.965); // #3B82F6
+const C_AXIS = rgb(0.78, 0.78, 0.78);
+const C_WHITE = rgb(1, 1, 1);
 
 // Table
 const TABLE_TH_H = 24;
@@ -104,12 +107,18 @@ const CHART_HEIGHT = 108;
 const CHART_HPAD = 10;
 const CHART_Y_AXIS_W = 26;
 const CHART_X_AXIS_H = 20;
-const CHART_DOT_R = 3;
+const CHART_DOT_R = 3.8;
 
 // Section shell
 const SECTION_TITLE_H = 24;
 const SECTION_INNER_PAD_X = 10;
 const SECTION_INNER_PAD_BOTTOM = 10;
+
+// Pagination tuning
+const TABLE_CONTINUATION_TOP_PADDING = 2;
+const TABLE_FIRST_HEADER_BUFFER = 4;
+const TABLE_ROW_BUFFER = 0;
+const TABLE_NEW_PAGE_HEADER_BUFFER = 2;
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -217,7 +226,7 @@ function drawHeader(
 
 function drawHeroMetric(b: PdfBuilder, item: SummaryItem) {
   const contentWidth = b.width - PAGE_MARGIN * 2;
-  const cardH = item.trend ? 96 : 82;
+  const cardH = item.trend ? 100 : 86;
 
   b.checkPageBreak(cardH + 12);
 
@@ -226,14 +235,14 @@ function drawHeroMetric(b: PdfBuilder, item: SummaryItem) {
   drawBox(b, PAGE_MARGIN, topY, contentWidth, cardH, {
     background: C_HERO_BG,
     borderColor: C_HERO_BORDER,
-    borderWidth: 0.6,
+    borderWidth: 0.9,
   });
 
   const valFont = b.pickFontForText(item.value, 'bold');
   const valW = valFont.widthOfTextAtSize(item.value, T_HERO_VALUE);
   b.drawTextSafe(item.value, {
     x: PAGE_MARGIN + (contentWidth - valW) / 2,
-    y: topY - 42,
+    y: topY - 49,
     size: T_HERO_VALUE,
     color: C_INK,
     fontType: 'bold',
@@ -244,7 +253,7 @@ function drawHeroMetric(b: PdfBuilder, item: SummaryItem) {
   const labelW = labelFont.widthOfTextAtSize(item.label, T_HERO_LABEL);
   b.drawTextSafe(item.label, {
     x: PAGE_MARGIN + (contentWidth - labelW) / 2,
-    y: topY - 60,
+    y: topY - 69,
     size: T_HERO_LABEL,
     color: C_SECONDARY,
     fontType: 'regular',
@@ -256,7 +265,7 @@ function drawHeroMetric(b: PdfBuilder, item: SummaryItem) {
     const trendW = trendFont.widthOfTextAtSize(item.trend, T_TREND);
     b.drawTextSafe(item.trend, {
       x: PAGE_MARGIN + (contentWidth - trendW) / 2,
-      y: topY - 76,
+      y: topY - 79,
       size: T_TREND,
       color: C_SECONDARY,
       fontType: 'regular',
@@ -264,7 +273,7 @@ function drawHeroMetric(b: PdfBuilder, item: SummaryItem) {
     });
   }
 
-  b.moveDown(cardH + 16);
+  b.moveDown(cardH + 14);
 }
 
 function drawSummaryMetricsRow(b: PdfBuilder, items: SummaryItem[]) {
@@ -288,14 +297,14 @@ function drawSummaryMetricsRow(b: PdfBuilder, items: SummaryItem[]) {
     drawBox(b, x, topY, cardW, cardH, {
       background: C_CARD_BG,
       borderColor: C_BORDER,
-      borderWidth: 0.7,
+      borderWidth: 1,
     });
 
     const valueFont = b.pickFontForText(item.value, 'bold');
     const valueW = valueFont.widthOfTextAtSize(item.value, T_METRIC_VAL);
     b.drawTextSafe(item.value, {
       x: x + (cardW - valueW) / 2,
-      y: topY - 28,
+      y: topY - 30,
       size: T_METRIC_VAL,
       color: C_INK,
       fontType: 'bold',
@@ -306,7 +315,7 @@ function drawSummaryMetricsRow(b: PdfBuilder, items: SummaryItem[]) {
     const labelW = labelFont.widthOfTextAtSize(item.label, T_METRIC_LBL);
     b.drawTextSafe(item.label, {
       x: x + (cardW - labelW) / 2,
-      y: topY - 46,
+      y: topY - 49,
       size: T_METRIC_LBL,
       color: C_SECONDARY,
       fontType: 'regular',
@@ -320,7 +329,7 @@ function drawSummaryMetricsRow(b: PdfBuilder, items: SummaryItem[]) {
 function drawSectionHeaderOnly(b: PdfBuilder, title: string) {
   const sectionX = PAGE_MARGIN;
   const sectionW = b.width - PAGE_MARGIN * 2;
-  const shellH = SECTION_TITLE_H + 8;
+  const shellH = SECTION_TITLE_H + 10;
 
   b.checkPageBreak(shellH + 8);
 
@@ -329,7 +338,7 @@ function drawSectionHeaderOnly(b: PdfBuilder, title: string) {
   drawBox(b, sectionX, topY, sectionW, shellH, {
     background: C_SECTION_BG,
     borderColor: C_BORDER,
-    borderWidth: 0.5,
+    borderWidth: 0.6,
   });
 
   b.currentPage.drawRectangle({
@@ -337,7 +346,7 @@ function drawSectionHeaderOnly(b: PdfBuilder, title: string) {
     y: topY - SECTION_TITLE_H,
     width: sectionW,
     height: SECTION_TITLE_H,
-    color: C_LIGHT_BG,
+    color: C_SECTION_HEADER_BG,
     borderWidth: 0,
   });
 
@@ -350,7 +359,7 @@ function drawSectionHeaderOnly(b: PdfBuilder, title: string) {
     kind: 'title',
   });
 
-  b.drawDivider(topY - SECTION_TITLE_H, 0.3, C_DIVIDER);
+  b.drawDivider(topY - SECTION_TITLE_H, 0.35, C_DIVIDER);
   b.moveDown(shellH + SECTION_GAP);
 }
 
@@ -459,7 +468,7 @@ function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
   const contentWidth = b.width - PAGE_MARGIN * 2;
   const chartShellH =
     SECTION_TITLE_H +
-    8 +
+    10 +
     8 +
     (CHART_HEIGHT + 22 + CHART_X_AXIS_H) +
     SECTION_INNER_PAD_BOTTOM;
@@ -473,7 +482,7 @@ function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
   drawBox(b, shellX, topY, shellW, chartShellH, {
     background: C_SECTION_BG,
     borderColor: C_BORDER,
-    borderWidth: 0.5,
+    borderWidth: 0.6,
   });
 
   b.currentPage.drawRectangle({
@@ -481,7 +490,7 @@ function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
     y: topY - SECTION_TITLE_H,
     width: shellW,
     height: SECTION_TITLE_H,
-    color: C_LIGHT_BG,
+    color: C_SECTION_HEADER_BG,
     borderWidth: 0,
   });
 
@@ -494,7 +503,7 @@ function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
     kind: 'title',
   });
 
-  b.drawDivider(topY - SECTION_TITLE_H, 0.3, C_DIVIDER);
+  b.drawDivider(topY - SECTION_TITLE_H, 0.35, C_DIVIDER);
 
   const chartX = shellX + SECTION_INNER_PAD_X;
   const chartYTop = topY - SECTION_TITLE_H - 8;
@@ -506,9 +515,9 @@ function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
     y: chartYTop - chartH,
     width: chartW,
     height: chartH,
-    color: rgb(1, 1, 1),
+    color: C_WHITE,
     borderColor: C_DIVIDER,
-    borderWidth: 0.3,
+    borderWidth: 0.35,
   });
 
   const outerX = chartX + CHART_HPAD;
@@ -549,14 +558,14 @@ function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
     start: {x: plotLeft, y: plotBottom},
     end: {x: plotLeft, y: plotTop},
     thickness: 0.5,
-    color: rgb(0.78, 0.78, 0.78),
+    color: C_AXIS,
   });
 
   b.currentPage.drawLine({
     start: {x: plotLeft, y: plotBottom},
     end: {x: plotRight, y: plotBottom},
     thickness: 0.5,
-    color: rgb(0.78, 0.78, 0.78),
+    color: C_AXIS,
   });
 
   const n = trendData.length;
@@ -570,7 +579,7 @@ function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
       b.currentPage.drawLine({
         start: {x: pts[i - 1].x, y: pts[i - 1].y},
         end: {x: pts[i].x, y: pts[i].y},
-        thickness: 2.2,
+        thickness: 3,
         color: C_CHART_LINE,
       });
     }
@@ -583,7 +592,7 @@ function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
 
   pts.forEach((pt, i) => {
     const isPeak = i === peakIdx;
-    const r = isPeak ? CHART_DOT_R + 2 : CHART_DOT_R;
+    const r = isPeak ? CHART_DOT_R + 1.8 : CHART_DOT_R;
 
     if (isPeak) {
       b.currentPage.drawEllipse({
@@ -611,9 +620,9 @@ function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
         y: pt.y,
         xScale: r,
         yScale: r,
-        color: rgb(1, 1, 1),
+        color: C_WHITE,
         borderColor: C_CHART_LINE,
-        borderWidth: 1.2,
+        borderWidth: 1.3,
       });
     }
   });
@@ -641,7 +650,7 @@ function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
       start: {x: pts[i].x, y: plotBottom},
       end: {x: pts[i].x, y: plotBottom - 3},
       thickness: 0.4,
-      color: rgb(0.78, 0.78, 0.78),
+      color: C_AXIS,
     });
   });
 
@@ -666,7 +675,6 @@ function drawPagedTableSection<T>(
   const tableW = contentWidth;
   const headerBlockH = TABLE_TH_H + 2;
   const rowBlockH = TABLE_ROW_H;
-  const continuationTopPadding = 8;
 
   drawSectionHeaderOnly(b, title);
 
@@ -677,16 +685,21 @@ function drawPagedTableSection<T>(
     b.moveDown(headerBlockH);
   };
 
-  // first page/table header
-  ensureSpaceOrNewPage(b, headerBlockH + rowBlockH + 8);
+  ensureSpaceOrNewPage(b, headerBlockH + rowBlockH + TABLE_FIRST_HEADER_BUFFER);
   drawRepeatedTableHeader();
 
   for (const row of rows) {
-    const movedToNewPage = ensureSpaceOrNewPage(b, rowBlockH + 8);
+    const movedToNewPage = ensureSpaceOrNewPage(
+      b,
+      rowBlockH + TABLE_ROW_BUFFER,
+    );
 
     if (movedToNewPage) {
-      b.moveDown(continuationTopPadding);
-      ensureSpaceOrNewPage(b, headerBlockH + rowBlockH + 8);
+      b.moveDown(TABLE_CONTINUATION_TOP_PADDING);
+      ensureSpaceOrNewPage(
+        b,
+        headerBlockH + rowBlockH + TABLE_NEW_PAGE_HEADER_BUFFER,
+      );
       drawRepeatedTableHeader();
     }
 
@@ -695,11 +708,11 @@ function drawPagedTableSection<T>(
     rowIndex += 1;
   }
 
-  b.moveDown(18);
+  b.moveDown(14);
 }
 
 function drawGeneratedLine(b: PdfBuilder) {
-  const text = `Generated on: ${formatDateLong()}`;
+  const text = 'Generated by Passeo App';
   const font = b.pickFontForText(text, 'regular');
   const textW = font.widthOfTextAtSize(text, T_SMALL);
 

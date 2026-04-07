@@ -21,7 +21,7 @@ import {assertNoPuaChars, sanitizePdfText} from './pdfText';
 export const PAGE_MARGIN = 48;
 
 // Footer safe area
-const FOOTER_HEIGHT = 60;
+const FOOTER_HEIGHT = 24;
 export const CONTENT_BOTTOM_LIMIT = PAGE_MARGIN + FOOTER_HEIGHT;
 
 // Colors - Strictly Monochrome
@@ -443,7 +443,9 @@ export class PdfBuilder {
   }
 
   checkPageBreak(neededHeight: number) {
-    if (this.y - neededHeight < CONTENT_BOTTOM_LIMIT) {
+    const MIN_ROWS_BUFFER = 2; // 🔥 关键
+
+    if (this.y - neededHeight * MIN_ROWS_BUFFER < CONTENT_BOTTOM_LIMIT) {
       this.addNewPage();
       return true;
     }
