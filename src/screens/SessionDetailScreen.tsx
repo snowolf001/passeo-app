@@ -26,7 +26,7 @@ import {
   getSessionAttendees,
   SessionAttendeesResponse,
 } from '../services/api/reportApi';
-import {exportSessionReportPdf} from '../services/reportPdfService';
+import {exportSessionParticipantsPdf} from '../services/pdf/sessionParticipantsPdf';
 import {DEFAULT_CLUB_SETTINGS, CheckInMode} from '../types';
 import {attendanceService} from '../services/attendanceService';
 import {RootStackParamList} from '../navigation/types';
@@ -415,7 +415,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     }
     setExportingPdf(true);
     try {
-      await exportSessionReportPdf(
+      await exportSessionParticipantsPdf(
         attendeesReport,
         currentClub?.name ?? 'Club',
       );

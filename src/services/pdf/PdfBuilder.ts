@@ -53,8 +53,12 @@ function normalizeCommonPunctToAscii(s: string): string {
     .replace(/\u00A0/g, ' '); // nbsp → space
 }
 
+// Returns true only for characters outside Basic Latin + Latin Extended
+// (i.e. truly non-Latin scripts: CJK, Arabic, Cyrillic, etc.).
+// Accented Latin (á ü ñ é etc., U+00A0–U+024F) is allowed and renders
+// correctly with the standard Helvetica/WinAnsiEncoding font.
 function hasNonAsciiPrintable(s: string): boolean {
-  return /[^\x20-\x7E]/.test(s);
+  return /[^\x20-\x7E\u00A0-\u024F]/.test(s);
 }
 
 function hasTrulyNonLatin(s: string): boolean {
@@ -67,25 +71,17 @@ function hasNonLatin(s: string): boolean {
 }
 
 function sanitizeTitleText(s: string): string {
-  if (!s) {
-    return s;
+  if (!s || s.trim() === '') {
+    return '\u2014'; // em-dash as empty fallback
   }
-  const normalized = normalizeCommonPunctToAscii(s);
-  if (hasTrulyNonLatin(normalized)) {
-    return '[Non-Latin title omitted]';
-  }
-  return normalized;
+  return normalizeCommonPunctToAscii(s);
 }
 
 function sanitizeBodyText(s: string): string {
-  if (!s) {
-    return s;
+  if (!s || s.trim() === '') {
+    return '\u2014';
   }
-  const normalized = normalizeCommonPunctToAscii(s);
-  if (hasTrulyNonLatin(normalized)) {
-    return '[Non-Latin text omitted]';
-  }
-  return normalized;
+  return normalizeCommonPunctToAscii(s);
 }
 
 export class PdfBuilder {
