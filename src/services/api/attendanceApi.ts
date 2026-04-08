@@ -39,6 +39,14 @@ export async function getMyCreditTransactions(): Promise<
   return apiRequest<ApiCreditTransaction[]>('/api/credits/me');
 }
 
+export async function getMemberAttendance(
+  membershipId: string,
+): Promise<ApiAttendanceItem[]> {
+  return apiRequest<ApiAttendanceItem[]>(
+    `/api/memberships/${membershipId}/attendance`,
+  );
+}
+
 export async function getMemberCreditTransactions(
   membershipId: string,
 ): Promise<ApiCreditTransaction[]> {

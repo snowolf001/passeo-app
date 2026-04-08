@@ -10,7 +10,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
-import {getMyAttendance} from '../services/api/attendanceApi';
+import {getMemberAttendance} from '../services/api/attendanceApi';
 import {formatDate} from '../utils/date';
 
 type Props = {navigation: any};
@@ -64,7 +64,7 @@ export default function HomeScreen({navigation}: Props) {
     if (todaySession) {
       setHasTodaySession(true);
       try {
-        const attendance = await getMyAttendance();
+        const attendance = await getMemberAttendance(currentMembership.id);
         setIsTodayCheckedIn(
           attendance.some(a => a.sessionId === todaySession.id),
         );

@@ -10,7 +10,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {
-  getMyCreditTransactions,
+  getMemberCreditTransactions,
   ApiCreditTransaction,
 } from '../services/api/attendanceApi';
 import {RootStackParamList} from '../navigation/types';
@@ -125,17 +125,18 @@ export default function CreditHistoryScreen({}: Props) {
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>('30D');
 
   const loadTransactions = useCallback(async () => {
+    if (!currentMembership) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await getMyCreditTransactions();
+      const data = await getMemberCreditTransactions(currentMembership.id);
       setTransactions(data);
     } catch {
       setError('Failed to load credit history.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentMembership]);
 
   useEffect(() => {
     loadTransactions();

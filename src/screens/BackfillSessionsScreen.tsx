@@ -10,7 +10,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
-import {getMyAttendance} from '../services/api/attendanceApi';
+import {getMemberAttendance} from '../services/api/attendanceApi';
 import {getCheckInMode, isSessionEnded} from '../utils/checkIn';
 
 type Props = {
@@ -54,7 +54,7 @@ export default function BackfillSessionsScreen({navigation}: Props) {
     try {
       const [data, attendance] = await Promise.all([
         getSessions(currentMembership.clubId),
-        getMyAttendance().catch(() => []),
+        getMemberAttendance(currentMembership.id).catch(() => []),
       ]);
       setApiSessions(data);
       setAttendedSessionIds(new Set(attendance.map(a => a.sessionId)));

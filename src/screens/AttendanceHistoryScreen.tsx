@@ -10,7 +10,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {
-  getMyAttendance,
+  getMemberAttendance,
   ApiAttendanceItem,
 } from '../services/api/attendanceApi';
 import {RootStackParamList} from '../navigation/types';
@@ -164,7 +164,7 @@ export default function AttendanceHistoryScreen({navigation, route}: Props) {
     setError('');
 
     try {
-      const data = await getMyAttendance();
+      const data = await getMemberAttendance(membershipId);
       setHistory(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[AttendanceHistoryScreen] load failed:', err);
