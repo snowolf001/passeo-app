@@ -11,7 +11,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {getMyAttendance} from '../services/api/attendanceApi';
-import {attendanceService} from '../services/attendanceService';
+import {getCheckInMode, isSessionEnded} from '../utils/checkIn';
 
 type Props = {
   navigation: any;
@@ -88,15 +88,8 @@ export default function BackfillSessionsScreen({navigation}: Props) {
 
     return apiSessions
       .map(session => {
-        // Build a minimal shape attendanceService.getCheckInMode expects
-        const sessionForMode = {
-          ...session,
-          startTime: session.startTime,
-          endTime: session.endTime,
-        };
-
-        const mode = attendanceService.getCheckInMode({
-          session: sessionForMode as any,
+        const mode = getCheckInMode({
+          session: session as any,
           membership: currentMembership,
           settings: clubSettings,
           isAlreadyCheckedIn: attendedSessionIds.has(session.id),
@@ -105,7 +98,7 @@ export default function BackfillSessionsScreen({navigation}: Props) {
         return {session, mode};
       })
       .filter(item => {
-        if (!attendanceService.isSessionEnded(item.session as any)) {
+        if (!isSessionEnded(item.session)) {
           return false;
         }
         const startMs = new Date(item.session.startTime).getTime();

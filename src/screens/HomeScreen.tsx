@@ -9,8 +9,7 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
-import {sessionService} from '../services/sessionService';
-import {ApiSession} from '../services/api/sessionApi';
+import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {getMyAttendance} from '../services/api/attendanceApi';
 import {formatDate} from '../utils/date';
 
@@ -43,8 +42,10 @@ export default function HomeScreen({navigation}: Props) {
     }
     setLoading(true);
 
-    const sessions = await sessionService.getSessionsByClub(
-      currentMembership.clubId,
+    const rawSessions = await getSessions(currentMembership.clubId);
+    const sessions = rawSessions.sort(
+      (a, b) =>
+        new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
     );
     const now = new Date();
     const todayStart = new Date(now);

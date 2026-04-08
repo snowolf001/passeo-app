@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useCallback, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Clipboard,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
@@ -16,6 +17,22 @@ type Props = {navigation: any};
 
 export default function ProfileScreen({navigation}: Props) {
   const {currentMembership, currentClub, clearMembershipSession} = useApp();
+
+  const [snackMsg, setSnackMsg] = useState('');
+  const [snackVisible, setSnackVisible] = useState(false);
+  const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showSnackbar = useCallback((message: string) => {
+    if (snackTimer.current) {
+      clearTimeout(snackTimer.current);
+    }
+    setSnackMsg(message);
+    setSnackVisible(true);
+    snackTimer.current = setTimeout(() => {
+      setSnackVisible(false);
+      setSnackMsg('');
+    }, 2500);
+  }, []);
 
   if (!currentMembership || !currentClub) {
     return null;
@@ -137,9 +154,19 @@ export default function ProfileScreen({navigation}: Props) {
           {isAdminOrOwner && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Join Code</Text>
-              <Text style={[styles.infoValue, styles.joinCode]}>
-                {currentClub.joinCode}
-              </Text>
+              <View style={styles.joinCodeRow}>
+                <Text style={[styles.infoValue, styles.joinCode]}>
+                  {currentClub.joinCode}
+                </Text>
+                <TouchableOpacity
+                  style={styles.copyBtn}
+                  onPress={() => {
+                    Clipboard.setString(currentClub.joinCode ?? '');
+                    showSnackbar('Join code copied');
+                  }}>
+                  <Text style={styles.copyBtnText}>Copy</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
@@ -271,6 +298,11 @@ export default function ProfileScreen({navigation}: Props) {
           )}
         </View>
       </ScrollView>
+      {snackVisible && (
+        <View pointerEvents="none" style={styles.snackbar}>
+          <Text style={styles.snackbarText}>{snackMsg}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -278,6 +310,27 @@ export default function ProfileScreen({navigation}: Props) {
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#F5F5F7'},
   scroll: {padding: 20, paddingBottom: 40},
+  snackbar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 24,
+    zIndex: 999,
+    elevation: 10,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  snackbarText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
 
   summaryCard: {
     backgroundColor: '#FFFFFF',
@@ -336,6 +389,18 @@ const styles = StyleSheet.create({
   infoLabel: {fontSize: 14, color: '#8E8E93'},
   infoValue: {fontSize: 14, fontWeight: '600', color: '#1C1C1E'},
   joinCode: {color: '#007AFF'},
+  joinCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  copyBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#E5F0FF',
+    borderRadius: 6,
+  },
+  copyBtnText: {fontSize: 12, fontWeight: '600', color: '#007AFF'},
 
   actionItem: {
     flexDirection: 'row',

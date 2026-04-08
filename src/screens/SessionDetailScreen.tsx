@@ -29,7 +29,7 @@ import {
 } from '../services/api/reportApi';
 import {exportSessionParticipantsPdf} from '../services/pdf/sessionParticipantsPdf';
 import {DEFAULT_CLUB_SETTINGS, CheckInMode} from '../types';
-import {attendanceService} from '../services/attendanceService';
+import {getCheckInMode} from '../utils/checkIn';
 import {RootStackParamList} from '../navigation/types';
 import {formatDate} from '../utils/date';
 import {ApiError} from '../types/api';
@@ -163,7 +163,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     const settings = currentClub?.settings ?? DEFAULT_CLUB_SETTINGS;
 
     // Cast ApiSession → Session for the backfill helper (only endTime is used internally)
-    return attendanceService.getCheckInMode({
+    return getCheckInMode({
       membership: currentMembership,
       session: session as any,
       settings,
