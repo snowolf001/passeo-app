@@ -269,18 +269,6 @@ export default function ClubSettingsScreen({navigation}: Props) {
                   }}>
                   <Text style={styles.joinCodeBtnText}>Copy</Text>
                 </TouchableOpacity>
-                {canRegenerateJoinCode && (
-                  <TouchableOpacity
-                    style={styles.joinCodeBtn}
-                    onPress={handleRegenerateJoinCode}
-                    disabled={regenerating}>
-                    {regenerating ? (
-                      <ActivityIndicator color="#007AFF" size="small" />
-                    ) : (
-                      <Text style={styles.joinCodeBtnText}>Regenerate</Text>
-                    )}
-                  </TouchableOpacity>
-                )}
               </View>
             </View>
           )}
@@ -485,13 +473,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flexShrink: 1,
   },
   joinCodeValue: {
     fontSize: 14,
     fontWeight: '600',
     color: '#007AFF',
-    flexShrink: 1,
   },
   joinCodeBtn: {
     paddingHorizontal: 10,
