@@ -262,10 +262,12 @@ export async function initIap(): Promise<void> {
       isInitialized = true;
       console.log('[IAP] Initialization complete. iapReady:', iapReady);
     } catch (error: any) {
-      console.warn(
-        '[IAP] Initialization failed (IAP disabled on this device):',
-        error,
-      );
+      if (__DEV__) {
+        console.warn(
+          '[IAP] Initialization failed (IAP disabled on this device):',
+          error,
+        );
+      }
 
       isInitialized = false;
       iapReady = false;
