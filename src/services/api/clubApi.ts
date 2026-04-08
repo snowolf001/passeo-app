@@ -166,6 +166,14 @@ export async function removeMember(
   });
 }
 
+/**
+ * POST /api/clubs/:clubId/leave
+ * Current user leaves the club. Blocked if user is owner.
+ */
+export async function leaveClub(clubId: string): Promise<void> {
+  await apiRequest<void>(`/api/clubs/${clubId}/leave`, {method: 'POST'});
+}
+
 export type ApiRecoveredMembership = {
   membershipId: string;
   clubId: string;

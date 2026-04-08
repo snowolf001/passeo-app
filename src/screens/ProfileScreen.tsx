@@ -10,11 +10,12 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {CLUB_PRO_CONFIG} from '../config/appConfig';
+import {leaveClub} from '../services/api/clubApi';
 
 type Props = {navigation: any};
 
 export default function ProfileScreen({navigation}: Props) {
-  const {currentMembership, currentClub} = useApp();
+  const {currentMembership, currentClub, clearMembershipSession} = useApp();
 
   if (!currentMembership || !currentClub) {
     return null;
@@ -40,6 +41,51 @@ export default function ProfileScreen({navigation}: Props) {
     Alert.alert(
       'Transfer Ownership',
       'This feature will allow you to transfer club ownership. (Coming soon)',
+    );
+  };
+
+  const handleLeaveClub = () => {
+    if (role === 'owner') {
+      Alert.alert(
+        'Cannot Leave',
+        'Owners must transfer ownership before leaving this club.',
+      );
+      return;
+    }
+    Alert.alert(
+      'Leave Club',
+      `Leave ${currentClub.name}? You will need to rejoin with a code.`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await leaveClub(currentMembership.clubId);
+              await clearMembershipSession();
+            } catch (err: any) {
+              const code = err?.code as string | undefined;
+              if (code === 'OWNER_TRANSFER_REQUIRED') {
+                Alert.alert(
+                  'Cannot Leave',
+                  'You must transfer ownership before leaving this club.',
+                );
+              } else if (code === 'OWNER_PROMOTE_AND_TRANSFER_REQUIRED') {
+                Alert.alert(
+                  'Cannot Leave',
+                  'Please promote another member to admin first, then transfer ownership before leaving.',
+                );
+              } else {
+                Alert.alert(
+                  'Error',
+                  err?.message ?? 'Could not leave club. Please try again.',
+                );
+              }
+            }
+          },
+        },
+      ],
     );
   };
 
@@ -210,6 +256,20 @@ export default function ProfileScreen({navigation}: Props) {
             {currentMembership.recoveryCode || '—'}
           </Text>
         </View>
+
+        {/* ===== LEAVE CLUB ===== */}
+        <View style={[styles.card, styles.leaveCard]}>
+          <TouchableOpacity
+            style={styles.leaveButton}
+            onPress={handleLeaveClub}>
+            <Text style={styles.leaveButtonText}>Leave Club</Text>
+          </TouchableOpacity>
+          {role === 'owner' && (
+            <Text style={styles.leaveOwnerNote}>
+              Owners must transfer ownership before leaving.
+            </Text>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -336,5 +396,27 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     marginTop: 12,
     fontVariant: ['tabular-nums'],
+  },
+  leaveCard: {
+    borderWidth: 1,
+    borderColor: '#FFE2E2',
+  },
+  leaveButton: {
+    paddingVertical: 13,
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#FF3B30',
+  },
+  leaveButtonText: {
+    color: '#FF3B30',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  leaveOwnerNote: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
