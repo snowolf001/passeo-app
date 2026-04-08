@@ -14,6 +14,7 @@ import ClubSettingsScreen from '../screens/ClubSettingsScreen';
 import AttendanceHistoryScreen from '../screens/AttendanceHistoryScreen';
 import BackfillSessionsScreen from '../screens/BackfillSessionsScreen';
 import CreditHistoryScreen from '../screens/CreditHistoryScreen';
+import MemberCreditHistoryScreen from '../screens/MemberCreditHistoryScreen';
 import MemberHistoryScreen from '../screens/MemberHistoryScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import AuditLogScreen from '../screens/AuditLogScreen';
@@ -79,6 +80,16 @@ export default function RootNavigator() {
         name="CreditHistory"
         component={CreditHistoryScreen}
         options={{headerShown: true, title: 'Credit History'}}
+      />
+      <Stack.Screen
+        name="MemberCreditHistory"
+        component={MemberCreditHistoryScreen}
+        options={({route}) => ({
+          headerShown: true,
+          title: route.params?.memberName
+            ? `${route.params.memberName}'s Credits`
+            : 'Credit History',
+        })}
       />
       <Stack.Screen
         name="MemberHistory"

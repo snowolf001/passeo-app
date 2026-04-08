@@ -23,6 +23,7 @@ export type RootStackParamList = {
   Reports: undefined;
   AuditLog: undefined;
   MemberCredits: undefined;
+  MemberCreditHistory: {membershipId: string; memberName?: string};
 };
 
 export type MainTabParamList = {

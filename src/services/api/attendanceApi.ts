@@ -38,3 +38,11 @@ export async function getMyCreditTransactions(): Promise<
 > {
   return apiRequest<ApiCreditTransaction[]>('/api/credits/me');
 }
+
+export async function getMemberCreditTransactions(
+  membershipId: string,
+): Promise<ApiCreditTransaction[]> {
+  return apiRequest<ApiCreditTransaction[]>(
+    `/api/memberships/${membershipId}/credits`,
+  );
+}

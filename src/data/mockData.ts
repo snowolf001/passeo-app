@@ -275,8 +275,61 @@ let attendances: Attendance[] = [
 
 // ────────────────────────────────────────────────────────────
 // Credit Transactions
+// Seed balance sync transactions ensure:
+//   currentCredits == totalAdded - totalUsed for every member
 // ────────────────────────────────────────────────────────────
 let creditTransactions: CreditTransaction[] = [
+  // ── Seed balance sync entries ───────────────────────────
+  // m1: credits=8, no prior txns → add +8
+  {
+    id: 'ct_seed_m1',
+    membershipId: 'm1',
+    amount: 8,
+    reason: 'Seed balance sync',
+    createdAt: daysFromNow(-60, 9),
+  },
+  // m2: credits=99, no prior txns → add +99
+  {
+    id: 'ct_seed_m2',
+    membershipId: 'm2',
+    amount: 99,
+    reason: 'Seed balance sync',
+    createdAt: daysFromNow(-60, 9),
+  },
+  // m3: credits=5, has -1 check-in → implied=-1, need +6
+  {
+    id: 'ct_seed_m3',
+    membershipId: 'm3',
+    amount: 6,
+    reason: 'Seed balance sync',
+    createdAt: daysFromNow(-60, 9),
+  },
+  // m4: credits=1, has -1 check-in → implied=-1, need +2
+  {
+    id: 'ct_seed_m4',
+    membershipId: 'm4',
+    amount: 2,
+    reason: 'Seed balance sync',
+    createdAt: daysFromNow(-60, 9),
+  },
+  // m5: credits=0, no prior txns → already balanced, no entry needed
+  // m6: credits=12, no prior txns → add +12
+  {
+    id: 'ct_seed_m6',
+    membershipId: 'm6',
+    amount: 12,
+    reason: 'Seed balance sync',
+    createdAt: daysFromNow(-60, 9),
+  },
+  // m7: credits=20, no prior txns → add +20
+  {
+    id: 'ct_seed_m7',
+    membershipId: 'm7',
+    amount: 20,
+    reason: 'Seed balance sync',
+    createdAt: daysFromNow(-60, 9),
+  },
+  // ── Check-in deductions ─────────────────────────────────
   {
     id: 'ct1',
     membershipId: 'm3',

@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import {
   Platform,
   Clipboard,
 } from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {RootStackParamList} from '../navigation/types';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getClubMembers, ApiClubMember} from '../services/api/clubApi';
@@ -23,9 +26,11 @@ import {
 } from '../services/api/membershipApi';
 
 type Props = {navigation: any};
+type NavProp = NativeStackNavigationProp<RootStackParamList, 'MemberCredits'>;
 
 export default function MemberCreditsScreen({navigation}: Props) {
   const {currentMembership} = useApp();
+  const nav = useNavigation<NavProp>();
   const [members, setMembers] = useState<ApiClubMember[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -39,6 +44,22 @@ export default function MemberCreditsScreen({navigation}: Props) {
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [changingRole, setChangingRole] = useState(false);
+
+  const [snackMsg, setSnackMsg] = useState('');
+  const [snackVisible, setSnackVisible] = useState(false);
+  const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showSnackbar = useCallback((message: string) => {
+    if (snackTimer.current) {
+      clearTimeout(snackTimer.current);
+    }
+    setSnackMsg(message);
+    setSnackVisible(true);
+    snackTimer.current = setTimeout(() => {
+      setSnackVisible(false);
+      setSnackMsg('');
+    }, 2500);
+  }, []);
 
   const loadMembers = useCallback(async () => {
     if (!currentMembership) return;
@@ -216,7 +237,7 @@ export default function MemberCreditsScreen({navigation}: Props) {
         />
       )}
 
-      {/* Adjust Credits Modal */}
+      {/* Member Details Modal */}
       <Modal
         visible={!!selected}
         transparent
@@ -228,39 +249,56 @@ export default function MemberCreditsScreen({navigation}: Props) {
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
 
-            <Text style={styles.modalTitle}>Member Details</Text>
-            {selected && (
-              <Text style={styles.modalSubtitle}>
-                {selected.userName} · {selected.credits} credits
+            {/* ── Section 1: Member overview ─────────────────────────── */}
+            <View style={styles.overviewSection}>
+              <Text style={styles.overviewName}>
+                {selected?.userName ?? ''}
               </Text>
-            )}
-
-            {/* Recovery Code */}
-            <Text style={styles.fieldLabel}>Recovery Code</Text>
-            <View style={styles.codeRow}>
-              {loadingCode ? (
-                <ActivityIndicator size="small" color="#8E8E93" />
-              ) : (
-                <>
-                  <Text style={styles.codeText}>{recoveryCode ?? '—'}</Text>
-                  {recoveryCode && (
-                    <TouchableOpacity
-                      style={styles.copyBtn}
-                      onPress={() => {
-                        Clipboard.setString(recoveryCode);
-                        Alert.alert(
-                          'Copied',
-                          'Recovery code copied to clipboard.',
-                        );
-                      }}>
-                      <Text style={styles.copyBtnText}>Copy</Text>
-                    </TouchableOpacity>
-                  )}
-                </>
+              <Text style={styles.overviewCredits}>
+                {selected?.credits ?? 0} credits
+              </Text>
+              {selected && (
+                <TouchableOpacity
+                  style={styles.historyLink}
+                  onPress={() => {
+                    closeModal();
+                    nav.navigate('MemberCreditHistory', {
+                      membershipId: selected.membershipId,
+                      memberName: selected.userName,
+                    });
+                  }}>
+                  <Text style={styles.historyLinkText}>
+                    View credit history →
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
 
-            <View style={styles.divider} />
+            <View style={styles.sectionDivider} />
+
+            {/* ── Section 2: Recovery code ───────────────────────────── */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Recovery Code</Text>
+              <View style={styles.codeRow}>
+                {loadingCode ? (
+                  <ActivityIndicator size="small" color="#8E8E93" />
+                ) : (
+                  <>
+                    <Text style={styles.codeText}>{recoveryCode ?? '—'}</Text>
+                    {recoveryCode && (
+                      <TouchableOpacity
+                        style={styles.copyBtn}
+                        onPress={() => {
+                          Clipboard.setString(recoveryCode);
+                          showSnackbar('Recovery code copied to clipboard.');
+                        }}>
+                        <Text style={styles.copyBtnText}>Copy</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+              </View>
+            </View>
 
             {/* Role Management — admin/owner only */}
             {selected &&
@@ -268,84 +306,91 @@ export default function MemberCreditsScreen({navigation}: Props) {
               (currentMembership?.role === 'admin' ||
                 currentMembership?.role === 'owner') && (
                 <>
-                  <Text style={[styles.fieldLabel, {marginTop: 4}]}>Role</Text>
-                  <View style={styles.roleRow}>
-                    <TouchableOpacity
-                      style={[
-                        styles.roleBtn,
-                        selected.role === 'member' && styles.roleBtnActive,
-                      ]}
-                      onPress={() =>
-                        selected.role !== 'member' && handleRoleChange('member')
-                      }
-                      disabled={changingRole || selected.role === 'member'}>
-                      <Text
+                  <View style={styles.sectionDivider} />
+                  <View style={styles.section}>
+                    <Text style={styles.sectionLabel}>Role</Text>
+                    <View style={styles.roleRow}>
+                      <TouchableOpacity
                         style={[
-                          styles.roleBtnText,
-                          selected.role === 'member' &&
-                            styles.roleBtnTextActive,
-                        ]}>
-                        Member
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.roleBtn,
-                        selected.role === 'host' && styles.roleBtnActive,
-                      ]}
-                      onPress={() =>
-                        selected.role !== 'host' && handleRoleChange('host')
-                      }
-                      disabled={changingRole || selected.role === 'host'}>
-                      <Text
+                          styles.roleBtn,
+                          selected.role === 'member' && styles.roleBtnActive,
+                        ]}
+                        onPress={() =>
+                          selected.role !== 'member' &&
+                          handleRoleChange('member')
+                        }
+                        disabled={changingRole || selected.role === 'member'}>
+                        <Text
+                          style={[
+                            styles.roleBtnText,
+                            selected.role === 'member' &&
+                              styles.roleBtnTextActive,
+                          ]}>
+                          Member
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
                         style={[
-                          styles.roleBtnText,
-                          selected.role === 'host' && styles.roleBtnTextActive,
-                        ]}>
-                        Host
-                      </Text>
-                    </TouchableOpacity>
-                    {changingRole && (
-                      <ActivityIndicator
-                        size="small"
-                        color="#8E8E93"
-                        style={{marginLeft: 8}}
-                      />
-                    )}
+                          styles.roleBtn,
+                          selected.role === 'host' && styles.roleBtnActive,
+                        ]}
+                        onPress={() =>
+                          selected.role !== 'host' && handleRoleChange('host')
+                        }
+                        disabled={changingRole || selected.role === 'host'}>
+                        <Text
+                          style={[
+                            styles.roleBtnText,
+                            selected.role === 'host' &&
+                              styles.roleBtnTextActive,
+                          ]}>
+                          Host
+                        </Text>
+                      </TouchableOpacity>
+                      {changingRole && (
+                        <ActivityIndicator
+                          size="small"
+                          color="#8E8E93"
+                          style={{marginLeft: 8}}
+                        />
+                      )}
+                    </View>
                   </View>
-                  <View style={styles.divider} />
                 </>
               )}
 
-            <Text style={[styles.fieldLabel, {marginTop: 4}]}>
-              Adjust Credits
-            </Text>
-            <TextInput
-              style={styles.input}
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="numeric"
-              placeholder="e.g. 5 or -2"
-              placeholderTextColor="#C7C7CC"
-              returnKeyType="next"
-            />
-            <Text style={styles.fieldHint}>
-              Use a positive number to add, negative to remove.
-            </Text>
+            <View style={styles.sectionDivider} />
 
-            <Text style={[styles.fieldLabel, {marginTop: 12}]}>
-              Reason <Text style={styles.fieldOptional}>(optional)</Text>
-            </Text>
-            <TextInput
-              style={styles.input}
-              value={reason}
-              onChangeText={setReason}
-              placeholder="Default: Manual adjustment"
-              placeholderTextColor="#C7C7CC"
-              returnKeyType="done"
-              onSubmitEditing={handleSave}
-            />
+            {/* ── Section 3: Adjust credits ──────────────────────────── */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Adjust Credits</Text>
+              <TextInput
+                style={styles.input}
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="numeric"
+                placeholder="Enter amount (e.g. +5 or -2)"
+                placeholderTextColor="#C7C7CC"
+                returnKeyType="next"
+              />
+              <Text style={styles.fieldHint}>
+                + to add credits, - to remove credits
+              </Text>
+              <Text style={[styles.sectionLabel, {marginTop: 14}]}>
+                Reason <Text style={styles.fieldOptional}>(optional)</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={reason}
+                onChangeText={setReason}
+                placeholder="Default: Manual adjustment"
+                placeholderTextColor="#C7C7CC"
+                returnKeyType="done"
+                onSubmitEditing={handleSave}
+              />
+            </View>
 
+            {/* ── Action buttons ─────────────────────────────────────── */}
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.cancelBtn}
@@ -367,6 +412,11 @@ export default function MemberCreditsScreen({navigation}: Props) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      {snackVisible && (
+        <View pointerEvents="none" style={styles.snackbar}>
+          <Text style={styles.snackbarText}>{snackMsg}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -478,23 +528,48 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#E5E5EA',
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1C1C1E',
+  // Section 1: Member overview
+  overviewSection: {
     marginBottom: 4,
   },
-  modalSubtitle: {fontSize: 13, color: '#8E8E93', marginBottom: 20},
-  fieldLabel: {
-    fontSize: 12,
+  overviewName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 2,
+  },
+  overviewCredits: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginBottom: 8,
+  },
+  historyLink: {
+    alignSelf: 'flex-end',
+  },
+  historyLinkText: {
+    fontSize: 13,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  // Section divider
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#F2F2F7',
+    marginVertical: 16,
+  },
+  // Generic section wrapper
+  section: {},
+  sectionLabel: {
+    fontSize: 11,
     fontWeight: '600',
     color: '#8E8E93',
     textTransform: 'uppercase',
-    marginBottom: 6,
+    letterSpacing: 0.4,
+    marginBottom: 8,
   },
-  fieldHint: {fontSize: 11, color: '#AEAEB2', marginTop: 4},
+  fieldHint: {fontSize: 11, color: '#AEAEB2', marginTop: 5},
   fieldOptional: {
     fontSize: 11,
     fontWeight: '400',
@@ -524,7 +599,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   copyBtnText: {color: '#FFF', fontSize: 13, fontWeight: '600'},
-  divider: {height: 1, backgroundColor: '#F2F2F7', marginVertical: 16},
   roleRow: {flexDirection: 'row', alignItems: 'center', gap: 8},
   roleBtn: {
     flex: 1,
@@ -567,4 +641,26 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: {backgroundColor: '#A3C8FF'},
   saveBtnText: {fontSize: 15, fontWeight: '700', color: '#FFFFFF'},
+  snackbar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 24,
+    zIndex: 999,
+    elevation: 10,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  snackbarText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
 });
