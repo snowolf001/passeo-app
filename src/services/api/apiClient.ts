@@ -1,11 +1,7 @@
 ﻿// src/api/apiClient.ts
 
 import {ApiError, ApiErrorResponse, ApiSuccessResponse} from '../../types/api';
-
-// Android emulator: http://10.0.2.2:3000
-// iOS simulator: http://localhost:3000
-// Physical device: use your computer LAN IP, e.g. http://192.168.1.100:3000
-const API_BASE_URL = 'http://10.0.2.2:3000';
+import {API_BASE_URL, getApiHeaders} from '../../config/api';
 
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -40,6 +36,7 @@ export async function apiRequest<T>(
   }
 
   var fetchHeaders: Record<string, string> = {
+    ...getApiHeaders(),
     'Content-Type': 'application/json',
   };
   var keys = Object.keys(headers);
