@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+﻿import React, {useCallback, useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,107 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
+  TextInput,
+  Modal,
+  Platform,
+  Alert,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getAuditLogs, AuditLogItem} from '../services/api/reportApi';
-import {formatDate} from '../utils/date';
+import {getClubMembers, ApiClubMember} from '../services/api/clubApi';
+import {formatDateTime} from '../utils/date';
+import {exportAuditLogPdf} from '../services/auditLogPdfService';
 
 const PAGE_SIZE = 50;
 
-export default function AuditLogScreen() {
-  const {currentClub} = useApp();
+// Human-readable action labels
+const ACTION_LABELS: Record<string, string> = {
+  check_in_manual: 'Manual check-in',
+  check_in_self: 'Self check-in',
+  check_in_backfill: 'Backfill check-in',
+  credits_added: 'Credits added',
+  credits_deducted: 'Credits deducted',
+  role_changed: 'Role changed',
+  session_created: 'Session created',
+  session_updated: 'Session updated',
+  session_deleted: 'Session deleted',
+  member_joined: 'Member joined',
+  member_left: 'Member left',
+};
+
+const ACTION_COLORS: Record<string, string> = {
+  check_in_manual: '#007AFF',
+  check_in_self: '#34C759',
+  check_in_backfill: '#5856D6',
+  credits_added: '#34C759',
+  credits_deducted: '#FF3B30',
+  role_changed: '#FF9500',
+  session_created: '#007AFF',
+  session_updated: '#8E8E93',
+  session_deleted: '#FF3B30',
+  member_joined: '#34C759',
+  member_left: '#8E8E93',
+};
+
+const EVENT_TYPE_OPTIONS: {label: string; value: string | null}[] = [
+  {label: 'All Events', value: null},
+  {label: 'Manual check-in', value: 'check_in_manual'},
+  {label: 'Self check-in', value: 'check_in_self'},
+  {label: 'Backfill check-in', value: 'check_in_backfill'},
+  {label: 'Credits added', value: 'credits_added'},
+  {label: 'Credits deducted', value: 'credits_deducted'},
+];
+
+function resolveActionKey(action: string, checkInType?: string): string {
+  if (action === 'member_checked_in' || action === 'check_in') {
+    if (checkInType === 'manual') return 'check_in_manual';
+    if (checkInType === 'backfill') return 'check_in_backfill';
+    return 'check_in_self';
+  }
+  if (action === 'check_in_backfill') return 'check_in_backfill';
+  if (action === 'credits_removed') return 'credits_deducted';
+  return action;
+}
+
+function formatDelta(amount: number): string {
+  const abs = Math.abs(amount);
+  const word = abs === 1 ? 'credit' : 'credits';
+  return `${amount > 0 ? '+' : ''}${amount} ${word}`;
+}
+
+type Props = {navigation: any};
+
+export default function AuditLogScreen({navigation}: Props) {
+  const {currentClub, currentMembership} = useApp();
+
+  // Filter state
+  const [memberPickerOpen, setMemberPickerOpen] = useState(false);
+  const [members, setMembers] = useState<ApiClubMember[]>([]);
+  const [selectedMember, setSelectedMember] = useState<ApiClubMember | null>(
+    null,
+  );
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Event type filter
+  const [eventTypePickerOpen, setEventTypePickerOpen] = useState(false);
+  const [selectedEventType, setSelectedEventType] = useState<string | null>(
+    null,
+  );
+
+  // Applied filters (used in load call)
+  const [appliedMember, setAppliedMember] = useState<ApiClubMember | null>(
+    null,
+  );
+  const [appliedStart, setAppliedStart] = useState('');
+  const [appliedEnd, setAppliedEnd] = useState('');
+  const [appliedEventType, setAppliedEventType] = useState<string | null>(null);
+
+  // Export state
+  const [exporting, setExporting] = useState(false);
+
+  // List state
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -23,33 +114,50 @@ export default function AuditLogScreen() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
+  // Load members for picker
+  useEffect(() => {
+    if (!currentMembership) return;
+    getClubMembers(currentMembership.clubId)
+      .then(data =>
+        setMembers(
+          data
+            .filter(m => m.active)
+            .sort((a, b) => a.userName.localeCompare(b.userName)),
+        ),
+      )
+      .catch(() => {});
+  }, [currentMembership]);
+
   const load = useCallback(
-    async (nextOffset: number, append: boolean) => {
-      if (!currentClub) {
-        return;
-      }
-      if (append) {
-        setLoadingMore(true);
-      } else {
+    async (
+      nextOffset: number,
+      append: boolean,
+      filters: {
+        targetUserId?: string | null;
+        startDate?: string;
+        endDate?: string;
+      },
+    ) => {
+      if (!currentClub) return;
+      if (append) setLoadingMore(true);
+      else {
         setLoading(true);
         setError(null);
       }
-
       try {
         const items = await getAuditLogs({
           clubId: currentClub.id,
           limit: PAGE_SIZE,
           offset: nextOffset,
+          targetUserId: filters.targetUserId,
+          startDate: filters.startDate || undefined,
+          endDate: filters.endDate || undefined,
         });
-        if (append) {
-          setLogs(prev => [...prev, ...items]);
-        } else {
-          setLogs(items);
-        }
+        if (append) setLogs(prev => [...prev, ...items]);
+        else setLogs(items);
         setHasMore(items.length === PAGE_SIZE);
         setOffset(nextOffset + items.length);
-      } catch (err) {
-        console.warn('[AuditLogScreen] load failed:', err);
+      } catch {
         setError('Failed to load audit logs.');
       } finally {
         setLoading(false);
@@ -59,92 +167,547 @@ export default function AuditLogScreen() {
     [currentClub],
   );
 
+  // Initial load
   useEffect(() => {
-    load(0, false);
+    load(0, false, {});
   }, [load]);
 
-  const renderItem = ({item}: {item: AuditLogItem}) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.action}>{item.action}</Text>
-        <Text style={styles.time}>{formatDate(item.createdAt)}</Text>
-      </View>
-      <Text style={styles.actor}>{item.actorName ?? item.actorUserId}</Text>
-      {item.targetUserName && (
-        <Text style={styles.target}>→ {item.targetUserName}</Text>
-      )}
-      {item.entityType && (
-        <Text style={styles.entity}>
-          {item.entityType}
-          {item.entityId ? ` · ${item.entityId.slice(0, 8)}…` : ''}
-        </Text>
-      )}
-      {Object.keys(item.metadata).length > 0 && (
-        <Text style={styles.meta} numberOfLines={2}>
-          {JSON.stringify(item.metadata)}
-        </Text>
-      )}
-    </View>
+  const applyFilters = () => {
+    setAppliedMember(selectedMember);
+    setAppliedStart(startDate);
+    setAppliedEnd(endDate);
+    setAppliedEventType(selectedEventType);
+    load(0, false, {
+      targetUserId: selectedMember?.userId ?? null,
+      startDate,
+      endDate,
+    });
+  };
+
+  const clearFilters = () => {
+    setSelectedMember(null);
+    setStartDate('');
+    setEndDate('');
+    setSelectedEventType(null);
+    setAppliedMember(null);
+    setAppliedStart('');
+    setAppliedEnd('');
+    setAppliedEventType(null);
+    load(0, false, {});
+  };
+
+  const hasActiveFilters = !!(
+    appliedMember ||
+    appliedStart ||
+    appliedEnd ||
+    appliedEventType
   );
 
-  if (loading) {
+  // Client-side event type filter applied on top of server-filtered results
+  const filteredLogs = appliedEventType
+    ? logs.filter(item => {
+        const checkInType = (item.metadata?.checkInType as string) ?? undefined;
+        return resolveActionKey(item.action, checkInType) === appliedEventType;
+      })
+    : logs;
+
+  const handleExportPdf = async () => {
+    if (filteredLogs.length === 0) {
+      Alert.alert('Nothing to export', 'No audit log entries to export.');
+      return;
+    }
+    if (!currentClub) return;
+    setExporting(true);
+    try {
+      const eventTypeLabel = EVENT_TYPE_OPTIONS.find(
+        o => o.value === appliedEventType,
+      )?.label;
+      await exportAuditLogPdf(filteredLogs, currentClub.name, {
+        memberName: appliedMember?.userName,
+        eventTypeLabel,
+        startDate: appliedStart || undefined,
+        endDate: appliedEnd || undefined,
+      });
+    } catch (err: any) {
+      Alert.alert('Export failed', err?.message ?? 'Could not export PDF.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const renderItem = ({item}: {item: AuditLogItem}) => {
+    const meta = item.metadata ?? {};
+    const checkInType = meta.checkInType as string | undefined;
+    const resolvedKey = resolveActionKey(item.action, checkInType);
+    const label = ACTION_LABELS[resolvedKey] ?? item.action;
+    const color = ACTION_COLORS[resolvedKey] ?? '#8E8E93';
+
+    const isCheckIn =
+      resolvedKey === 'check_in_manual' ||
+      resolvedKey === 'check_in_self' ||
+      resolvedKey === 'check_in_backfill';
+    const isCreditsAdjust =
+      resolvedKey === 'credits_added' || resolvedKey === 'credits_deducted';
+
+    // Check-in fields
+    const creditsUsed = meta.creditsUsed as number | undefined;
+    const remainingCredits = meta.remainingCredits as number | undefined;
+    const sessionTitle = meta.sessionTitle as string | undefined;
+    const locationName = meta.locationName as string | undefined;
+    const sessionDisplay = sessionTitle || locationName;
+
+    // Credits adjustment fields
+    const amount = meta.amount as number | undefined;
+    const newCredits = meta.newCredits as number | undefined;
+
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.card}>
+        {/* Top row: badge + time */}
+        <View style={styles.cardHeader}>
+          <View style={[styles.actionBadge, {backgroundColor: color + '18'}]}>
+            <Text style={[styles.actionText, {color}]}>{label}</Text>
+          </View>
+          <Text style={styles.time}>{formatDateTime(item.createdAt)}</Text>
+        </View>
+
+        {/* Credits adjustment card body */}
+        {isCreditsAdjust ? (
+          <>
+            {item.actorName ? (
+              <Text style={styles.contentLine}>
+                Adjusted by: {item.actorName}
+              </Text>
+            ) : null}
+            {item.targetUserName ? (
+              <Text style={styles.contentLine}>
+                Member: {item.targetUserName}
+              </Text>
+            ) : null}
+            {amount != null ? (
+              <Text style={[styles.deltaLine, {color}]}>
+                {formatDelta(amount)}
+              </Text>
+            ) : null}
+            {newCredits != null ? (
+              <Text style={styles.balanceLine}>New balance: {newCredits}</Text>
+            ) : null}
+          </>
+        ) : isCheckIn ? (
+          <>
+            {resolvedKey === 'check_in_manual' ? (
+              <Text style={styles.contentLine}>
+                Checked in by: {item.actorName ?? 'Host'}
+              </Text>
+            ) : null}
+            {item.targetUserName ? (
+              <Text style={styles.contentLine}>
+                Member: {item.targetUserName}
+              </Text>
+            ) : null}
+            {sessionDisplay ? (
+              <Text style={styles.contentLine}>Session: {sessionDisplay}</Text>
+            ) : null}
+            {creditsUsed != null ? (
+              <View style={styles.creditsRow}>
+                <Text style={styles.creditPill}>
+                  Credits used: {creditsUsed}
+                </Text>
+                {remainingCredits != null && (
+                  <Text style={styles.creditPill}>
+                    Remaining: {remainingCredits}
+                  </Text>
+                )}
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {item.actorName ? (
+              <Text style={styles.contentLine}>By: {item.actorName}</Text>
+            ) : null}
+            {item.targetUserName ? (
+              <Text style={styles.contentLine}>
+                Member: {item.targetUserName}
+              </Text>
+            ) : null}
+          </>
+        )}
+      </View>
+    );
+  };
+
+  if (!currentClub) return null;
+
+  const eventTypeLabel =
+    EVENT_TYPE_OPTIONS.find(o => o.value === selectedEventType)?.label ??
+    'All Events';
+
+  return (
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      {/* Filter section – two rows */}
+      <View style={styles.filterSection}>
+        {/* Row 1: chip filters */}
+        <View style={styles.filterRow}>
+          {/* Member filter */}
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              appliedMember && styles.filterChipActive,
+            ]}
+            onPress={() => setMemberPickerOpen(true)}>
+            <Text
+              style={[
+                styles.filterChipText,
+                appliedMember && styles.filterChipTextActive,
+              ]}
+              numberOfLines={1}>
+              {selectedMember ? selectedMember.userName : 'All Members'}
+            </Text>
+            <Text
+              style={[
+                styles.filterChipCaret,
+                appliedMember && styles.filterChipTextActive,
+              ]}>
+              ▾
+            </Text>
+          </TouchableOpacity>
+
+          {/* Event type filter */}
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              appliedEventType && styles.filterChipActive,
+            ]}
+            onPress={() => setEventTypePickerOpen(true)}>
+            <Text
+              style={[
+                styles.filterChipText,
+                appliedEventType && styles.filterChipTextActive,
+              ]}
+              numberOfLines={1}>
+              {eventTypeLabel}
+            </Text>
+            <Text
+              style={[
+                styles.filterChipCaret,
+                appliedEventType && styles.filterChipTextActive,
+              ]}>
+              ▾
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Row 2: date inputs + Apply/Clear + Export */}
+        <View style={styles.filterRow}>
+          <TextInput
+            style={[styles.dateInput, appliedStart && styles.dateInputActive]}
+            value={startDate}
+            onChangeText={setStartDate}
+            placeholder="From YYYY-MM-DD"
+            placeholderTextColor="#AEAEB2"
+            autoCorrect={false}
+            autoCapitalize="none"
+            keyboardType="numeric"
+          />
+          <TextInput
+            style={[styles.dateInput, appliedEnd && styles.dateInputActive]}
+            value={endDate}
+            onChangeText={setEndDate}
+            placeholder="To YYYY-MM-DD"
+            placeholderTextColor="#AEAEB2"
+            autoCorrect={false}
+            autoCapitalize="none"
+            keyboardType="numeric"
+          />
+          <TouchableOpacity style={styles.applyBtn} onPress={applyFilters}>
+            <Text style={styles.applyBtnText}>Apply</Text>
+          </TouchableOpacity>
+          {hasActiveFilters && (
+            <TouchableOpacity style={styles.clearBtn} onPress={clearFilters}>
+              <Text style={styles.clearBtnText}>✕</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[
+              styles.exportBtn,
+              (filteredLogs.length === 0 || exporting) &&
+                styles.exportBtnDisabled,
+            ]}
+            onPress={handleExportPdf}
+            disabled={filteredLogs.length === 0 || exporting}>
+            {exporting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text
+                style={[
+                  styles.exportBtnText,
+                  filteredLogs.length === 0 && styles.exportBtnTextDisabled,
+                ]}>
+                Export PDF
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Active filter summary */}
+      {hasActiveFilters && (
+        <View style={styles.activeSummary}>
+          <Text style={styles.activeSummaryText}>
+            Filtered
+            {appliedMember ? ` · ${appliedMember.userName}` : ''}
+            {appliedEventType
+              ? ` · ${
+                  EVENT_TYPE_OPTIONS.find(o => o.value === appliedEventType)
+                    ?.label ?? appliedEventType
+                }`
+              : ''}
+            {appliedStart ? ` · from ${appliedStart}` : ''}
+            {appliedEnd ? ` · to ${appliedEnd}` : ''}
+          </Text>
+        </View>
+      )}
+
+      {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color="#007AFF" />
         </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.container}>
+      ) : error ? (
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity
             style={styles.retryBtn}
-            onPress={() => load(0, false)}>
+            onPress={() =>
+              load(0, false, {
+                targetUserId: appliedMember?.userId ?? null,
+                startDate: appliedStart,
+                endDate: appliedEnd,
+              })
+            }>
             <Text style={styles.retryBtnText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
-    );
-  }
+      ) : (
+        <FlatList
+          data={filteredLogs}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <Text style={styles.emptyText}>No audit log entries found.</Text>
+            </View>
+          }
+          ListFooterComponent={
+            hasMore && !loading ? (
+              <TouchableOpacity
+                style={styles.loadMoreBtn}
+                onPress={() =>
+                  load(offset, true, {
+                    targetUserId: appliedMember?.userId ?? null,
+                    startDate: appliedStart,
+                    endDate: appliedEnd,
+                  })
+                }
+                disabled={loadingMore}>
+                {loadingMore ? (
+                  <ActivityIndicator color="#007AFF" />
+                ) : (
+                  <Text style={styles.loadMoreText}>Load More</Text>
+                )}
+              </TouchableOpacity>
+            ) : null
+          }
+        />
+      )}
 
-  return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <FlatList
-        data={logs}
-        keyExtractor={item => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.center}>
-            <Text style={styles.emptyText}>No audit log entries yet.</Text>
-          </View>
-        }
-        ListFooterComponent={
-          hasMore && !loading ? (
-            <TouchableOpacity
-              style={styles.loadMoreBtn}
-              onPress={() => load(offset, true)}
-              disabled={loadingMore}>
-              {loadingMore ? (
-                <ActivityIndicator color="#007AFF" />
-              ) : (
-                <Text style={styles.loadMoreText}>Load More</Text>
+      {/* Event type picker modal */}
+      <Modal
+        visible={eventTypePickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEventTypePickerOpen(false)}>
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerSheet}>
+            <View style={styles.pickerHandle} />
+            <Text style={styles.pickerTitle}>Filter by Event Type</Text>
+            <FlatList
+              data={EVENT_TYPE_OPTIONS}
+              keyExtractor={o => o.value ?? '__all__'}
+              renderItem={({item: o}) => {
+                const isActive = selectedEventType === o.value;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.pickerRow,
+                      isActive && styles.pickerRowActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedEventType(o.value);
+                      setEventTypePickerOpen(false);
+                    }}>
+                    <Text
+                      style={[
+                        styles.pickerRowText,
+                        isActive && styles.pickerRowTextActive,
+                      ]}>
+                      {o.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+              ItemSeparatorComponent={() => (
+                <View style={styles.pickerSeparator} />
               )}
+            />
+            <TouchableOpacity
+              style={styles.pickerCancelBtn}
+              onPress={() => setEventTypePickerOpen(false)}>
+              <Text style={styles.pickerCancelText}>Cancel</Text>
             </TouchableOpacity>
-          ) : null
-        }
-      />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Member picker modal */}
+      <Modal
+        visible={memberPickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMemberPickerOpen(false)}>
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerSheet}>
+            <View style={styles.pickerHandle} />
+            <Text style={styles.pickerTitle}>Filter by Member</Text>
+            <FlatList
+              data={[null, ...members]}
+              keyExtractor={m => (m ? m.membershipId : '__all__')}
+              renderItem={({item}) => {
+                const isActive = item
+                  ? selectedMember?.membershipId === item.membershipId
+                  : selectedMember === null;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.pickerRow,
+                      isActive && styles.pickerRowActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedMember(item);
+                      setMemberPickerOpen(false);
+                    }}>
+                    <Text
+                      style={[
+                        styles.pickerRowText,
+                        isActive && styles.pickerRowTextActive,
+                      ]}>
+                      {item ? item.userName : 'All Members'}
+                    </Text>
+                    {item && (
+                      <Text style={styles.pickerRowRole}>{item.role}</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+              ItemSeparatorComponent={() => (
+                <View style={styles.pickerSeparator} />
+              )}
+            />
+            <TouchableOpacity
+              style={styles.pickerCancelBtn}
+              onPress={() => setMemberPickerOpen(false)}>
+              <Text style={styles.pickerCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#F5F5F7'},
+  filterSection: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    gap: 4,
+    maxWidth: 130,
+  },
+  filterChipActive: {
+    backgroundColor: '#EBF4FF',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  filterChipText: {fontSize: 13, color: '#3A3A3C', flexShrink: 1},
+  filterChipTextActive: {color: '#007AFF'},
+  filterChipCaret: {fontSize: 10, color: '#8E8E93'},
+  dateInput: {
+    flex: 1,
+    minWidth: 90,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: Platform.OS === 'ios' ? 7 : 5,
+    fontSize: 12,
+    color: '#1C1C1E',
+  },
+  dateInputActive: {
+    backgroundColor: '#EBF4FF',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  applyBtn: {
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  applyBtnText: {color: '#FFF', fontSize: 13, fontWeight: '600'},
+  clearBtn: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  clearBtnText: {color: '#8E8E93', fontSize: 13, fontWeight: '600'},
+  exportBtn: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: '#C7C7CC',
+  },
+  exportBtnDisabled: {
+    opacity: 0.4,
+  },
+  exportBtnText: {color: '#1C1C1E', fontSize: 13, fontWeight: '600'},
+  exportBtnTextDisabled: {color: '#AEAEB2'},
+  activeSummary: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    backgroundColor: '#EBF4FF',
+  },
+  activeSummaryText: {fontSize: 12, color: '#007AFF'},
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -177,31 +740,100 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+    gap: 8,
   },
-  action: {
-    fontSize: 13,
+  actionBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    flexShrink: 1,
+  },
+  actionText: {fontSize: 12, fontWeight: '700'},
+  time: {fontSize: 11, color: '#8E8E93', flexShrink: 0},
+  contentLine: {fontSize: 13, color: '#1C1C1E', marginTop: 4},
+  deltaLine: {
+    fontSize: 20,
     fontWeight: '700',
-    color: '#007AFF',
+    marginTop: 8,
+  },
+  balanceLine: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  creditsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  creditPill: {
+    fontSize: 12,
+    color: '#3A3A3C',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  loadMoreBtn: {alignItems: 'center', paddingVertical: 16},
+  loadMoreText: {color: '#007AFF', fontSize: 15, fontWeight: '600'},
+  // Picker modal
+  pickerOverlay: {
     flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
-  time: {fontSize: 11, color: '#8E8E93'},
-  actor: {fontSize: 13, color: '#1C1C1E'},
-  target: {fontSize: 12, color: '#6B7280', marginTop: 2},
-  entity: {fontSize: 11, color: '#8E8E93', marginTop: 2},
-  meta: {
-    fontSize: 10,
-    color: '#A0AEC0',
-    fontFamily: 'monospace' as any,
-    marginTop: 4,
+  pickerSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 12,
+    paddingBottom: 36,
+    maxHeight: '70%',
   },
-  loadMoreBtn: {
+  pickerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E5E5EA',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  pickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  pickerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    justifyContent: 'space-between',
   },
-  loadMoreText: {
-    color: '#007AFF',
-    fontSize: 15,
-    fontWeight: '600',
+  pickerRowActive: {backgroundColor: '#EBF4FF'},
+  pickerRowText: {fontSize: 15, color: '#1C1C1E'},
+  pickerRowTextActive: {color: '#007AFF', fontWeight: '600'},
+  pickerRowRole: {
+    fontSize: 11,
+    color: '#8E8E93',
+    textTransform: 'capitalize',
   },
+  pickerSeparator: {
+    height: 1,
+    backgroundColor: '#F2F2F7',
+    marginHorizontal: 16,
+  },
+  pickerCancelBtn: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  pickerCancelText: {fontSize: 15, fontWeight: '600', color: '#3A3A3C'},
 });

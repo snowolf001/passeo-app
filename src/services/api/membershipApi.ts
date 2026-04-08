@@ -53,9 +53,18 @@ export async function adjustMemberCredits(
 }
 
 /**
- * PATCH /api/memberships/:membershipId/role
- * Changes a member's role to 'member' or 'host'. Host/admin/owner only.
+ * POST /api/memberships/recover
+ * Looks up a membership by recovery code. No auth required.
  */
+export async function recoverMembership(
+  recoveryCode: string,
+): Promise<ApiMembershipWithClub> {
+  return apiRequest<ApiMembershipWithClub>('/api/memberships/recover', {
+    method: 'POST',
+    body: {recoveryCode},
+  });
+}
+
 export async function updateMemberRole(
   membershipId: string,
   role: 'member' | 'host',

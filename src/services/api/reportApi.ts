@@ -177,11 +177,17 @@ export async function getAuditLogs(params: {
   clubId: string;
   limit?: number;
   offset?: number;
+  targetUserId?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
 }): Promise<AuditLogItem[]> {
   const qs = buildQs([
     ['clubId', params.clubId],
     ['limit', params.limit != null ? String(params.limit) : undefined],
     ['offset', params.offset != null ? String(params.offset) : undefined],
+    ['targetUserId', params.targetUserId ?? undefined],
+    ['startDate', params.startDate ?? undefined],
+    ['endDate', params.endDate ?? undefined],
   ]);
   return apiRequest<AuditLogItem[]>(`/api/audit-logs${qs}`);
 }

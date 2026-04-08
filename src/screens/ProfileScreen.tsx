@@ -163,17 +163,13 @@ export default function ProfileScreen({navigation}: Props) {
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
 
-            {isAdminOrOwner && (
-              <>
-                <View style={styles.actionDivider} />
-                <TouchableOpacity
-                  style={styles.actionItem}
-                  onPress={() => navigation.navigate('AuditLog')}>
-                  <Text style={styles.actionItemText}>Audit Log</Text>
-                  <Text style={styles.chevron}>›</Text>
-                </TouchableOpacity>
-              </>
-            )}
+            <View style={styles.actionDivider} />
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={() => navigation.navigate('AuditLog')}>
+              <Text style={styles.actionItemText}>Audit Log</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
           </View>
         )}
 

@@ -14,7 +14,10 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {joinClub, createClub} from '../services/api/clubApi';
-import {getMembershipById} from '../services/api/membershipApi';
+import {
+  getMembershipById,
+  recoverMembership,
+} from '../services/api/membershipApi';
 import {useApp} from '../context/AppContext';
 import {RootStackParamList} from '../navigation/types';
 
@@ -27,10 +30,10 @@ export default function JoinOrCreateClubScreen(_: Props) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [clubName, setClubName] = useState('');
-  const [memberCode, setMemberCode] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
   const [joiningClub, setJoiningClub] = useState(false);
   const [creatingClub, setCreatingClub] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
   const handleJoin = async () => {
     if (!joinCode.trim()) {
@@ -95,17 +98,26 @@ export default function JoinOrCreateClubScreen(_: Props) {
   };
 
   const handleRestore = async () => {
-    if (!memberCode.trim() || !recoveryCode.trim()) {
-      Alert.alert(
-        'Required',
-        'Please enter both your Member ID and Recovery Code.',
-      );
+    if (!recoveryCode.trim()) {
+      Alert.alert('Required', 'Please enter your recovery code.');
       return;
     }
-    Alert.alert(
-      'Coming Soon',
-      'Membership restore is not yet available in this version.',
-    );
+    setRestoring(true);
+    try {
+      const result = await recoverMembership(recoveryCode.trim());
+      await setActiveMembershipSession({
+        membershipId: result.membership.membershipId,
+        clubId: result.membership.clubId,
+        userId: result.membership.userId,
+      });
+    } catch (err: any) {
+      Alert.alert(
+        'Not Found',
+        err?.message || 'No membership found with that recovery code.',
+      );
+    } finally {
+      setRestoring(false);
+    }
   };
 
   return (
@@ -227,16 +239,7 @@ export default function JoinOrCreateClubScreen(_: Props) {
             </Text>
             <TextInput
               style={styles.input}
-              placeholder="Member ID"
-              placeholderTextColor="#AEAEB2"
-              value={memberCode}
-              onChangeText={setMemberCode}
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Recovery Code"
+              placeholder="Recovery Code (e.g. XXXX-XXXX-XXXX)"
               placeholderTextColor="#AEAEB2"
               value={recoveryCode}
               onChangeText={setRecoveryCode}
@@ -244,10 +247,21 @@ export default function JoinOrCreateClubScreen(_: Props) {
               autoCorrect={false}
             />
             <TouchableOpacity
-              style={styles.secondaryButton}
+              style={[
+                styles.secondaryButton,
+                !recoveryCode.trim() && styles.secondaryButtonDisabled,
+              ]}
               onPress={handleRestore}
-              disabled={joiningClub || creatingClub}>
-              <Text style={styles.secondaryButtonText}>Restore Membership</Text>
+              disabled={
+                restoring || joiningClub || creatingClub || !recoveryCode.trim()
+              }>
+              {restoring ? (
+                <ActivityIndicator color="#007AFF" />
+              ) : (
+                <Text style={styles.secondaryButtonText}>
+                  Restore Membership
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -339,6 +353,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: '#007AFF',
+  },
+  secondaryButtonDisabled: {
+    borderColor: '#B0C4DE',
   },
   secondaryButtonText: {color: '#007AFF', fontSize: 16, fontWeight: '700'},
   dividerRow: {
