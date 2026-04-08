@@ -146,3 +146,10 @@ export async function manualCheckIn(
     {method: 'POST', body: {targetMembershipId, creditsUsed}},
   );
 }
+
+/**
+ * DELETE /api/sessions/:sessionId — delete an empty session
+ */
+export async function deleteSession(sessionId: string): Promise<void> {
+  await apiRequest<void>(`/api/sessions/${sessionId}`, {method: 'DELETE'});
+}

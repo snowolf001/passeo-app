@@ -24,6 +24,9 @@ export type RootStackParamList = {
   AuditLog: undefined;
   MemberCredits: undefined;
   MemberCreditHistory: {membershipId: string; memberName?: string};
+
+  // Club Pro placeholder paywall (closed testing)
+  ClubProPreview: undefined;
 };
 
 export type MainTabParamList = {

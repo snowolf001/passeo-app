@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,11 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import {joinClub, createClub} from '../services/api/clubApi';
+import {
+  joinClub,
+  createClub,
+  recoverClubMembership,
+} from '../services/api/clubApi';
 import {
   getMembershipById,
   recoverMembership,
@@ -25,6 +29,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'JoinOrCreateClub'>;
 
 export default function JoinOrCreateClubScreen(_: Props) {
   const {setActiveMembershipSession} = useApp();
+  const scrollRef = useRef<ScrollView>(null);
 
   const [joinCode, setJoinCode] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -34,6 +39,9 @@ export default function JoinOrCreateClubScreen(_: Props) {
   const [joiningClub, setJoiningClub] = useState(false);
   const [creatingClub, setCreatingClub] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  // Stores the conflict joinCode so recovery can be club-scoped
+  const [conflictJoinCode, setConflictJoinCode] = useState<string | null>(null);
+  const [nameConflictError, setNameConflictError] = useState(false);
 
   const handleJoin = async () => {
     if (!joinCode.trim()) {
@@ -48,6 +56,8 @@ export default function JoinOrCreateClubScreen(_: Props) {
       Alert.alert('Required', 'Please enter your last name.');
       return;
     }
+    setNameConflictError(false);
+    setConflictJoinCode(null);
     setJoiningClub(true);
     try {
       const {membershipId, clubId} = await joinClub(
@@ -62,18 +72,26 @@ export default function JoinOrCreateClubScreen(_: Props) {
         userId: membership.userId,
       });
     } catch (err: any) {
-      if (err?.code === 'POSSIBLE_EXISTING_MEMBER') {
-        Alert.alert(
-          'Name Already Taken',
-          'A member with this name already exists in this club.\n\n• If you joined before, use your recovery code to restore your membership.\n• If you lost your code, ask the host or admin to look it up for you.\n• Otherwise, try joining with a different name.',
-          [{text: 'OK'}],
-        );
+      if (
+        err?.code === 'DISPLAY_NAME_CONFLICT' ||
+        err?.code === 'POSSIBLE_EXISTING_MEMBER'
+      ) {
+        setNameConflictError(true);
+        setConflictJoinCode(joinCode.trim());
+        // Scroll down so user can see the conflict message and recovery section
+        setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 100);
       } else {
         Alert.alert('Error', err?.message || 'Failed to join club.');
       }
     } finally {
       setJoiningClub(false);
     }
+  };
+
+  const handleUseRecoveryCode = () => {
+    // Pre-fill the recover name from what was just typed
+    setNameConflictError(false);
+    setTimeout(() => scrollRef.current?.scrollToEnd({animated: true}), 100);
   };
 
   const handleCreate = async () => {
@@ -113,7 +131,7 @@ export default function JoinOrCreateClubScreen(_: Props) {
     } catch (err: any) {
       Alert.alert(
         'Not Found',
-        err?.message || 'No membership found with that recovery code.',
+        err?.message || 'No membership found. Check your recovery code.',
       );
     } finally {
       setRestoring(false);
@@ -126,6 +144,7 @@ export default function JoinOrCreateClubScreen(_: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{flex: 1}}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled">
           <Text style={styles.appTitle}>Club App</Text>
@@ -190,6 +209,22 @@ export default function JoinOrCreateClubScreen(_: Props) {
                 <Text style={styles.primaryButtonText}>Join Club</Text>
               )}
             </TouchableOpacity>
+            {nameConflictError && (
+              <View style={styles.conflictBox}>
+                <Text style={styles.conflictText}>
+                  {
+                    'This name already exists in this club.\nIf you already joined this club before, please use your recovery code. Otherwise, choose a different name.'
+                  }
+                </Text>
+                <TouchableOpacity
+                  style={styles.useRecoveryBtn}
+                  onPress={handleUseRecoveryCode}>
+                  <Text style={styles.useRecoveryBtnText}>
+                    Use Recovery Code
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           <View style={styles.dividerRow}>
@@ -235,7 +270,11 @@ export default function JoinOrCreateClubScreen(_: Props) {
           <View style={[styles.card, styles.restoreCard]}>
             <Text style={styles.cardTitle}>Recover Membership</Text>
             <Text style={styles.cardHint}>
-              Already joined before? Enter your recovery code to restore access.
+              {conflictJoinCode
+                ? `Enter your recovery code to restore your "${
+                    firstName.trim() || ''
+                  } ${lastName.trim() || ''}" membership.`
+                : 'Already joined before? Enter your recovery code to restore access.'}
             </Text>
             <TextInput
               style={styles.input}
@@ -366,4 +405,27 @@ const styles = StyleSheet.create({
   },
   divider: {flex: 1, height: 1, backgroundColor: '#E5E5EA'},
   dividerText: {marginHorizontal: 12, color: '#AEAEB2', fontSize: 14},
+  conflictBox: {
+    marginTop: 12,
+    backgroundColor: '#FFF3F3',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FFCDD0',
+    padding: 14,
+  },
+  conflictText: {
+    fontSize: 13,
+    color: '#C0392B',
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  useRecoveryBtn: {
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#007AFF',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  useRecoveryBtnText: {fontSize: 13, fontWeight: '700', color: '#007AFF'},
 });

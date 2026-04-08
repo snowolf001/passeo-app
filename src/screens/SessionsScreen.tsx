@@ -11,11 +11,14 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {formatDate} from '../utils/date';
+import {CLUB_PRO_CONFIG} from '../config/appConfig';
 
 type Props = {navigation: any};
 
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_VISIBLE_SESSIONS = 50;
+// Past sessions older than this window are shown as locked (Pro required)
+const LOCKED_PAST_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export default function SessionsScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
@@ -67,6 +70,21 @@ export default function SessionsScreen({navigation}: Props) {
           new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
       )
       .slice(0, MAX_VISIBLE_SESSIONS);
+  }, [sessions]);
+
+  // Past sessions shown as locked Pro items
+  const lockedSessions = useMemo(() => {
+    if (CLUB_PRO_CONFIG.IS_PRO) return [];
+    const now = Date.now();
+    return sessions
+      .filter(session => {
+        const endMs = new Date(session.endTime).getTime();
+        return endMs < now && endMs >= now - LOCKED_PAST_DAYS_MS;
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
+      );
   }, [sessions]);
 
   const highlightedSession = useMemo(() => {
@@ -294,6 +312,36 @@ export default function SessionsScreen({navigation}: Props) {
             </Text>
           </View>
         }
+        ListFooterComponent={
+          lockedSessions.length > 0 ? (
+            <View style={styles.lockedSection}>
+              <Text style={styles.sectionTitle}>Past Sessions</Text>
+              {lockedSessions.map(session => (
+                <TouchableOpacity
+                  key={session.id}
+                  style={[styles.card, styles.cardLocked]}
+                  onPress={() => navigation.navigate('ClubProPreview')}>
+                  <View style={styles.cardTop}>
+                    <Text style={[styles.cardTitle, styles.cardTitleLocked]}>
+                      {'\uD83D\uDD12 '}
+                      {session.title ?? session.locationName ?? 'Session'}
+                    </Text>
+                    <View
+                      style={[styles.badgePill, {backgroundColor: '#F3F4F6'}]}>
+                      <Text style={[styles.badgeText, {color: '#8E8E93'}]}>
+                        Pro
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.detailText, {color: '#B0B0B8'}]}>
+                    {'\u23F1 '}
+                    {formatDate(session.startTime)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null
+        }
       />
     </SafeAreaView>
   );
@@ -498,5 +546,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  lockedSection: {
+    marginTop: 8,
+  },
+  cardLocked: {
+    opacity: 0.6,
+    backgroundColor: '#F9F9FB',
+  },
+  cardTitleLocked: {
+    color: '#8E8E93',
   },
 });

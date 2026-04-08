@@ -19,6 +19,7 @@ import MemberHistoryScreen from '../screens/MemberHistoryScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import AuditLogScreen from '../screens/AuditLogScreen';
 import MemberCreditsScreen from '../screens/MemberCreditsScreen';
+import ClubProPreviewScreen from '../screens/ClubProPreviewScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -113,6 +114,11 @@ export default function RootNavigator() {
         name="MemberCredits"
         component={MemberCreditsScreen}
         options={{headerShown: true, title: 'Manage Members'}}
+      />
+      <Stack.Screen
+        name="ClubProPreview"
+        component={ClubProPreviewScreen}
+        options={{headerShown: true, title: 'Club Pro'}}
       />
     </Stack.Navigator>
   );

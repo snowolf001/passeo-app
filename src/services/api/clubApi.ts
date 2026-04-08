@@ -89,6 +89,18 @@ export async function addClubLocation(
 }
 
 /**
+ * DELETE /api/clubs/:clubId/locations/:locationId
+ */
+export async function deleteClubLocation(
+  clubId: string,
+  locationId: string,
+): Promise<void> {
+  await apiRequest<void>(`/api/clubs/${clubId}/locations/${locationId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
  * POST /api/clubs/join
  */
 export async function joinClub(
@@ -111,5 +123,69 @@ export async function createClub(
   return apiRequest<{membershipId: string; clubId: string}>('/api/clubs', {
     method: 'POST',
     body: {name},
+  });
+}
+
+/**
+ * POST /api/clubs/:clubId/regenerate-join-code
+ * Generates a new join code. Owner/admin only.
+ */
+export async function regenerateJoinCode(
+  clubId: string,
+): Promise<{joinCode: string}> {
+  return apiRequest<{joinCode: string}>(
+    `/api/clubs/${clubId}/regenerate-join-code`,
+    {method: 'POST'},
+  );
+}
+
+/**
+ * POST /api/clubs/:clubId/transfer-ownership
+ * Transfers ownership to an existing admin. Owner only.
+ */
+export async function transferOwnership(
+  clubId: string,
+  targetMembershipId: string,
+): Promise<void> {
+  return apiRequest<void>(`/api/clubs/${clubId}/transfer-ownership`, {
+    method: 'POST',
+    body: {targetMembershipId},
+  });
+}
+
+/**
+ * DELETE /api/clubs/:clubId/members/:membershipId
+ * Removes a member. Owner/admin only.
+ */
+export async function removeMember(
+  clubId: string,
+  membershipId: string,
+): Promise<void> {
+  return apiRequest<void>(`/api/clubs/${clubId}/members/${membershipId}`, {
+    method: 'DELETE',
+  });
+}
+
+export type ApiRecoveredMembership = {
+  membershipId: string;
+  clubId: string;
+  userId: string;
+  displayName: string;
+  role: string;
+  credits: number;
+};
+
+/**
+ * POST /api/clubs/:clubId/recover
+ * Recovers a membership by display name + recovery code. No auth required.
+ */
+export async function recoverClubMembership(
+  clubId: string,
+  displayName: string,
+  recoveryCode: string,
+): Promise<ApiRecoveredMembership> {
+  return apiRequest<ApiRecoveredMembership>(`/api/clubs/${clubId}/recover`, {
+    method: 'POST',
+    body: {displayName, recoveryCode},
   });
 }

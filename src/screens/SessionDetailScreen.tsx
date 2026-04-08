@@ -21,6 +21,7 @@ import {
   getCheckedInMembers as apiGetCheckedInMembers,
   checkInToSession,
   getCheckInErrorMessage,
+  deleteSession as apiDeleteSession,
 } from '../services/api/sessionApi';
 import {
   getSessionAttendees,
@@ -55,6 +56,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const [loadingSession, setLoadingSession] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [deletingSession, setDeletingSession] = useState(false);
 
   const [showPeoplePicker, setShowPeoplePicker] = useState(false);
   const [peopleCount, setPeopleCount] = useState(1);
@@ -426,6 +428,51 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     }
   };
 
+  const canDeleteSession =
+    canManualCheckIn &&
+    checkedInMembers.length === 0 &&
+    (attendeesReport === null || attendeesReport.summary.totalCheckIns === 0);
+
+  const handleDeleteSession = () => {
+    Alert.alert(
+      'Delete Session',
+      'Delete this session? This cannot be undone.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!session) {
+              return;
+            }
+            setDeletingSession(true);
+            try {
+              await apiDeleteSession(session.id);
+              showSnackbar('Session deleted');
+              navigation.goBack();
+            } catch (err: any) {
+              const code = err?.code as string | undefined;
+              if (code === 'SESSION_NOT_DELETABLE') {
+                Alert.alert(
+                  'Cannot Delete',
+                  'This session cannot be deleted because it already has attendance records.',
+                );
+              } else {
+                Alert.alert(
+                  'Error',
+                  err?.message ?? 'Could not delete session. Please try again.',
+                );
+              }
+            } finally {
+              setDeletingSession(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const renderMemberRow = ({item}: {item: ApiCheckedInMember}) => {
     const isYou = currentMembership?.id === item.membershipId;
 
@@ -525,6 +572,23 @@ export default function SessionDetailScreen({route, navigation}: Props) {
               }>
               <Text style={styles.hostButtonText}>Manual Check-In</Text>
             </TouchableOpacity>
+            {canDeleteSession && (
+              <TouchableOpacity
+                style={[
+                  styles.deleteSessionBtn,
+                  deletingSession && styles.deleteSessionBtnDisabled,
+                ]}
+                onPress={handleDeleteSession}
+                disabled={deletingSession}>
+                {deletingSession ? (
+                  <ActivityIndicator color="#FF3B30" />
+                ) : (
+                  <Text style={styles.deleteSessionBtnText}>
+                    Delete Session
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -965,6 +1029,23 @@ const styles = StyleSheet.create({
   },
   hostButtonText: {
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  deleteSessionBtn: {
+    marginTop: 10,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FF3B30',
+    backgroundColor: '#FFF1F0',
+  },
+  deleteSessionBtnDisabled: {
+    opacity: 0.5,
+  },
+  deleteSessionBtnText: {
+    color: '#FF3B30',
     fontSize: 16,
     fontWeight: '700',
   },

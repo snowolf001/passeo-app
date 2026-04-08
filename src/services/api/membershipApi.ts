@@ -6,8 +6,9 @@ export type ApiMembership = {
   clubId: string;
   userId: string;
   userName: string;
+  displayName: string;
   recoveryCode: string;
-  role: 'member' | 'host' | 'owner';
+  role: 'member' | 'host' | 'admin' | 'owner';
   credits: number;
   active: boolean;
 };
@@ -67,7 +68,7 @@ export async function recoverMembership(
 
 export async function updateMemberRole(
   membershipId: string,
-  role: 'member' | 'host',
+  role: 'member' | 'host' | 'admin',
 ): Promise<ApiMembership> {
   return apiRequest<ApiMembership>(`/api/memberships/${membershipId}/role`, {
     method: 'PATCH',

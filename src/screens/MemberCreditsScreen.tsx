@@ -18,7 +18,12 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/types';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
-import {getClubMembers, ApiClubMember} from '../services/api/clubApi';
+import {
+  getClubMembers,
+  ApiClubMember,
+  transferOwnership,
+  removeMember,
+} from '../services/api/clubApi';
 import {
   adjustMemberCredits,
   getMembershipById,
@@ -44,6 +49,7 @@ export default function MemberCreditsScreen({navigation}: Props) {
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [changingRole, setChangingRole] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
@@ -106,9 +112,76 @@ export default function MemberCreditsScreen({navigation}: Props) {
     setReason('');
   };
 
-  const handleRoleChange = (newRole: 'member' | 'host') => {
+  const handleTransferOwnership = () => {
+    if (!selected || !currentMembership) return;
+    Alert.alert(
+      'Transfer Ownership',
+      `Transfer ownership to ${selected.userName}? You will become an admin after transfer. This cannot be undone.`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Transfer',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              await transferOwnership(
+                currentMembership.clubId,
+                selected.membershipId,
+              );
+              await loadMembers();
+              closeModal();
+            } catch (e: any) {
+              Alert.alert('Error', e?.message ?? 'Transfer failed.');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRemoveMember = () => {
+    if (!selected || !currentMembership) return;
+    Alert.alert(
+      'Remove Member',
+      `Remove ${selected.userName}? This will deactivate their membership.`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              await removeMember(
+                currentMembership.clubId,
+                selected.membershipId,
+              );
+              setMembers(prev =>
+                prev.filter(m => m.membershipId !== selected.membershipId),
+              );
+              closeModal();
+            } catch (e: any) {
+              Alert.alert('Error', e?.message ?? 'Remove failed.');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRoleChange = (newRole: 'member' | 'host' | 'admin' | 'admin') => {
     if (!selected) return;
-    const label = newRole === 'host' ? 'Make Host' : 'Make Member';
+    const label =
+      newRole === 'admin'
+        ? 'Make Admin'
+        : newRole === 'host'
+        ? 'Make Host'
+        : 'Make Member';
     Alert.alert(label, `Change ${selected.userName}'s role to ${newRole}?`, [
       {text: 'Cancel', style: 'cancel'},
       {
@@ -175,6 +248,9 @@ export default function MemberCreditsScreen({navigation}: Props) {
           <View style={styles.nameRow}>
             <Text style={styles.memberName}>{item.userName}</Text>
             {isSelf && <Text style={styles.youBadge}>You</Text>}
+            {item.role === 'owner' && (
+              <Text style={styles.ownerBadge}>Owner</Text>
+            )}
           </View>
           <Text style={styles.memberRole}>{item.role}</Text>
         </View>
@@ -248,7 +324,6 @@ export default function MemberCreditsScreen({navigation}: Props) {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-
             {/* ── Section 1: Member overview ─────────────────────────── */}
             <View style={styles.overviewSection}>
               <Text style={styles.overviewName}>
@@ -273,9 +348,7 @@ export default function MemberCreditsScreen({navigation}: Props) {
                 </TouchableOpacity>
               )}
             </View>
-
             <View style={styles.sectionDivider} />
-
             {/* ── Section 2: Recovery code ───────────────────────────── */}
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Recovery Code</Text>
@@ -299,7 +372,6 @@ export default function MemberCreditsScreen({navigation}: Props) {
                 )}
               </View>
             </View>
-
             {/* Role Management — admin/owner only */}
             {selected &&
               selected.role !== 'owner' &&
@@ -347,6 +419,27 @@ export default function MemberCreditsScreen({navigation}: Props) {
                           Host
                         </Text>
                       </TouchableOpacity>
+                      {currentMembership?.role === 'owner' && (
+                        <TouchableOpacity
+                          style={[
+                            styles.roleBtn,
+                            selected.role === 'admin' && styles.roleBtnActive,
+                          ]}
+                          onPress={() =>
+                            selected.role !== 'admin' &&
+                            handleRoleChange('admin')
+                          }
+                          disabled={changingRole || selected.role === 'admin'}>
+                          <Text
+                            style={[
+                              styles.roleBtnText,
+                              selected.role === 'admin' &&
+                                styles.roleBtnTextActive,
+                            ]}>
+                            Admin
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                       {changingRole && (
                         <ActivityIndicator
                           size="small"
@@ -355,13 +448,48 @@ export default function MemberCreditsScreen({navigation}: Props) {
                         />
                       )}
                     </View>
+                    {/* Transfer Ownership — owner only, target must be admin */}
+                    {currentMembership?.role === 'owner' &&
+                      selected.role === 'admin' && (
+                        <TouchableOpacity
+                          style={styles.transferBtn}
+                          onPress={handleTransferOwnership}
+                          disabled={actionLoading}>
+                          {actionLoading ? (
+                            <ActivityIndicator color="#fff" size="small" />
+                          ) : (
+                            <Text style={styles.transferBtnText}>
+                              Transfer Ownership
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      )}
                   </View>
                 </>
               )}
-
+            {/* Remove Member — admin/owner, not targeting owner */}
+            {selected &&
+              selected.role !== 'owner' &&
+              (currentMembership?.role === 'admin' ||
+                currentMembership?.role === 'owner') && (
+                <>
+                  <View style={styles.sectionDivider} />
+                  <View style={styles.section}>
+                    <TouchableOpacity
+                      style={styles.removeBtn}
+                      onPress={handleRemoveMember}
+                      disabled={actionLoading}>
+                      {actionLoading ? (
+                        <ActivityIndicator color="#FF3B30" size="small" />
+                      ) : (
+                        <Text style={styles.removeBtnText}>Remove Member</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             <View style={styles.sectionDivider} />
-
-            {/* ── Section 3: Adjust credits ──────────────────────────── */}
+            {/* ── Section 3: Adjust credits ──────────────────────────── */}{' '}
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Adjust Credits</Text>
               <TextInput
@@ -389,7 +517,6 @@ export default function MemberCreditsScreen({navigation}: Props) {
                 onSubmitEditing={handleSave}
               />
             </View>
-
             {/* ── Action buttons ─────────────────────────────────────── */}
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -457,6 +584,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#8E8E93',
     backgroundColor: '#E5E5EA',
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    textTransform: 'uppercase',
+  },
+  ownerBadge: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FF9500',
+    backgroundColor: '#FFF3E0',
     borderRadius: 5,
     paddingHorizontal: 5,
     paddingVertical: 1,
@@ -615,6 +752,24 @@ const styles = StyleSheet.create({
   },
   roleBtnText: {fontSize: 14, fontWeight: '600', color: '#3A3A3C'},
   roleBtnTextActive: {color: '#007AFF'},
+  transferBtn: {
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#007AFF',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  transferBtnText: {fontSize: 14, fontWeight: '600', color: '#fff'},
+  removeBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#FF3B30',
+    alignItems: 'center',
+  },
+  removeBtnText: {fontSize: 14, fontWeight: '600', color: '#FF3B30'},
   input: {
     backgroundColor: '#F2F2F7',
     borderRadius: 10,

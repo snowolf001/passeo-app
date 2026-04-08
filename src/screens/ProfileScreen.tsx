@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
+import {CLUB_PRO_CONFIG} from '../config/appConfig';
 
 type Props = {navigation: any};
 
@@ -22,6 +23,11 @@ export default function ProfileScreen({navigation}: Props) {
   const role = currentMembership.role;
   const isAdminOrOwner = ['admin', 'owner'].includes(role);
   const canManageClub = ['host', 'admin', 'owner'].includes(role);
+
+  // Club Pro gating — flip CLUB_PRO_CONFIG.IS_PRO when billing is ready
+  const isClubPro = CLUB_PRO_CONFIG.IS_PRO;
+  const goProGate = () => navigation.navigate('ClubProPreview');
+  // TODO: club_click_reports_locked / club_click_audit_logs_locked events here
 
   const ROLE_LABELS: Record<string, string> = {
     member: 'Member',
@@ -149,7 +155,9 @@ export default function ProfileScreen({navigation}: Props) {
 
             <TouchableOpacity
               style={styles.actionItem}
-              onPress={() => navigation.navigate('Reports')}>
+              onPress={() =>
+                isClubPro ? navigation.navigate('Reports') : goProGate()
+              }>
               <Text style={styles.actionItemText}>Reports</Text>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
@@ -166,7 +174,9 @@ export default function ProfileScreen({navigation}: Props) {
             <View style={styles.actionDivider} />
             <TouchableOpacity
               style={styles.actionItem}
-              onPress={() => navigation.navigate('AuditLog')}>
+              onPress={() =>
+                isClubPro ? navigation.navigate('AuditLog') : goProGate()
+              }>
               <Text style={styles.actionItemText}>Audit Log</Text>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
