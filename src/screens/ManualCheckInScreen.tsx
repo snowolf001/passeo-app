@@ -130,9 +130,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
         getSessionById(sessionId),
       ]);
 
-      setMembers(
-        apiMembers.filter(m => m.role === 'member' || m.role === 'host'),
-      );
+      setMembers(apiMembers);
       setCheckedInIds(new Set(checkedIn.map(a => a.membershipId)));
       setSessionEndTime(session.endTime ?? null);
     } catch (err) {
