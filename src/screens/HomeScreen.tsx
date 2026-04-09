@@ -284,7 +284,8 @@ const styles = StyleSheet.create({
   actionButton: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
     alignItems: 'center',
     minWidth: 100,
     flex: 1,
@@ -296,7 +297,7 @@ const styles = StyleSheet.create({
   },
   actionIcon: {fontSize: 26, marginBottom: 6},
   actionLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#3A3A3C',
     textAlign: 'center',
