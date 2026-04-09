@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -45,6 +45,20 @@ export default function CreateSessionScreen({navigation}: Props) {
   const [locations, setLocations] = useState<ApiClubLocation[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  const [snackMsg, setSnackMsg] = useState('');
+  const [snackVisible, setSnackVisible] = useState(false);
+  const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showSnackbar = useCallback((message: string) => {
+    if (snackTimer.current) clearTimeout(snackTimer.current);
+    setSnackMsg(message);
+    setSnackVisible(true);
+    snackTimer.current = setTimeout(() => {
+      setSnackVisible(false);
+      setSnackMsg('');
+    }, 2000);
+  }, []);
 
   const loadLocations = useCallback(() => {
     if (!currentMembership) return;
@@ -149,9 +163,8 @@ export default function CreateSessionScreen({navigation}: Props) {
         endTime: endISO,
         capacity: capacityNum,
       });
-      Alert.alert('Session Created', 'The session has been created.', [
-        {text: 'OK', onPress: () => navigation.goBack()},
-      ]);
+      showSnackbar('Session created!');
+      setTimeout(() => navigation.goBack(), 1500);
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to create session.');
     } finally {
@@ -391,12 +404,17 @@ export default function CreateSessionScreen({navigation}: Props) {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+      {snackVisible && (
+        <View pointerEvents="none" style={styles.snackbar}>
+          <Text style={styles.snackbarText}>{snackMsg}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7'},
+  container: {flex: 1, backgroundColor: '#F5F5F7', position: 'relative'},
   scroll: {padding: 20, paddingBottom: 40},
   field: {marginBottom: 20},
   label: {
@@ -436,6 +454,27 @@ const styles = StyleSheet.create({
   },
   pickerIcon: {
     fontSize: 16,
+  },
+  snackbar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 24,
+    zIndex: 999,
+    elevation: 10,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  snackbarText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   row: {flexDirection: 'row'},
   // Host info banner
