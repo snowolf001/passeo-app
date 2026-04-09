@@ -83,6 +83,11 @@ export default function HomeScreen({navigation}: Props) {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const unsub = navigation.addListener('focus', loadData);
+    return unsub;
+  }, [navigation, loadData]);
+
   console.log(
     '[HomeScreen] render — currentMembership:',
     currentMembership?.id ?? 'null',
