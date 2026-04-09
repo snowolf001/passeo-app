@@ -279,9 +279,21 @@ export default function ProfileScreen({navigation}: Props) {
             Use this code to restore access to your membership if you lose or
             change your device. Keep it somewhere safe.
           </Text>
-          <Text style={styles.recoveryCode}>
-            {currentMembership.recoveryCode || '—'}
-          </Text>
+          <View style={styles.recoveryCodeRow}>
+            <Text style={styles.recoveryCode}>
+              {currentMembership.recoveryCode || '—'}
+            </Text>
+            {!!currentMembership.recoveryCode && (
+              <TouchableOpacity
+                style={styles.copyBtn}
+                onPress={() => {
+                  Clipboard.setString(currentMembership.recoveryCode ?? '');
+                  showSnackbar('Recovery code copied');
+                }}>
+                <Text style={styles.copyBtnText}>Copy</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* ===== LEAVE CLUB ===== */}
@@ -454,12 +466,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 18,
   },
+  recoveryCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 12,
+  },
   recoveryCode: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1C1C1E',
     letterSpacing: 2,
-    marginTop: 12,
     fontVariant: ['tabular-nums'],
   },
   leaveCard: {
