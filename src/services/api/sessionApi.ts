@@ -126,6 +126,7 @@ export async function createSession(params: {
   locationId: string;
   startTime: string;
   endTime?: string | null;
+  capacity?: number | null;
 }): Promise<ApiSession> {
   return apiRequest<ApiSession>('/api/sessions', {
     method: 'POST',

@@ -128,6 +128,17 @@ export default function CreateSessionScreen({navigation}: Props) {
       ? combineDateTime(sessionDate, endTime).toISOString()
       : null;
 
+    if (endISO && endISO <= startISO) {
+      Alert.alert('Invalid Times', 'End time must be after start time.');
+      return;
+    }
+
+    const capacityNum = capacity.trim() ? parseInt(capacity.trim(), 10) : null;
+    if (capacityNum !== null && (isNaN(capacityNum) || capacityNum < 1)) {
+      Alert.alert('Invalid Capacity', 'Capacity must be a positive number.');
+      return;
+    }
+
     setLoading(true);
     try {
       await createSession({
@@ -136,6 +147,7 @@ export default function CreateSessionScreen({navigation}: Props) {
         locationId: selectedLocationId,
         startTime: startISO,
         endTime: endISO,
+        capacity: capacityNum,
       });
       Alert.alert('Session Created', 'The session has been created.', [
         {text: 'OK', onPress: () => navigation.goBack()},
