@@ -1,4 +1,4 @@
-﻿import React, {useCallback, useEffect, useState} from 'react';
+﻿import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,8 @@ import {getAuditLogs, AuditLogItem} from '../services/api/reportApi';
 import {getClubMembers, ApiClubMember} from '../services/api/clubApi';
 import {formatDateTime} from '../utils/date';
 import {exportAuditLogPdf} from '../services/auditLogPdfService';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 const PAGE_SIZE = 50;
 
@@ -79,6 +81,8 @@ type Props = {navigation: any};
 
 export default function AuditLogScreen({navigation}: Props) {
   const {currentClub, currentMembership} = useApp();
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Filter state
   const [memberPickerOpen, setMemberPickerOpen] = useState(false);
@@ -625,215 +629,217 @@ export default function AuditLogScreen({navigation}: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7'},
-  filterSection: {
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    gap: 4,
-    maxWidth: 130,
-  },
-  filterChipActive: {
-    backgroundColor: '#EBF4FF',
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  filterChipText: {fontSize: 13, color: '#3A3A3C', flexShrink: 1},
-  filterChipTextActive: {color: '#007AFF'},
-  filterChipCaret: {fontSize: 10, color: '#8E8E93'},
-  dateInput: {
-    flex: 1,
-    minWidth: 90,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: Platform.OS === 'ios' ? 7 : 5,
-    fontSize: 12,
-    color: '#1C1C1E',
-  },
-  dateInputActive: {
-    backgroundColor: '#EBF4FF',
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  applyBtn: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  applyBtnText: {color: '#FFF', fontSize: 13, fontWeight: '600'},
-  clearBtn: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  clearBtnText: {color: '#8E8E93', fontSize: 13, fontWeight: '600'},
-  exportBtn: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: '#C7C7CC',
-  },
-  exportBtnDisabled: {
-    opacity: 0.4,
-  },
-  exportBtnText: {color: '#1C1C1E', fontSize: 13, fontWeight: '600'},
-  exportBtnTextDisabled: {color: '#AEAEB2'},
-  activeSummary: {
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    backgroundColor: '#EBF4FF',
-  },
-  activeSummaryText: {fontSize: 12, color: '#007AFF'},
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    minHeight: 200,
-  },
-  errorText: {fontSize: 15, color: '#FF3B30', marginBottom: 12},
-  emptyText: {fontSize: 15, color: '#8E8E93'},
-  retryBtn: {
-    backgroundColor: '#007AFF',
-    borderRadius: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  retryBtnText: {color: '#FFF', fontWeight: '700'},
-  list: {padding: 12, paddingBottom: 40},
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-    gap: 8,
-  },
-  actionBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    flexShrink: 1,
-  },
-  actionText: {fontSize: 12, fontWeight: '700'},
-  time: {fontSize: 11, color: '#8E8E93', flexShrink: 0},
-  contentLine: {fontSize: 13, color: '#1C1C1E', marginTop: 4},
-  deltaLine: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 8,
-  },
-  balanceLine: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  creditsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 6,
-    flexWrap: 'wrap',
-  },
-  creditPill: {
-    fontSize: 12,
-    color: '#3A3A3C',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  loadMoreBtn: {alignItems: 'center', paddingVertical: 16},
-  loadMoreText: {color: '#007AFF', fontSize: 15, fontWeight: '600'},
-  // Picker modal
-  pickerOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  pickerSheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 12,
-    paddingBottom: 36,
-    maxHeight: '70%',
-  },
-  pickerHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5E5EA',
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  pickerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  pickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    justifyContent: 'space-between',
-  },
-  pickerRowActive: {backgroundColor: '#EBF4FF'},
-  pickerRowText: {fontSize: 15, color: '#1C1C1E'},
-  pickerRowTextActive: {color: '#007AFF', fontWeight: '600'},
-  pickerRowRole: {
-    fontSize: 11,
-    color: '#8E8E93',
-    textTransform: 'capitalize',
-  },
-  pickerSeparator: {
-    height: 1,
-    backgroundColor: '#F2F2F7',
-    marginHorizontal: 16,
-  },
-  pickerCancelBtn: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  pickerCancelText: {fontSize: 15, fontWeight: '600', color: '#3A3A3C'},
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {flex: 1, backgroundColor: c.background},
+    filterSection: {
+      backgroundColor: c.card,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+      paddingHorizontal: 12,
+      paddingTop: 10,
+      paddingBottom: 8,
+      gap: 8,
+    },
+    filterRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap',
+    },
+    filterChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      gap: 4,
+      maxWidth: 130,
+    },
+    filterChipActive: {
+      backgroundColor: '#EBF4FF',
+      borderWidth: 1,
+      borderColor: c.primary,
+    },
+    filterChipText: {fontSize: 13, color: c.text, flexShrink: 1},
+    filterChipTextActive: {color: c.primary},
+    filterChipCaret: {fontSize: 10, color: c.textMuted},
+    dateInput: {
+      flex: 1,
+      minWidth: 90,
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 8,
+      paddingHorizontal: 8,
+      paddingVertical: Platform.OS === 'ios' ? 7 : 5,
+      fontSize: 12,
+      color: c.text,
+    },
+    dateInputActive: {
+      backgroundColor: '#EBF4FF',
+      borderWidth: 1,
+      borderColor: c.primary,
+    },
+    applyBtn: {
+      backgroundColor: c.primary,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+    },
+    applyBtnText: {color: '#FFF', fontSize: 13, fontWeight: '600'},
+    clearBtn: {
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+    },
+    clearBtnText: {color: c.textMuted, fontSize: 13, fontWeight: '600'},
+    exportBtn: {
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    exportBtnDisabled: {
+      opacity: 0.4,
+    },
+    exportBtnText: {color: c.text, fontSize: 13, fontWeight: '600'},
+    exportBtnTextDisabled: {color: c.textMuted},
+    activeSummary: {
+      paddingHorizontal: 14,
+      paddingVertical: 5,
+      backgroundColor: '#EBF4FF',
+    },
+    activeSummaryText: {fontSize: 12, color: c.primary},
+    center: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+      minHeight: 200,
+    },
+    errorText: {fontSize: 15, color: c.danger, marginBottom: 12},
+    emptyText: {fontSize: 15, color: c.textMuted},
+    retryBtn: {
+      backgroundColor: c.primary,
+      borderRadius: 10,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+    },
+    retryBtnText: {color: '#FFF', fontWeight: '700'},
+    list: {padding: 12, paddingBottom: 40},
+    card: {
+      backgroundColor: c.card,
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 8,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 1},
+      shadowOpacity: 0.04,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 6,
+      gap: 8,
+    },
+    actionBadge: {
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      flexShrink: 1,
+    },
+    actionText: {fontSize: 12, fontWeight: '700'},
+    time: {fontSize: 11, color: c.textMuted, flexShrink: 0},
+    contentLine: {fontSize: 13, color: c.text, marginTop: 4},
+    deltaLine: {
+      fontSize: 20,
+      fontWeight: '700',
+      marginTop: 8,
+    },
+    balanceLine: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 2,
+    },
+    creditsRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 6,
+      flexWrap: 'wrap',
+    },
+    creditPill: {
+      fontSize: 12,
+      color: c.text,
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    loadMoreBtn: {alignItems: 'center', paddingVertical: 16},
+    loadMoreText: {color: c.primary, fontSize: 15, fontWeight: '600'},
+    // Picker modal
+    pickerOverlay: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'rgba(0,0,0,0.35)',
+    },
+    pickerSheet: {
+      backgroundColor: c.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingTop: 12,
+      paddingBottom: 36,
+      maxHeight: '70%',
+    },
+    pickerHandle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.border,
+      alignSelf: 'center',
+      marginBottom: 12,
+    },
+    pickerTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: c.text,
+      paddingHorizontal: 16,
+      marginBottom: 8,
+    },
+    pickerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 13,
+      justifyContent: 'space-between',
+    },
+    pickerRowActive: {backgroundColor: '#EBF4FF'},
+    pickerRowText: {fontSize: 15, color: c.text},
+    pickerRowTextActive: {color: c.primary, fontWeight: '600'},
+    pickerRowRole: {
+      fontSize: 11,
+      color: c.textMuted,
+      textTransform: 'capitalize',
+    },
+    pickerSeparator: {
+      height: 1,
+      backgroundColor: c.border,
+      marginHorizontal: 16,
+    },
+    pickerCancelBtn: {
+      marginHorizontal: 16,
+      marginTop: 8,
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    pickerCancelText: {fontSize: 15, fontWeight: '600', color: c.text},
+  });
+}

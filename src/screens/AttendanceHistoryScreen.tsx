@@ -14,6 +14,8 @@ import {
   ApiAttendanceItem,
 } from '../services/api/attendanceApi';
 import {RootStackParamList} from '../navigation/types';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AttendanceHistory'>;
 
@@ -91,6 +93,8 @@ function isThisMonth(iso: string): boolean {
 }
 
 function HistoryRow({item}: {item: ApiAttendanceItem}) {
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.row}>
       <Text style={styles.sessionTitle}>{item.sessionTitle}</Text>
@@ -125,6 +129,8 @@ function FilterBar({
   selected: RangeFilter;
   onSelect: (f: RangeFilter) => void;
 }) {
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.filterBar}>
       {FILTERS.map(f => (
@@ -147,6 +153,8 @@ function FilterBar({
 
 export default function AttendanceHistoryScreen({navigation, route}: Props) {
   const {membershipId, title} = route.params;
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [history, setHistory] = useState<ApiAttendanceItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -249,151 +257,153 @@ export default function AttendanceHistoryScreen({navigation, route}: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7'},
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {flex: 1, backgroundColor: c.background},
 
-  filterBar: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 4,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    gap: 4,
-  },
-  filterBtn: {
-    flex: 1,
-    paddingVertical: 7,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  filterBtnActive: {
-    backgroundColor: '#007AFF',
-  },
-  filterBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  filterBtnTextActive: {
-    color: '#FFFFFF',
-  },
+    filterBar: {
+      flexDirection: 'row',
+      backgroundColor: c.card,
+      borderRadius: 12,
+      padding: 4,
+      marginHorizontal: 16,
+      marginBottom: 8,
+      gap: 4,
+    },
+    filterBtn: {
+      flex: 1,
+      paddingVertical: 7,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    filterBtnActive: {
+      backgroundColor: c.primary,
+    },
+    filterBtnText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.textMuted,
+    },
+    filterBtnTextActive: {
+      color: '#FFFFFF',
+    },
 
-  summaryCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 10,
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 10,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  summaryDivider: {
-    width: 1,
-    backgroundColor: '#E5E5EA',
-    marginVertical: 4,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginBottom: 6,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
-  summaryValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    textAlign: 'center',
-  },
-  summaryValueSmall: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    textAlign: 'center',
-  },
+    summaryCard: {
+      flexDirection: 'row',
+      backgroundColor: c.card,
+      marginHorizontal: 16,
+      marginTop: 16,
+      marginBottom: 10,
+      borderRadius: 14,
+      paddingVertical: 16,
+      paddingHorizontal: 10,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 1},
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+    summaryItem: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 6,
+    },
+    summaryDivider: {
+      width: 1,
+      backgroundColor: c.border,
+      marginVertical: 4,
+    },
+    summaryLabel: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginBottom: 6,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      textAlign: 'center',
+    },
+    summaryValue: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: c.text,
+      textAlign: 'center',
+    },
+    summaryValueSmall: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: c.text,
+      textAlign: 'center',
+    },
 
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: '#8E8E93',
-  },
-  errorText: {
-    fontSize: 15,
-    color: '#FF3B30',
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#8E8E93',
-    textAlign: 'center',
-  },
+    centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+    },
+    loadingText: {
+      marginTop: 10,
+      fontSize: 14,
+      color: c.textMuted,
+    },
+    errorText: {
+      fontSize: 15,
+      color: c.danger,
+      textAlign: 'center',
+    },
+    emptyText: {
+      fontSize: 15,
+      color: c.textMuted,
+      textAlign: 'center',
+    },
 
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
-  },
+    listContent: {
+      paddingHorizontal: 16,
+      paddingBottom: 32,
+    },
 
-  row: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  sessionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 4,
-  },
-  checkedInAt: {
-    fontSize: 13,
-    color: '#007AFF',
-    marginBottom: 4,
-  },
-  creditsUsed: {
-    fontSize: 12,
-    color: '#FF9500',
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  checkInMethod: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  secondary: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 1,
-  },
-  secondaryMuted: {
-    fontSize: 12,
-    color: '#AEAEB2',
-    marginTop: 2,
-  },
-});
+    row: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 10,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 1},
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    sessionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: c.text,
+      marginBottom: 4,
+    },
+    checkedInAt: {
+      fontSize: 13,
+      color: c.primary,
+      marginBottom: 4,
+    },
+    creditsUsed: {
+      fontSize: 12,
+      color: '#FF9500',
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    checkInMethod: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginTop: 2,
+    },
+    secondary: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 1,
+    },
+    secondaryMuted: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginTop: 2,
+    },
+  });
+}

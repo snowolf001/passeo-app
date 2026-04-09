@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   Alert,
   View,
@@ -21,6 +21,8 @@ import {
 } from '../services/api/reportApi';
 import {exportSummaryReportPdf} from '../services/reportPdfService';
 import {formatDate} from '../utils/date';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Reports'>;
 
@@ -50,6 +52,8 @@ const PRESETS = [
 
 export default function ReportsScreen({navigation}: Props) {
   const {currentClub, currentMembership} = useApp();
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // ── Last session ──────────────────────────────────────────────────────────
   const [lastSession, setLastSession] = useState<SessionBreakdownItem | null>(
@@ -460,247 +464,249 @@ export default function ReportsScreen({navigation}: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7'},
-  scroll: {padding: 16, paddingBottom: 40},
-  centerPad: {paddingVertical: 16},
-  section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  liveBadge: {
-    backgroundColor: '#FF3B30',
-    borderRadius: 5,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  liveBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#FFF',
-    letterSpacing: 0.5,
-  },
-  refreshBtn: {fontSize: 13, color: '#007AFF', fontWeight: '600'}, // Quick links
-  linkRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  linkText: {fontSize: 15, color: '#1C1C1E'},
-  chevronLg: {fontSize: 22, color: '#C7C7CC'},
-  // Last session
-  lastSessionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  lastSessionTitle: {fontSize: 15, fontWeight: '700', color: '#1C1C1E'},
-  lastSessionMeta: {fontSize: 13, color: '#8E8E93', marginTop: 2},
-  lastSessionBadge: {alignItems: 'center', marginLeft: 12},
-  lastSessionBadgeNum: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#007AFF',
-    lineHeight: 32,
-  },
-  lastSessionBadgeLbl: {
-    fontSize: 11,
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-  },
-  expandBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-  },
-  expandBtnText: {fontSize: 14, color: '#007AFF', fontWeight: '600'},
-  chevron: {fontSize: 12, color: '#8E8E93'},
-  // Attendees
-  attendeeList: {
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-    paddingTop: 8,
-  },
-  attendeeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 7,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F9F9FB',
-  },
-  attendeeName: {fontSize: 14, color: '#1C1C1E', flex: 1},
-  attendeeRight: {flexDirection: 'row', alignItems: 'center', gap: 6},
-  attendeeCredits: {fontSize: 12, color: '#8E8E93'},
-  typeBadge: {paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5},
-  typeBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#374151',
-    textTransform: 'uppercase',
-  },
-  // Date range
-  presetRow: {flexDirection: 'row', gap: 6, marginBottom: 12},
-  presetBtn: {
-    flex: 1,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: '#F2F2F7',
-    alignItems: 'center',
-  },
-  presetBtnText: {fontSize: 11, fontWeight: '600', color: '#3A3A3C'},
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  dateField: {flex: 1},
-  dateLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  dateInput: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: '#1C1C1E',
-  },
-  dateDivider: {width: 1, height: 36, backgroundColor: '#E5E5EA'},
-  runBtn: {
-    backgroundColor: '#34C759',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  runBtnDisabled: {backgroundColor: '#A3D9B1'},
-  runBtnText: {color: '#FFFFFF', fontSize: 15, fontWeight: '700'},
-  // Errors
-  errorBox: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 14,
-  },
-  errorText: {color: '#DC2626', fontSize: 14},
-  // Summary grid
-  summaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 14,
-  },
-  summaryCard: {
-    width: '47%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  summaryValue: {fontSize: 28, fontWeight: '700', color: '#1C1C1E'},
-  summaryLabel: {
-    fontSize: 11,
-    color: '#8E8E93',
-    marginTop: 4,
-    textTransform: 'uppercase',
-    fontWeight: '600',
-  },
-  summaryPrimaryCard: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: '#007AFF',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  summaryPrimaryValue: {
-    fontSize: 40,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    lineHeight: 44,
-  },
-  summaryPrimaryLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: 4,
-    textTransform: 'uppercase',
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  // Session cards
-  sessionCard: {
-    borderRadius: 10,
-    backgroundColor: '#F9F9FB',
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  sessionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-  },
-  sessionHeaderLeft: {flex: 1, marginRight: 8},
-  sessionLabel: {fontSize: 14, fontWeight: '700', color: '#1C1C1E'},
-  sessionMeta: {fontSize: 12, color: '#8E8E93', marginTop: 1},
-  sessionHeaderRight: {alignItems: 'center'},
-  sessionCount: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#007AFF',
-    lineHeight: 26,
-  },
-  sessionCountLabel: {
-    fontSize: 10,
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-  },
-  emptyText: {fontSize: 14, color: '#8E8E93', paddingVertical: 6},
-  exportPdfBtn: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  exportPdfBtnDisabled: {backgroundColor: '#A0C4FF'},
-  exportPdfBtnText: {color: '#FFF', fontSize: 15, fontWeight: '700'},
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {flex: 1, backgroundColor: c.background},
+    scroll: {padding: 16, paddingBottom: 40},
+    centerPad: {paddingVertical: 16},
+    section: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 14,
+    },
+    sectionTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: c.textMuted,
+      textTransform: 'uppercase',
+      marginBottom: 10,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    sectionTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    liveBadge: {
+      backgroundColor: '#FF3B30',
+      borderRadius: 5,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+    },
+    liveBadgeText: {
+      fontSize: 9,
+      fontWeight: '800',
+      color: '#FFF',
+      letterSpacing: 0.5,
+    },
+    refreshBtn: {fontSize: 13, color: c.primary, fontWeight: '600'},
+    linkRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 8,
+    },
+    linkText: {fontSize: 15, color: c.text},
+    chevronLg: {fontSize: 22, color: c.textMuted},
+    // Last session
+    lastSessionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    lastSessionTitle: {fontSize: 15, fontWeight: '700', color: c.text},
+    lastSessionMeta: {fontSize: 13, color: c.textMuted, marginTop: 2},
+    lastSessionBadge: {alignItems: 'center', marginLeft: 12},
+    lastSessionBadgeNum: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: c.primary,
+      lineHeight: 32,
+    },
+    lastSessionBadgeLbl: {
+      fontSize: 11,
+      color: c.textMuted,
+      textTransform: 'uppercase',
+    },
+    expandBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+    },
+    expandBtnText: {fontSize: 14, color: c.primary, fontWeight: '600'},
+    chevron: {fontSize: 12, color: c.textMuted},
+    // Attendees
+    attendeeList: {
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+      paddingTop: 8,
+    },
+    attendeeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 7,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    attendeeName: {fontSize: 14, color: c.text, flex: 1},
+    attendeeRight: {flexDirection: 'row', alignItems: 'center', gap: 6},
+    attendeeCredits: {fontSize: 12, color: c.textMuted},
+    typeBadge: {paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5},
+    typeBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#374151',
+      textTransform: 'uppercase',
+    },
+    // Date range
+    presetRow: {flexDirection: 'row', gap: 6, marginBottom: 12},
+    presetBtn: {
+      flex: 1,
+      paddingVertical: 7,
+      borderRadius: 8,
+      backgroundColor: c.surfaceRaised,
+      alignItems: 'center',
+    },
+    presetBtnText: {fontSize: 11, fontWeight: '600', color: c.text},
+    dateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 12,
+    },
+    dateField: {flex: 1},
+    dateLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: c.textMuted,
+      textTransform: 'uppercase',
+      marginBottom: 4,
+    },
+    dateInput: {
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      fontSize: 14,
+      color: c.text,
+    },
+    dateDivider: {width: 1, height: 36, backgroundColor: c.border},
+    runBtn: {
+      backgroundColor: '#34C759',
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    runBtnDisabled: {backgroundColor: '#A3D9B1'},
+    runBtnText: {color: '#FFFFFF', fontSize: 15, fontWeight: '700'},
+    // Errors
+    errorBox: {
+      backgroundColor: '#FEE2E2',
+      borderRadius: 10,
+      padding: 14,
+      marginBottom: 14,
+    },
+    errorText: {color: '#DC2626', fontSize: 14},
+    // Summary grid
+    summaryGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginBottom: 14,
+    },
+    summaryCard: {
+      width: '47%',
+      backgroundColor: c.card,
+      borderRadius: 12,
+      padding: 16,
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 1},
+      shadowOpacity: 0.04,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    summaryValue: {fontSize: 28, fontWeight: '700', color: c.text},
+    summaryLabel: {
+      fontSize: 11,
+      color: c.textMuted,
+      marginTop: 4,
+      textTransform: 'uppercase',
+      fontWeight: '600',
+    },
+    summaryPrimaryCard: {
+      backgroundColor: c.primary,
+      borderRadius: 12,
+      padding: 20,
+      alignItems: 'center',
+      marginBottom: 10,
+      shadowColor: c.primary,
+      shadowOffset: {width: 0, height: 2},
+      shadowOpacity: 0.18,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    summaryPrimaryValue: {
+      fontSize: 40,
+      fontWeight: '800',
+      color: '#FFFFFF',
+      lineHeight: 44,
+    },
+    summaryPrimaryLabel: {
+      fontSize: 12,
+      color: 'rgba(255,255,255,0.85)',
+      marginTop: 4,
+      textTransform: 'uppercase',
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
+    // Session cards
+    sessionCard: {
+      borderRadius: 10,
+      backgroundColor: c.surfaceRaised,
+      marginBottom: 8,
+      overflow: 'hidden',
+    },
+    sessionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 12,
+    },
+    sessionHeaderLeft: {flex: 1, marginRight: 8},
+    sessionLabel: {fontSize: 14, fontWeight: '700', color: c.text},
+    sessionMeta: {fontSize: 12, color: c.textMuted, marginTop: 1},
+    sessionHeaderRight: {alignItems: 'center'},
+    sessionCount: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: c.primary,
+      lineHeight: 26,
+    },
+    sessionCountLabel: {
+      fontSize: 10,
+      color: c.textMuted,
+      textTransform: 'uppercase',
+    },
+    emptyText: {fontSize: 14, color: c.textMuted, paddingVertical: 6},
+    exportPdfBtn: {
+      backgroundColor: c.primary,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+      marginBottom: 14,
+    },
+    exportPdfBtnDisabled: {backgroundColor: '#A0C4FF'},
+    exportPdfBtnText: {color: '#FFF', fontSize: 15, fontWeight: '700'},
+  });
+}

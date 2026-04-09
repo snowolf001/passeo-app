@@ -15,6 +15,8 @@ import {
 } from '../services/api/attendanceApi';
 import {RootStackParamList} from '../navigation/types';
 import {useApp} from '../context/AppContext';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreditHistory'>;
 
@@ -59,6 +61,8 @@ function formatDate(iso: string): string {
 
 function TransactionRow({item}: {item: ApiCreditTransaction}) {
   const isCredit = item.amount > 0;
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // For 'add' type: title is the note (reason) or 'Credits Added'
   // For 'checkin' type: title is the session name
@@ -97,6 +101,8 @@ function FilterBar({
   selected: RangeFilter;
   onSelect: (f: RangeFilter) => void;
 }) {
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.filterBar}>
       {FILTERS.map(f => (
@@ -119,6 +125,8 @@ function FilterBar({
 
 export default function CreditHistoryScreen({}: Props) {
   const {currentMembership} = useApp();
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [transactions, setTransactions] = useState<ApiCreditTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -219,133 +227,135 @@ export default function CreditHistoryScreen({}: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-  },
-  list: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
-    gap: 8,
-  },
-  statsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  statsItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statsDivider: {
-    width: 1,
-    backgroundColor: '#E5E5EA',
-    marginVertical: 4,
-  },
-  statsLabel: {
-    fontSize: 11,
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 3,
-  },
-  statsValue: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  amountBlue: {
-    color: '#007AFF',
-  },
-  filterBar: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 8,
-    gap: 4,
-  },
-  filterBtn: {
-    flex: 1,
-    paddingVertical: 7,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  filterBtnActive: {
-    backgroundColor: '#007AFF',
-  },
-  filterBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  filterBtnTextActive: {
-    color: '#FFFFFF',
-  },
-  row: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rowLeft: {
-    marginRight: 10,
-  },
-  typeIcon: {
-    fontSize: 20,
-  },
-  rowBody: {
-    flex: 1,
-  },
-  typeLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  secondary: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 1,
-  },
-  note: {
-    fontSize: 12,
-    color: '#AEAEB2',
-    marginTop: 2,
-  },
-  date: {
-    fontSize: 12,
-    color: '#AEAEB2',
-    marginTop: 3,
-  },
-  amount: {
-    fontSize: 17,
-    fontWeight: '700',
-    minWidth: 40,
-    textAlign: 'right',
-  },
-  amountPositive: {
-    color: '#34C759',
-  },
-  amountNegative: {
-    color: '#FF3B30',
-  },
-  empty: {
-    alignItems: 'center',
-    paddingTop: 60,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#8E8E93',
-  },
-  errorText: {
-    textAlign: 'center',
-    marginTop: 60,
-    color: '#FF3B30',
-    fontSize: 15,
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    list: {
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 16,
+      gap: 8,
+    },
+    statsCard: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      flexDirection: 'row',
+      marginBottom: 8,
+    },
+    statsItem: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    statsDivider: {
+      width: 1,
+      backgroundColor: c.border,
+      marginVertical: 4,
+    },
+    statsLabel: {
+      fontSize: 11,
+      color: c.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+      marginBottom: 3,
+    },
+    statsValue: {
+      fontSize: 22,
+      fontWeight: '700',
+    },
+    amountBlue: {
+      color: c.primary,
+    },
+    filterBar: {
+      flexDirection: 'row',
+      backgroundColor: c.card,
+      borderRadius: 12,
+      padding: 4,
+      marginBottom: 8,
+      gap: 4,
+    },
+    filterBtn: {
+      flex: 1,
+      paddingVertical: 7,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    filterBtnActive: {
+      backgroundColor: c.primary,
+    },
+    filterBtnText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.textMuted,
+    },
+    filterBtnTextActive: {
+      color: '#FFFFFF',
+    },
+    row: {
+      backgroundColor: c.card,
+      borderRadius: 12,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    rowLeft: {
+      marginRight: 10,
+    },
+    typeIcon: {
+      fontSize: 20,
+    },
+    rowBody: {
+      flex: 1,
+    },
+    typeLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.text,
+    },
+    secondary: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 1,
+    },
+    note: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginTop: 2,
+    },
+    date: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginTop: 3,
+    },
+    amount: {
+      fontSize: 17,
+      fontWeight: '700',
+      minWidth: 40,
+      textAlign: 'right',
+    },
+    amountPositive: {
+      color: c.success,
+    },
+    amountNegative: {
+      color: c.danger,
+    },
+    empty: {
+      alignItems: 'center',
+      paddingTop: 60,
+    },
+    emptyText: {
+      fontSize: 15,
+      color: c.textMuted,
+    },
+    errorText: {
+      textAlign: 'center',
+      marginTop: 60,
+      color: c.danger,
+      fontSize: 15,
+    },
+  });
+}

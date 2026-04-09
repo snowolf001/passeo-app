@@ -12,6 +12,8 @@ import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {getMemberAttendance} from '../services/api/attendanceApi';
 import {getCheckInMode, isSessionEnded} from '../utils/checkIn';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 type Props = {
   navigation: any;
@@ -40,6 +42,8 @@ type SessionListItem = {
 
 export default function BackfillSessionsScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [apiSessions, setApiSessions] = useState<ApiSession[]>([]);
   const [attendedSessionIds, setAttendedSessionIds] = useState<Set<string>>(
     new Set(),
@@ -274,92 +278,94 @@ export default function BackfillSessionsScreen({navigation}: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F7',
-  },
-  list: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  headerCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  headerSubtitle: {
-    marginTop: 6,
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#6B7280',
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-  },
-  cardDisabled: {
-    opacity: 0.6,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    flex: 1,
-    paddingRight: 10,
-  },
-  badgePill: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  time: {
-    marginTop: 8,
-    fontSize: 13,
-    color: '#8E8E93',
-  },
-  helperText: {
-    marginTop: 8,
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  actionHint: {
-    marginTop: 6,
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  empty: {
-    marginTop: 80,
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  emptyText: {
-    marginTop: 6,
-    color: '#8E8E93',
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    list: {
+      padding: 16,
+      paddingBottom: 40,
+    },
+    headerCard: {
+      backgroundColor: c.card,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 16,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: c.text,
+    },
+    headerSubtitle: {
+      marginTop: 6,
+      fontSize: 14,
+      lineHeight: 20,
+      color: c.textMuted,
+    },
+    card: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 12,
+    },
+    cardDisabled: {
+      opacity: 0.6,
+    },
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+    },
+    title: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: c.text,
+      flex: 1,
+      paddingRight: 10,
+    },
+    badgePill: {
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    badgeText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    time: {
+      marginTop: 8,
+      fontSize: 13,
+      color: c.textMuted,
+    },
+    helperText: {
+      marginTop: 8,
+      fontSize: 13,
+      color: c.textMuted,
+    },
+    actionHint: {
+      marginTop: 6,
+      fontSize: 12,
+      color: c.textMuted,
+    },
+    empty: {
+      marginTop: 80,
+      alignItems: 'center',
+      paddingHorizontal: 24,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: c.text,
+    },
+    emptyText: {
+      marginTop: 6,
+      color: c.textMuted,
+      fontSize: 14,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+  });
+}

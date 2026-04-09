@@ -4,6 +4,7 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 import {RootStackParamList} from './types';
 import {useApp} from '../context/AppContext';
+import {useAppTheme} from '../theme/useAppTheme';
 
 import MainTabNavigator from './MainTabNavigator';
 import JoinOrCreateClubScreen from '../screens/JoinOrCreateClubScreen';
@@ -25,11 +26,18 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const {isLoading, currentMembership} = useApp();
+  const {colors} = useAppTheme();
 
   if (isLoading) {
     return (
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: colors.background,
+        }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }

@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import {
   MemberHistoryItem,
 } from '../services/api/reportApi';
 import {formatDate} from '../utils/date';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MemberHistory'>;
 
@@ -26,6 +28,8 @@ const CHECK_IN_TYPE_COLORS: Record<string, string> = {
 
 export default function MemberHistoryScreen({route}: Props) {
   const {membershipId} = route.params;
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [data, setData] = useState<MemberHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -133,94 +137,96 @@ export default function MemberHistoryScreen({route}: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7'},
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    minHeight: 200,
-  },
-  errorText: {fontSize: 15, color: '#FF3B30'},
-  emptyText: {fontSize: 15, color: '#8E8E93'},
-  summaryBar: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  summaryItem: {flex: 1, alignItems: 'center'},
-  summaryDivider: {width: 1, backgroundColor: '#E5E5EA', marginVertical: 4},
-  summaryValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 2,
-    textTransform: 'uppercase',
-    fontWeight: '600',
-  },
-  list: {padding: 16, paddingBottom: 40},
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sessionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    flex: 1,
-    marginRight: 8,
-  },
-  typeBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  typeBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#374151',
-    textTransform: 'uppercase',
-  },
-  locationText: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  dateText: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#8E8E93',
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {flex: 1, backgroundColor: c.background},
+    center: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+      minHeight: 200,
+    },
+    errorText: {fontSize: 15, color: c.danger},
+    emptyText: {fontSize: 15, color: c.textMuted},
+    summaryBar: {
+      flexDirection: 'row',
+      backgroundColor: c.card,
+      paddingVertical: 16,
+      paddingHorizontal: 24,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    summaryItem: {flex: 1, alignItems: 'center'},
+    summaryDivider: {width: 1, backgroundColor: c.border, marginVertical: 4},
+    summaryValue: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: c.text,
+    },
+    summaryLabel: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginTop: 2,
+      textTransform: 'uppercase',
+      fontWeight: '600',
+    },
+    list: {padding: 16, paddingBottom: 40},
+    card: {
+      backgroundColor: c.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 10,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 1},
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    sessionTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: c.text,
+      flex: 1,
+      marginRight: 8,
+    },
+    typeBadge: {
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    typeBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#374151',
+      textTransform: 'uppercase',
+    },
+    locationText: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 4,
+    },
+    dateText: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 2,
+    },
+    cardFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+    },
+    footerText: {
+      fontSize: 12,
+      color: c.textMuted,
+    },
+  });
+}

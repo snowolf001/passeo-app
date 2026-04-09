@@ -1,4 +1,4 @@
-import React, {useRef, useState} from 'react';
+import React, {useMemo, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -24,11 +24,15 @@ import {
 } from '../services/api/membershipApi';
 import {useApp} from '../context/AppContext';
 import {RootStackParamList} from '../navigation/types';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JoinOrCreateClub'>;
 
 export default function JoinOrCreateClubScreen(_: Props) {
   const {setActiveMembershipSession} = useApp();
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const scrollRef = useRef<ScrollView>(null);
 
   const [joinCode, setJoinCode] = useState('');
@@ -309,123 +313,125 @@ export default function JoinOrCreateClubScreen(_: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7'},
-  scroll: {padding: 24, paddingBottom: 48},
-  appTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#8E8E93',
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  restoreCard: {borderWidth: 1, borderColor: '#E5E5EA'},
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 4,
-  },
-  cardHint: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginBottom: 16,
-  },
-  sectionLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  sectionLabelText: {
-    marginHorizontal: 12,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  input: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  nameInput: {
-    flex: 1,
-  },
-  primaryButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  primaryButtonDisabled: {
-    backgroundColor: '#B0C4DE',
-  },
-  primaryButtonText: {color: '#FFF', fontSize: 16, fontWeight: '700'},
-  secondaryButton: {
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#007AFF',
-  },
-  secondaryButtonDisabled: {
-    borderColor: '#B0C4DE',
-  },
-  secondaryButtonText: {color: '#007AFF', fontSize: 16, fontWeight: '700'},
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 4,
-    marginBottom: 16,
-  },
-  divider: {flex: 1, height: 1, backgroundColor: '#E5E5EA'},
-  dividerText: {marginHorizontal: 12, color: '#AEAEB2', fontSize: 14},
-  conflictBox: {
-    marginTop: 12,
-    backgroundColor: '#FFF3F3',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FFCDD0',
-    padding: 14,
-  },
-  conflictText: {
-    fontSize: 13,
-    color: '#C0392B',
-    lineHeight: 18,
-    marginBottom: 10,
-  },
-  useRecoveryBtn: {
-    alignSelf: 'flex-start',
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: '#007AFF',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  useRecoveryBtnText: {fontSize: 13, fontWeight: '700', color: '#007AFF'},
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {flex: 1, backgroundColor: c.background},
+    scroll: {padding: 24, paddingBottom: 48},
+    appTitle: {
+      fontSize: 32,
+      fontWeight: 'bold',
+      color: c.text,
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontSize: 16,
+      color: c.textMuted,
+      textAlign: 'center',
+      marginBottom: 32,
+    },
+    card: {
+      backgroundColor: c.card,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 2},
+      shadowOpacity: 0.06,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    restoreCard: {borderWidth: 1, borderColor: c.border},
+    cardTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: c.text,
+      marginBottom: 4,
+    },
+    cardHint: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginBottom: 16,
+    },
+    sectionLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 8,
+      marginBottom: 16,
+    },
+    sectionLabelText: {
+      marginHorizontal: 12,
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.text,
+    },
+    input: {
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: c.text,
+      marginBottom: 12,
+    },
+    nameRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    nameInput: {
+      flex: 1,
+    },
+    primaryButton: {
+      backgroundColor: c.primary,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    primaryButtonDisabled: {
+      backgroundColor: '#B0C4DE',
+    },
+    primaryButtonText: {color: '#FFF', fontSize: 16, fontWeight: '700'},
+    secondaryButton: {
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: c.primary,
+    },
+    secondaryButtonDisabled: {
+      borderColor: '#B0C4DE',
+    },
+    secondaryButtonText: {color: c.primary, fontSize: 16, fontWeight: '700'},
+    dividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 4,
+      marginBottom: 16,
+    },
+    divider: {flex: 1, height: 1, backgroundColor: c.border},
+    dividerText: {marginHorizontal: 12, color: c.textMuted, fontSize: 14},
+    conflictBox: {
+      marginTop: 12,
+      backgroundColor: '#FFF3F3',
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: '#FFCDD0',
+      padding: 14,
+    },
+    conflictText: {
+      fontSize: 13,
+      color: '#C0392B',
+      lineHeight: 18,
+      marginBottom: 10,
+    },
+    useRecoveryBtn: {
+      alignSelf: 'flex-start',
+      borderRadius: 8,
+      borderWidth: 1.5,
+      borderColor: c.primary,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+    },
+    useRecoveryBtnText: {fontSize: 13, fontWeight: '700', color: c.primary},
+  });
+}

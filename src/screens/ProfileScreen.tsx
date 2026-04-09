@@ -1,4 +1,4 @@
-import React, {useCallback, useRef, useState} from 'react';
+import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -12,11 +12,15 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {CLUB_PRO_CONFIG} from '../config/appConfig';
 import {leaveClub} from '../services/api/clubApi';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 type Props = {navigation: any};
 
 export default function ProfileScreen({navigation}: Props) {
   const {currentMembership, currentClub, clearMembershipSession} = useApp();
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
@@ -319,186 +323,188 @@ export default function ProfileScreen({navigation}: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7'},
-  scroll: {padding: 20, paddingBottom: 40},
-  snackbar: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 24,
-    zIndex: 999,
-    elevation: 10,
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-  },
-  snackbarText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {flex: 1, backgroundColor: c.background},
+    scroll: {padding: 20, paddingBottom: 40},
+    snackbar: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      bottom: 24,
+      zIndex: 999,
+      elevation: 10,
+      backgroundColor: '#1C1C1E',
+      borderRadius: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 4},
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+    },
+    snackbarText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
 
-  summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-  userName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  userSub: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    marginTop: 16,
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#8E8E93',
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 4,
-    color: '#1C1C1E',
-  },
+    summaryCard: {
+      backgroundColor: c.card,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+    },
+    userName: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      color: c.text,
+    },
+    userSub: {
+      fontSize: 14,
+      color: c.textMuted,
+      marginTop: 2,
+      marginBottom: 4,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      marginTop: 16,
+    },
+    summaryItem: {
+      flex: 1,
+    },
+    summaryLabel: {
+      fontSize: 12,
+      color: c.textMuted,
+    },
+    summaryValue: {
+      fontSize: 18,
+      fontWeight: '700',
+      marginTop: 4,
+      color: c.text,
+    },
 
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8E8E93',
-    marginBottom: 10,
-    textTransform: 'uppercase',
-  },
+    card: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      padding: 18,
+      marginBottom: 16,
+    },
+    cardTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: c.textMuted,
+      marginBottom: 10,
+      textTransform: 'uppercase',
+    },
 
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  infoLabel: {fontSize: 14, color: '#8E8E93'},
-  infoValue: {fontSize: 14, fontWeight: '600', color: '#1C1C1E'},
-  joinCode: {color: '#007AFF'},
-  joinCodeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  copyBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: '#E5F0FF',
-    borderRadius: 6,
-  },
-  copyBtnText: {fontSize: 12, fontWeight: '600', color: '#007AFF'},
+    infoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+    },
+    infoLabel: {fontSize: 14, color: c.textMuted},
+    infoValue: {fontSize: 14, fontWeight: '600', color: c.text},
+    joinCode: {color: c.primary},
+    joinCodeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    copyBtn: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 6,
+    },
+    copyBtnText: {fontSize: 12, fontWeight: '600', color: c.primary},
 
-  actionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  actionDivider: {
-    height: 1,
-    backgroundColor: '#E5E5EA',
-  },
+    actionItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    actionDivider: {
+      height: 1,
+      backgroundColor: c.border,
+    },
 
-  highlightAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  highlightTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  highlightDesc: {
-    marginTop: 4,
-    fontSize: 13,
-    color: '#6B7280',
-  },
+    highlightAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+    },
+    highlightTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: c.text,
+    },
+    highlightDesc: {
+      marginTop: 4,
+      fontSize: 13,
+      color: c.textMuted,
+    },
 
-  actionItemText: {
-    fontSize: 15,
-    color: '#1C1C1E',
-  },
+    actionItemText: {
+      fontSize: 15,
+      color: c.text,
+    },
 
-  chevron: {
-    fontSize: 22,
-    color: '#C7C7CC',
-  },
+    chevron: {
+      fontSize: 22,
+      color: c.textMuted,
+    },
 
-  dangerText: {
-    color: '#FF3B30',
-  },
+    dangerText: {
+      color: c.danger,
+    },
 
-  metaText: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  metaDesc: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  recoveryCodeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    gap: 12,
-  },
-  recoveryCode: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    letterSpacing: 2,
-    fontVariant: ['tabular-nums'],
-  },
-  leaveCard: {
-    borderWidth: 1,
-    borderColor: '#FFE2E2',
-  },
-  leaveButton: {
-    paddingVertical: 13,
-    alignItems: 'center',
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#FF3B30',
-  },
-  leaveButtonText: {
-    color: '#FF3B30',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  leaveOwnerNote: {
-    fontSize: 12,
-    color: '#8E8E93',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-});
+    metaText: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 4,
+    },
+    metaDesc: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 4,
+      lineHeight: 18,
+    },
+    recoveryCodeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 12,
+      gap: 12,
+    },
+    recoveryCode: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: c.text,
+      letterSpacing: 2,
+      fontVariant: ['tabular-nums'],
+    },
+    leaveCard: {
+      borderWidth: 1,
+      borderColor: '#FFE2E2',
+    },
+    leaveButton: {
+      paddingVertical: 13,
+      alignItems: 'center',
+      borderRadius: 10,
+      borderWidth: 1.5,
+      borderColor: c.danger,
+    },
+    leaveButtonText: {
+      color: c.danger,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    leaveOwnerNote: {
+      fontSize: 12,
+      color: c.textMuted,
+      textAlign: 'center',
+      marginTop: 8,
+    },
+  });
+}

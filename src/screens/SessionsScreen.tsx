@@ -12,6 +12,8 @@ import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {formatDate} from '../utils/date';
 import {CLUB_PRO_CONFIG} from '../config/appConfig';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 type Props = {navigation: any};
 
@@ -22,6 +24,8 @@ const LOCKED_PAST_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export default function SessionsScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [sessions, setSessions] = useState<ApiSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -211,7 +215,7 @@ export default function SessionsScreen({navigation}: Props) {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator style={styles.loader} color="#007AFF" />
+        <ActivityIndicator style={styles.loader} color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -347,214 +351,216 @@ export default function SessionsScreen({navigation}: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7'},
-  loader: {
-    marginTop: 60,
-  },
-  headerBlock: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  headerSubtitle: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  listContent: {
-    padding: 16,
-    paddingTop: 8,
-    paddingBottom: 40,
-  },
-  summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  summaryDivider: {
-    width: 1,
-    alignSelf: 'stretch',
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 12,
-  },
-  highlightCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-  },
-  highlightEyebrow: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-  },
-  highlightTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginTop: 6,
-  },
-  highlightSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: '#6B7280',
-    lineHeight: 18,
-  },
-  highlightTime: {
-    marginTop: 8,
-    fontSize: 13,
-    color: '#3A3A3C',
-    fontWeight: '600',
-  },
-  topActionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  topActionTextWrap: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  topActionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  topActionSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: '#6B7280',
-    lineHeight: 18,
-  },
-  topActionArrow: {
-    fontSize: 24,
-    lineHeight: 24,
-    color: '#C7C7CC',
-    fontWeight: '600',
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 12,
-    marginLeft: 2,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    flex: 1,
-    marginRight: 8,
-  },
-  badgePill: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  detailText: {
-    fontSize: 14,
-    color: '#3A3A3C',
-    marginTop: 3,
-  },
-  emptyWrap: {
-    marginTop: 48,
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#8E8E93',
-    marginTop: 6,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  errorWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  errorText: {
-    fontSize: 15,
-    color: '#FF3B30',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#007AFF',
-  },
-  retryText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  lockedSection: {
-    marginTop: 8,
-  },
-  cardLocked: {
-    opacity: 0.6,
-    backgroundColor: '#F9F9FB',
-  },
-  cardTitleLocked: {
-    color: '#8E8E93',
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {flex: 1, backgroundColor: c.background},
+    loader: {
+      marginTop: 60,
+    },
+    headerBlock: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 10,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: c.text,
+    },
+    headerSubtitle: {
+      marginTop: 4,
+      fontSize: 14,
+      color: c.textMuted,
+    },
+    listContent: {
+      padding: 16,
+      paddingTop: 8,
+      paddingBottom: 40,
+    },
+    summaryCard: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
+      marginBottom: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    summaryItem: {
+      flex: 1,
+    },
+    summaryLabel: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginBottom: 4,
+    },
+    summaryValue: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: c.text,
+    },
+    summaryDivider: {
+      width: 1,
+      alignSelf: 'stretch',
+      backgroundColor: c.border,
+      marginHorizontal: 12,
+    },
+    highlightCard: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 12,
+      borderLeftWidth: 4,
+    },
+    highlightEyebrow: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: c.textMuted,
+      textTransform: 'uppercase',
+    },
+    highlightTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: c.text,
+      marginTop: 6,
+    },
+    highlightSubtitle: {
+      marginTop: 4,
+      fontSize: 13,
+      color: c.textMuted,
+      lineHeight: 18,
+    },
+    highlightTime: {
+      marginTop: 8,
+      fontSize: 13,
+      color: c.text,
+      fontWeight: '600',
+    },
+    topActionCard: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      marginBottom: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    topActionTextWrap: {
+      flex: 1,
+      paddingRight: 12,
+    },
+    topActionTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: c.text,
+    },
+    topActionSubtitle: {
+      marginTop: 4,
+      fontSize: 13,
+      color: c.textMuted,
+      lineHeight: 18,
+    },
+    topActionArrow: {
+      fontSize: 24,
+      lineHeight: 24,
+      color: c.textMuted,
+      fontWeight: '600',
+    },
+    sectionTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: c.text,
+      marginBottom: 12,
+      marginLeft: 2,
+    },
+    card: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 12,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 2},
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    cardTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 8,
+    },
+    cardTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: c.text,
+      flex: 1,
+      marginRight: 8,
+    },
+    badgePill: {
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    badgeText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    detailText: {
+      fontSize: 14,
+      color: c.text,
+      marginTop: 3,
+    },
+    emptyWrap: {
+      marginTop: 48,
+      alignItems: 'center',
+      paddingHorizontal: 24,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: c.text,
+    },
+    emptyText: {
+      textAlign: 'center',
+      color: c.textMuted,
+      marginTop: 6,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    errorWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+    },
+    errorText: {
+      fontSize: 15,
+      color: c.danger,
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    retryButton: {
+      paddingHorizontal: 24,
+      paddingVertical: 10,
+      borderRadius: 10,
+      backgroundColor: c.primary,
+    },
+    retryText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    lockedSection: {
+      marginTop: 8,
+    },
+    cardLocked: {
+      opacity: 0.6,
+      backgroundColor: c.surfaceRaised,
+    },
+    cardTitleLocked: {
+      color: c.textMuted,
+    },
+  });
+}

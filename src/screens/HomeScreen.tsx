@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   View,
   Text,
@@ -12,11 +12,15 @@ import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {getMemberAttendance} from '../services/api/attendanceApi';
 import {formatDate} from '../utils/date';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 type Props = {navigation: any};
 
 export default function HomeScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [nextSession, setNextSession] = useState<ApiSession | null>(null);
   const [isTodayCheckedIn, setIsTodayCheckedIn] = useState(false);
   const [hasTodaySession, setHasTodaySession] = useState(false);
@@ -100,7 +104,7 @@ export default function HomeScreen({navigation}: Props) {
     console.log('[HomeScreen] showing spinner — waiting for AppContext data');
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator style={{marginTop: 60}} color="#007AFF" />
+        <ActivityIndicator style={{marginTop: 60}} color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -215,91 +219,93 @@ export default function HomeScreen({navigation}: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7'},
-  scroll: {padding: 20, paddingBottom: 40},
-  header: {marginBottom: 24},
-  clubName: {fontSize: 28, fontWeight: 'bold', color: '#1C1C1E'},
-  greeting: {fontSize: 15, color: '#8E8E93', marginTop: 4},
-  statsRow: {flexDirection: 'row', gap: 12, marginBottom: 20},
-  statCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statValue: {fontSize: 26, fontWeight: 'bold', color: '#1C1C1E'},
-  statLabel: {fontSize: 13, color: '#8E8E93', marginTop: 4},
-  statusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 20,
-  },
-  statusCheckedIn: {backgroundColor: '#D1FAE5'},
-  statusAvailable: {backgroundColor: '#DBEAFE'},
-  statusNone: {backgroundColor: '#F3F4F6'},
-  statusIcon: {fontSize: 28},
-  statusTitle: {fontSize: 15, fontWeight: '700', color: '#1C1C1E'},
-  statusSub: {fontSize: 13, color: '#6B7280', marginTop: 2},
-  nextSessionCard: {
-    backgroundColor: '#007AFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-  },
-  nextSessionLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.75)',
-    marginBottom: 4,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  nextSessionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  nextSessionDetail: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: 2,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 14,
-  },
-  actionsRow: {flexDirection: 'row', gap: 12, flexWrap: 'wrap'},
-  actionButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    minWidth: 100,
-    flex: 1,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  actionIcon: {fontSize: 26, marginBottom: 6},
-  actionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#3A3A3C',
-    textAlign: 'center',
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {flex: 1, backgroundColor: c.background},
+    scroll: {padding: 20, paddingBottom: 40},
+    header: {marginBottom: 24},
+    clubName: {fontSize: 28, fontWeight: 'bold', color: c.text},
+    greeting: {fontSize: 15, color: c.textMuted, marginTop: 4},
+    statsRow: {flexDirection: 'row', gap: 12, marginBottom: 20},
+    statCard: {
+      flex: 1,
+      backgroundColor: c.card,
+      borderRadius: 14,
+      padding: 16,
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 2},
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    statValue: {fontSize: 26, fontWeight: 'bold', color: c.text},
+    statLabel: {fontSize: 13, color: c.textMuted, marginTop: 4},
+    statusCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 20,
+    },
+    statusCheckedIn: {backgroundColor: '#D1FAE5'},
+    statusAvailable: {backgroundColor: '#DBEAFE'},
+    statusNone: {backgroundColor: c.surfaceRaised},
+    statusIcon: {fontSize: 28},
+    statusTitle: {fontSize: 15, fontWeight: '700', color: c.text},
+    statusSub: {fontSize: 13, color: c.textMuted, marginTop: 2},
+    nextSessionCard: {
+      backgroundColor: c.primary,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 24,
+    },
+    nextSessionLabel: {
+      fontSize: 12,
+      color: 'rgba(255,255,255,0.75)',
+      marginBottom: 4,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+    },
+    nextSessionTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: '#FFFFFF',
+      marginBottom: 8,
+    },
+    nextSessionDetail: {
+      fontSize: 14,
+      color: 'rgba(255,255,255,0.85)',
+      marginTop: 2,
+    },
+    sectionTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: c.text,
+      marginBottom: 14,
+    },
+    actionsRow: {flexDirection: 'row', gap: 12, flexWrap: 'wrap'},
+    actionButton: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      paddingVertical: 16,
+      paddingHorizontal: 8,
+      alignItems: 'center',
+      minWidth: 100,
+      flex: 1,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 1},
+      shadowOpacity: 0.05,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    actionIcon: {fontSize: 26, marginBottom: 6},
+    actionLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: c.text,
+      textAlign: 'center',
+    },
+  });
+}

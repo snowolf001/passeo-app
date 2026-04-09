@@ -20,20 +20,20 @@ export const colors = {
 
   // Light theme (optional for later)
   light: {
-    background: '#FFFFFF',
-    surface: '#F3F4F6',
+    background: '#F5F5F7',
+    surface: '#F2F2F7',
     card: '#FFFFFF',
-    border: '#E5E7EB',
+    border: '#E5E5EA',
 
-    text: '#111827',
-    textMuted: '#6B7280',
+    text: '#1C1C1E',
+    textMuted: '#8E8E93',
 
-    primary: '#2563EB',
-    success: '#059669',
-    warning: '#D97706',
-    danger: '#DC2626',
+    primary: '#007AFF',
+    success: '#34C759',
+    warning: '#FF9500',
+    danger: '#FF3B30',
 
-    surfaceRaised: '#E5E7EB', // slightly darker than card
+    surfaceRaised: '#F2F2F7', // inputs, chips, pills
     overlay: 'rgba(0,0,0,0.4)',
   },
 } as const;

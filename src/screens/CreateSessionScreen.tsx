@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -20,11 +20,15 @@ import {useApp} from '../context/AppContext';
 import {getClubLocations, ApiClubLocation} from '../services/api/clubApi';
 import {createSession} from '../services/api/sessionApi';
 import {RootStackParamList} from '../navigation/types';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateSession'>;
 
 export default function CreateSessionScreen({navigation}: Props) {
   const {currentMembership} = useApp();
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isAdmin = ['admin', 'owner'].includes(currentMembership?.role ?? '');
   const isHost = currentMembership?.role === 'host';
 
@@ -413,176 +417,181 @@ export default function CreateSessionScreen({navigation}: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#F5F5F7', position: 'relative'},
-  scroll: {padding: 20, paddingBottom: 40},
-  field: {marginBottom: 20},
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1C1C1E',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-  },
-  pickerBtn: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  pickerBtnText: {
-    fontSize: 16,
-    color: '#1C1C1E',
-  },
-  pickerBtnPlaceholder: {
-    color: '#AEAEB2',
-  },
-  pickerIcon: {
-    fontSize: 16,
-  },
-  snackbar: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 24,
-    zIndex: 999,
-    elevation: 10,
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-  },
-  snackbarText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  row: {flexDirection: 'row'},
-  // Host info banner
-  hostInfoBanner: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    padding: 10,
-    marginBottom: 10,
-  },
-  hostInfoText: {
-    fontSize: 13,
-    color: '#1D4ED8',
-    lineHeight: 18,
-  },
-  // Location loading
-  locationLoadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
-  },
-  locationLoadingText: {fontSize: 14, color: '#8E8E93'},
-  // No-location empty state
-  noLocationCard: {
-    backgroundColor: '#FFF9F0',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FBBF24',
-    padding: 16,
-  },
-  noLocationTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#92400E',
-    marginBottom: 4,
-  },
-  noLocationBody: {
-    fontSize: 14,
-    color: '#78350F',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  noLocationButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F59E0B',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  noLocationButtonText: {fontSize: 14, fontWeight: '600', color: '#FFF'},
-  // Location hint (single location)
-  locationHint: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 8,
-    fontStyle: 'italic',
-  },
-  // Location rows
-  locationOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#E5E5EA',
-    marginBottom: 8,
-    gap: 12,
-  },
-  locationOptionSelected: {borderColor: '#007AFF', backgroundColor: '#EFF6FF'},
-  locationRadio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  locationRadioDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#007AFF',
-  },
-  locationTextWrap: {flex: 1},
-  locationName: {fontSize: 15, fontWeight: '600', color: '#1C1C1E'},
-  locationNameSelected: {color: '#0059C7'},
-  locationAddress: {fontSize: 12, color: '#8E8E93', marginTop: 2},
-  locationCheck: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#007AFF',
-    flexShrink: 0,
-  },
-  // Submit
-  submitButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#AEAEB2',
-  },
-  submitButtonText: {color: '#FFF', fontSize: 17, fontWeight: '700'},
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: {flex: 1, backgroundColor: c.background, position: 'relative'},
+    scroll: {padding: 20, paddingBottom: 40},
+    field: {marginBottom: 20},
+    label: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.textMuted,
+      marginBottom: 6,
+      textTransform: 'uppercase',
+    },
+    input: {
+      backgroundColor: c.card,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: c.text,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    pickerBtn: {
+      backgroundColor: c.card,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      borderWidth: 1,
+      borderColor: c.border,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    pickerBtnText: {
+      fontSize: 16,
+      color: c.text,
+    },
+    pickerBtnPlaceholder: {
+      color: c.textMuted,
+    },
+    pickerIcon: {
+      fontSize: 16,
+    },
+    snackbar: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      bottom: 24,
+      zIndex: 999,
+      elevation: 10,
+      backgroundColor: '#1C1C1E',
+      borderRadius: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 4},
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+    },
+    snackbarText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    row: {flexDirection: 'row'},
+    // Host info banner
+    hostInfoBanner: {
+      backgroundColor: '#EFF6FF',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#BFDBFE',
+      padding: 10,
+      marginBottom: 10,
+    },
+    hostInfoText: {
+      fontSize: 13,
+      color: '#1D4ED8',
+      lineHeight: 18,
+    },
+    // Location loading
+    locationLoadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 12,
+    },
+    locationLoadingText: {fontSize: 14, color: c.textMuted},
+    // No-location empty state
+    noLocationCard: {
+      backgroundColor: '#FFF9F0',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#FBBF24',
+      padding: 16,
+    },
+    noLocationTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: '#92400E',
+      marginBottom: 4,
+    },
+    noLocationBody: {
+      fontSize: 14,
+      color: '#78350F',
+      lineHeight: 20,
+      marginBottom: 12,
+    },
+    noLocationButton: {
+      alignSelf: 'flex-start',
+      backgroundColor: '#F59E0B',
+      borderRadius: 8,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    noLocationButtonText: {fontSize: 14, fontWeight: '600', color: '#FFF'},
+    // Location hint (single location)
+    locationHint: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginBottom: 8,
+      fontStyle: 'italic',
+    },
+    // Location rows
+    locationOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 14,
+      backgroundColor: c.card,
+      borderRadius: 10,
+      borderWidth: 1.5,
+      borderColor: c.border,
+      marginBottom: 8,
+      gap: 12,
+    },
+    locationOptionSelected: {
+      borderColor: c.primary,
+      backgroundColor: '#EFF6FF',
+    },
+    locationRadio: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 2,
+      borderColor: c.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexShrink: 0,
+    },
+    locationRadioDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: c.primary,
+    },
+    locationTextWrap: {flex: 1},
+    locationName: {fontSize: 15, fontWeight: '600', color: c.text},
+    locationNameSelected: {color: c.primary},
+    locationAddress: {fontSize: 12, color: c.textMuted, marginTop: 2},
+    locationCheck: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: c.primary,
+      flexShrink: 0,
+    },
+    // Submit
+    submitButton: {
+      backgroundColor: c.primary,
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    submitButtonDisabled: {
+      backgroundColor: c.textMuted,
+    },
+    submitButtonText: {color: '#FFF', fontSize: 17, fontWeight: '700'},
+  });
+}

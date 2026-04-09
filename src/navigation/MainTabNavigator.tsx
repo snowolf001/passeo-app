@@ -2,6 +2,7 @@ import React from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {Text} from 'react-native';
 import {MainTabParamList} from './types';
+import {useAppTheme} from '../theme/useAppTheme';
 
 import HomeScreen from '../screens/HomeScreen';
 import SessionsScreen from '../screens/SessionsScreen';
@@ -15,15 +16,16 @@ const TabIcon = ({label, focused}: {label: string; focused: boolean}) => (
 );
 
 export default function MainTabNavigator() {
+  const {colors} = useAppTheme();
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: '#8E8E93',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
-          borderTopColor: '#E5E5EA',
-          backgroundColor: '#FFFFFF',
+          borderTopColor: colors.border,
+          backgroundColor: colors.card,
         },
         tabBarLabelStyle: {
           fontSize: 12,

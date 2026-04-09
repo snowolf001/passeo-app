@@ -33,6 +33,8 @@ import {getCheckInMode} from '../utils/checkIn';
 import {RootStackParamList} from '../navigation/types';
 import {formatDate} from '../utils/date';
 import {ApiError} from '../types/api';
+import {useAppTheme} from '../theme/useAppTheme';
+import type {ThemeColors} from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SessionDetail'>;
 
@@ -46,6 +48,8 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     lastCheckInEvent,
     publishCheckInEvent,
   } = useApp();
+  const {colors} = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [session, setSession] = useState<ApiSession | null>(null);
   const [checkedInMembers, setCheckedInMembers] = useState<
@@ -843,430 +847,433 @@ const checkInTypeColor = (type: string): object => {
   return map[type] ?? {backgroundColor: '#F3F4F6'};
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F5F5F7',
-  },
-  screenRoot: {
-    flex: 1,
-    position: 'relative',
-    backgroundColor: '#F5F5F7',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F7',
-  },
-  scrollContent: {
-    paddingBottom: 40,
-    flexGrow: 1,
-  },
-  snackbar: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 24,
-    zIndex: 999,
-    elevation: 10,
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-  },
-  snackbarText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-  center: {
-    flex: 1,
-    minHeight: 280,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 18,
-    color: '#FF3B30',
-    marginBottom: 12,
-  },
-  linkText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  infoBlock: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  sessionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  detailRow: {
-    fontSize: 15,
-    color: '#3A3A3C',
-    marginTop: 4,
-  },
-  addressText: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 2,
-    marginLeft: 22,
-  },
-  mapsButton: {
-    marginTop: 8,
-    marginLeft: 22,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#EFF6FF',
-  },
-  mapsButtonText: {
-    fontSize: 13,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  capacityRow: {
-    marginTop: 12,
-  },
-  capacityText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  statusBanner: {
-    marginTop: 12,
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: '#F2F2F7',
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#3A3A3C',
-  },
-  section: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 12,
-  },
-  attendeesSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  exportPdfBtn: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    minWidth: 90,
-    alignItems: 'center',
-  },
-  exportPdfBtnDisabled: {
-    backgroundColor: '#A0C4FF',
-  },
-  exportPdfBtnText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  checkInBtn: {
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  btnCheckIn: {
-    backgroundColor: '#34C759',
-  },
-  btnBackfill: {
-    backgroundColor: '#FF9500',
-  },
-  btnCheckedIn: {
-    backgroundColor: '#E5E5EA',
-  },
-  btnDisabled: {
-    backgroundColor: '#E5E5EA',
-  },
-  checkInBtnTextBase: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  checkInBtnTextLight: {
-    color: '#FFFFFF',
-  },
-  checkInBtnTextDark: {
-    color: '#3A3A3C',
-  },
-  helperText: {
-    marginTop: 10,
-    fontSize: 13,
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  hostButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  hostButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  deleteSessionBtn: {
-    marginTop: 10,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#FF3B30',
-    backgroundColor: '#FFF1F0',
-  },
-  deleteSessionBtnDisabled: {
-    opacity: 0.5,
-  },
-  deleteSessionBtnText: {
-    color: '#FF3B30',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  memberLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  youBadge: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  youBadgeText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  memberRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-  },
-  memberName: {
-    fontSize: 15,
-    color: '#1C1C1E',
-    fontWeight: '500',
-  },
-  roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  roleBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#374151',
-    textTransform: 'uppercase',
-  },
-  emptyText: {
-    color: '#8E8E93',
-    fontSize: 14,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 10,
-    padding: 12,
-    alignItems: 'center',
-  },
-  summaryValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  summaryLabel: {
-    fontSize: 11,
-    color: '#8E8E93',
-    marginTop: 2,
-    textTransform: 'uppercase',
-    fontWeight: '600',
-  },
-  attendeeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-  },
-  attendeeLeft: {
-    flex: 1,
-    marginRight: 8,
-  },
-  attendeeMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 3,
-  },
-  attendeeDetail: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  attendeeTime: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  checkedInByText: {
-    fontSize: 11,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  checkInTypeBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 5,
-  },
-  checkInTypeBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    color: '#374151',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  modalSheet: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 28,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: -2},
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 12,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 8,
-  },
-  modalSubtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    lineHeight: 22,
-    marginBottom: 22,
-  },
-  counterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  counterButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F2F2F7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  counterButtonDisabled: {
-    backgroundColor: '#E5E5EA',
-  },
-  counterButtonText: {
-    fontSize: 28,
-    fontWeight: '500',
-    color: '#1C1C1E',
-    lineHeight: 30,
-  },
-  counterButtonTextDisabled: {
-    color: '#AEAEB2',
-  },
-  counterValueWrap: {
-    minWidth: 110,
-    alignItems: 'center',
-    marginHorizontal: 24,
-  },
-  counterValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  counterValueLabel: {
-    marginTop: 4,
-    fontSize: 14,
-    color: '#8E8E93',
-    fontWeight: '600',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalSecondaryButton: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: '#F2F2F7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalSecondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#3A3A3C',
-  },
-  modalPrimaryButton: {
-    flex: 1.5,
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: '#34C759',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  modalPrimaryButtonDisabled: {
-    opacity: 0.7,
-  },
-  modalPrimaryButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-});
+function createStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    screenRoot: {
+      flex: 1,
+      position: 'relative',
+      backgroundColor: c.background,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    scrollContent: {
+      paddingBottom: 40,
+      flexGrow: 1,
+    },
+    snackbar: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      bottom: 24,
+      zIndex: 999,
+      elevation: 10,
+      backgroundColor: '#1C1C1E',
+      borderRadius: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 4},
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+    },
+    snackbarText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+      flexShrink: 1,
+    },
+    center: {
+      flex: 1,
+      minHeight: 280,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    errorText: {
+      fontSize: 18,
+      color: c.danger,
+      marginBottom: 12,
+    },
+    linkText: {
+      color: c.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    infoBlock: {
+      backgroundColor: c.card,
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    sessionTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: c.text,
+      marginBottom: 12,
+    },
+    detailRow: {
+      fontSize: 15,
+      color: c.text,
+      marginTop: 4,
+    },
+    addressText: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 2,
+      marginLeft: 22,
+    },
+    mapsButton: {
+      marginTop: 8,
+      marginLeft: 22,
+      alignSelf: 'flex-start',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      backgroundColor: c.surfaceRaised,
+    },
+    mapsButtonText: {
+      fontSize: 13,
+      color: c.primary,
+      fontWeight: '600',
+    },
+    capacityRow: {
+      marginTop: 12,
+    },
+    capacityText: {
+      fontSize: 14,
+      color: c.textMuted,
+    },
+    statusBanner: {
+      marginTop: 12,
+      padding: 10,
+      borderRadius: 10,
+      backgroundColor: c.surfaceRaised,
+    },
+    statusText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.text,
+    },
+    section: {
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    sectionTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: c.text,
+      marginBottom: 12,
+    },
+    attendeesSectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    exportPdfBtn: {
+      backgroundColor: c.primary,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      minWidth: 90,
+      alignItems: 'center',
+    },
+    exportPdfBtnDisabled: {
+      backgroundColor: c.primary,
+      opacity: 0.5,
+    },
+    exportPdfBtnText: {
+      color: '#FFF',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    checkInBtn: {
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    btnCheckIn: {
+      backgroundColor: '#34C759',
+    },
+    btnBackfill: {
+      backgroundColor: '#FF9500',
+    },
+    btnCheckedIn: {
+      backgroundColor: c.border,
+    },
+    btnDisabled: {
+      backgroundColor: c.border,
+    },
+    checkInBtnTextBase: {
+      fontSize: 17,
+      fontWeight: '700',
+    },
+    checkInBtnTextLight: {
+      color: '#FFFFFF',
+    },
+    checkInBtnTextDark: {
+      color: c.text,
+    },
+    helperText: {
+      marginTop: 10,
+      fontSize: 13,
+      color: c.textMuted,
+      textAlign: 'center',
+    },
+    hostButton: {
+      backgroundColor: c.primary,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    hostButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    deleteSessionBtn: {
+      marginTop: 10,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: c.danger,
+      backgroundColor: '#FFF1F0',
+    },
+    deleteSessionBtnDisabled: {
+      opacity: 0.5,
+    },
+    deleteSessionBtnText: {
+      color: c.danger,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    memberLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    youBadge: {
+      backgroundColor: c.primary,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+    youBadgeText: {
+      color: '#FFF',
+      fontSize: 10,
+      fontWeight: '700',
+    },
+    memberRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    memberName: {
+      fontSize: 15,
+      color: c.text,
+      fontWeight: '500',
+    },
+    roleBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    roleBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#374151',
+      textTransform: 'uppercase',
+    },
+    emptyText: {
+      color: c.textMuted,
+      fontSize: 14,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 14,
+    },
+    summaryCard: {
+      flex: 1,
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 10,
+      padding: 12,
+      alignItems: 'center',
+    },
+    summaryValue: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: c.text,
+    },
+    summaryLabel: {
+      fontSize: 11,
+      color: c.textMuted,
+      marginTop: 2,
+      textTransform: 'uppercase',
+      fontWeight: '600',
+    },
+    attendeeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    attendeeLeft: {
+      flex: 1,
+      marginRight: 8,
+    },
+    attendeeMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 3,
+    },
+    attendeeDetail: {
+      fontSize: 12,
+      color: c.textMuted,
+    },
+    attendeeTime: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginTop: 2,
+    },
+    checkedInByText: {
+      fontSize: 11,
+      color: c.textMuted,
+      marginTop: 2,
+    },
+    checkInTypeBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 5,
+    },
+    checkInTypeBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      color: '#374151',
+    },
+    modalOverlay: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+    },
+    modalSheet: {
+      backgroundColor: c.card,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 28,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: -2},
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 12,
+    },
+    modalTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: c.text,
+      marginBottom: 8,
+    },
+    modalSubtitle: {
+      fontSize: 15,
+      color: c.textMuted,
+      lineHeight: 22,
+      marginBottom: 22,
+    },
+    counterRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 24,
+    },
+    counterButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: c.surfaceRaised,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    counterButtonDisabled: {
+      backgroundColor: c.border,
+    },
+    counterButtonText: {
+      fontSize: 28,
+      fontWeight: '500',
+      color: c.text,
+      lineHeight: 30,
+    },
+    counterButtonTextDisabled: {
+      color: c.textMuted,
+    },
+    counterValueWrap: {
+      minWidth: 110,
+      alignItems: 'center',
+      marginHorizontal: 24,
+    },
+    counterValue: {
+      fontSize: 32,
+      fontWeight: '700',
+      color: c.text,
+    },
+    counterValueLabel: {
+      marginTop: 4,
+      fontSize: 14,
+      color: c.textMuted,
+      fontWeight: '600',
+    },
+    modalActions: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    modalSecondaryButton: {
+      flex: 1,
+      minHeight: 48,
+      borderRadius: 12,
+      backgroundColor: c.surfaceRaised,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalSecondaryButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: c.text,
+    },
+    modalPrimaryButton: {
+      flex: 1.5,
+      minHeight: 48,
+      borderRadius: 12,
+      backgroundColor: '#34C759',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+    },
+    modalPrimaryButtonDisabled: {
+      opacity: 0.7,
+    },
+    modalPrimaryButtonText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+  });
+}
