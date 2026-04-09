@@ -11,6 +11,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useApp} from '../context/AppContext';
@@ -26,10 +29,16 @@ export default function CreateSessionScreen({navigation}: Props) {
   const isHost = currentMembership?.role === 'host';
 
   const [title, setTitle] = useState('');
-  const [date, setDate] = useState(''); // format: YYYY-MM-DD
-  const [startTime, setStartTime] = useState(''); // format: HH:MM
-  const [endTime, setEndTime] = useState('');
+  // date/time stored as a single Date object; only date part and time parts used separately
+  const [sessionDate, setSessionDate] = useState<Date | null>(null);
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [endTime, setEndTime] = useState<Date | null>(null);
   const [capacity, setCapacity] = useState('');
+
+  // Picker visibility
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
     null,
   );
@@ -65,12 +74,31 @@ export default function CreateSessionScreen({navigation}: Props) {
     return unsub;
   }, [navigation, loadLocations]);
 
-  const buildISOString = (dateStr: string, timeStr: string): string | null => {
-    if (!dateStr || !timeStr) return null;
-    const combined = `${dateStr}T${timeStr}:00`;
-    const d = new Date(combined);
-    if (isNaN(d.getTime())) return null;
-    return d.toISOString();
+  const combineDateTime = (date: Date, time: Date): Date => {
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      time.getHours(),
+      time.getMinutes(),
+      0,
+      0,
+    );
+  };
+
+  const formatDateLabel = (d: Date | null): string => {
+    if (!d) return 'Select date';
+    return d.toLocaleDateString([], {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const formatTimeLabel = (d: Date | null, placeholder: string): string => {
+    if (!d) return placeholder;
+    return d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
   };
 
   const handleSubmit = async () => {
@@ -90,21 +118,15 @@ export default function CreateSessionScreen({navigation}: Props) {
       );
       return;
     }
-    if (!date.trim() || !startTime.trim()) {
-      Alert.alert('Required', 'Please enter a date and start time.');
+    if (!sessionDate || !startTime) {
+      Alert.alert('Required', 'Please select a date and start time.');
       return;
     }
 
-    const startISO = buildISOString(date, startTime);
-    if (!startISO) {
-      Alert.alert(
-        'Invalid Date',
-        'Use format YYYY-MM-DD and HH:MM (e.g. 2026-04-15 and 07:00).',
-      );
-      return;
-    }
-
-    const endISO = endTime.trim() ? buildISOString(date, endTime) : null;
+    const startISO = combineDateTime(sessionDate, startTime).toISOString();
+    const endISO = endTime
+      ? combineDateTime(sessionDate, endTime).toISOString()
+      : null;
 
     setLoading(true);
     try {
@@ -240,40 +262,93 @@ export default function CreateSessionScreen({navigation}: Props) {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Date * (YYYY-MM-DD)</Text>
-            <TextInput
-              style={styles.input}
-              value={date}
-              onChangeText={setDate}
-              placeholder="e.g. 2026-04-15"
-              placeholderTextColor="#AEAEB2"
-              keyboardType="numbers-and-punctuation"
-            />
+            <Text style={styles.label}>Date *</Text>
+            <TouchableOpacity
+              style={styles.pickerBtn}
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.7}>
+              <Text
+                style={[
+                  styles.pickerBtnText,
+                  !sessionDate && styles.pickerBtnPlaceholder,
+                ]}>
+                {formatDateLabel(sessionDate)}
+              </Text>
+              <Text style={styles.pickerIcon}>📅</Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                mode="date"
+                value={sessionDate ?? new Date()}
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(e: DateTimePickerEvent, d?: Date) => {
+                  setShowDatePicker(Platform.OS === 'ios');
+                  if (e.type === 'set' && d) setSessionDate(d);
+                  else if (Platform.OS !== 'ios') setShowDatePicker(false);
+                }}
+              />
+            )}
           </View>
 
           <View style={styles.row}>
             <View style={[styles.field, {flex: 1}]}>
-              <Text style={styles.label}>Start Time * (HH:MM)</Text>
-              <TextInput
-                style={styles.input}
-                value={startTime}
-                onChangeText={setStartTime}
-                placeholder="07:00"
-                placeholderTextColor="#AEAEB2"
-                keyboardType="numbers-and-punctuation"
-              />
+              <Text style={styles.label}>Start Time *</Text>
+              <TouchableOpacity
+                style={styles.pickerBtn}
+                onPress={() => setShowStartPicker(true)}
+                activeOpacity={0.7}>
+                <Text
+                  style={[
+                    styles.pickerBtnText,
+                    !startTime && styles.pickerBtnPlaceholder,
+                  ]}>
+                  {formatTimeLabel(startTime, 'Select')}
+                </Text>
+                <Text style={styles.pickerIcon}>🕐</Text>
+              </TouchableOpacity>
+              {showStartPicker && (
+                <DateTimePicker
+                  mode="time"
+                  value={startTime ?? new Date()}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  is24Hour={false}
+                  onChange={(e: DateTimePickerEvent, d?: Date) => {
+                    setShowStartPicker(Platform.OS === 'ios');
+                    if (e.type === 'set' && d) setStartTime(d);
+                    else if (Platform.OS !== 'ios') setShowStartPicker(false);
+                  }}
+                />
+              )}
             </View>
             <View style={{width: 12}} />
             <View style={[styles.field, {flex: 1}]}>
-              <Text style={styles.label}>End Time (HH:MM)</Text>
-              <TextInput
-                style={styles.input}
-                value={endTime}
-                onChangeText={setEndTime}
-                placeholder="08:00 (opt.)"
-                placeholderTextColor="#AEAEB2"
-                keyboardType="numbers-and-punctuation"
-              />
+              <Text style={styles.label}>End Time</Text>
+              <TouchableOpacity
+                style={styles.pickerBtn}
+                onPress={() => setShowEndPicker(true)}
+                activeOpacity={0.7}>
+                <Text
+                  style={[
+                    styles.pickerBtnText,
+                    !endTime && styles.pickerBtnPlaceholder,
+                  ]}>
+                  {formatTimeLabel(endTime, 'Optional')}
+                </Text>
+                <Text style={styles.pickerIcon}>🕐</Text>
+              </TouchableOpacity>
+              {showEndPicker && (
+                <DateTimePicker
+                  mode="time"
+                  value={endTime ?? startTime ?? new Date()}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  is24Hour={false}
+                  onChange={(e: DateTimePickerEvent, d?: Date) => {
+                    setShowEndPicker(Platform.OS === 'ios');
+                    if (e.type === 'set' && d) setEndTime(d);
+                    else if (Platform.OS !== 'ios') setShowEndPicker(false);
+                  }}
+                />
+              )}
             </View>
           </View>
 
@@ -328,6 +403,27 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
     borderWidth: 1,
     borderColor: '#E5E5EA',
+  },
+  pickerBtn: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pickerBtnText: {
+    fontSize: 16,
+    color: '#1C1C1E',
+  },
+  pickerBtnPlaceholder: {
+    color: '#AEAEB2',
+  },
+  pickerIcon: {
+    fontSize: 16,
   },
   row: {flexDirection: 'row'},
   // Host info banner
