@@ -516,7 +516,7 @@ export default function MemberCreditsScreen({navigation}: Props) {
                   </>
                 )}
               <View style={styles.sectionDivider} />
-              {/* ── Section 3: Adjust credits ──────────────────────────── */}{' '}
+              {/* ── Section 3: Adjust credits ──────────────────────────── */}
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Adjust Credits</Text>
                 <TextInput
