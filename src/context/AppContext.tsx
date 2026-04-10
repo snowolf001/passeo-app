@@ -91,6 +91,10 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
         return;
       }
 
+      // Set the active member ID before the API call so getApiHeaders()
+      // includes x-member-id on the GET /memberships/:id request.
+      setActiveMemberId(stored.membershipId);
+
       const result = await getMembershipById(stored.membershipId);
 
       const membership: Membership = {
