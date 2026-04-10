@@ -95,8 +95,8 @@ export async function addClubLocation(
 export async function deleteClubLocation(
   clubId: string,
   locationId: string,
-): Promise<{ success: boolean; mode: 'deleted' | 'hidden' }> {
-  return await apiRequest<{ success: boolean; mode: 'deleted' | 'hidden' }>(
+): Promise<{success: boolean; mode: 'deleted' | 'hidden'}> {
+  return await apiRequest<{success: boolean; mode: 'deleted' | 'hidden'}>(
     `/api/clubs/${clubId}/locations/${locationId}`,
     {
       method: 'DELETE',

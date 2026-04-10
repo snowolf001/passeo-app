@@ -62,7 +62,10 @@ export default function HomeScreen({navigation}: Props) {
 
     const todaySession = sessions.find(s => {
       const st = new Date(s.startTime);
-      return st >= todayStart && st <= todayEnd;
+      if (!(st >= todayStart && st <= todayEnd)) return false;
+      // If session has ended, don't treat it as available
+      if (s.endTime && new Date(s.endTime) < now) return false;
+      return true;
     });
 
     if (todaySession) {
@@ -118,9 +121,13 @@ export default function HomeScreen({navigation}: Props) {
       return (
         <View style={[styles.statusCard, styles.statusCheckedIn]}>
           <Text style={styles.statusIcon}>✅</Text>
-          <View>
-            <Text style={styles.statusTitle}>Checked In Today</Text>
-            <Text style={styles.statusSub}>You're good to go!</Text>
+          <View style={styles.statusTextWrap}>
+            <Text style={[styles.statusTitle, styles.statusTitleDark]}>
+              Checked In Today
+            </Text>
+            <Text style={[styles.statusSub, styles.statusSubDark]}>
+              You're good to go!
+            </Text>
           </View>
         </View>
       );
@@ -129,9 +136,13 @@ export default function HomeScreen({navigation}: Props) {
       return (
         <View style={[styles.statusCard, styles.statusAvailable]}>
           <Text style={styles.statusIcon}>🏃</Text>
-          <View>
-            <Text style={styles.statusTitle}>Session Available</Text>
-            <Text style={styles.statusSub}>You haven't checked in yet.</Text>
+          <View style={styles.statusTextWrap}>
+            <Text style={[styles.statusTitle, styles.statusTitleDark]}>
+              Session Available
+            </Text>
+            <Text style={[styles.statusSub, styles.statusSubDark]}>
+              You haven't checked in yet.
+            </Text>
           </View>
         </View>
       );
@@ -139,7 +150,7 @@ export default function HomeScreen({navigation}: Props) {
     return (
       <View style={[styles.statusCard, styles.statusNone]}>
         <Text style={styles.statusIcon}>📆</Text>
-        <View>
+        <View style={styles.statusTextWrap}>
           <Text style={styles.statusTitle}>No Session Today</Text>
           <Text style={styles.statusSub}>
             Check the schedule for upcoming sessions.
@@ -253,8 +264,11 @@ function createStyles(c: ThemeColors) {
     statusAvailable: {backgroundColor: '#DBEAFE'},
     statusNone: {backgroundColor: c.surfaceRaised},
     statusIcon: {fontSize: 28},
+    statusTextWrap: {flex: 1, flexShrink: 1},
     statusTitle: {fontSize: 15, fontWeight: '700', color: c.text},
+    statusTitleDark: {color: '#1C1C1E'},
     statusSub: {fontSize: 13, color: c.textMuted, marginTop: 2},
+    statusSubDark: {color: '#3C3C43'},
     nextSessionCard: {
       backgroundColor: c.primary,
       borderRadius: 16,

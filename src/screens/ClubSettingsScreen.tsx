@@ -161,18 +161,22 @@ export default function ClubSettingsScreen({navigation}: Props) {
           onPress: async () => {
             if (!currentMembership) return;
             try {
-              const res = await deleteClubLocation(currentMembership.clubId, item.id);
+              const res = await deleteClubLocation(
+                currentMembership.clubId,
+                item.id,
+              );
               setLocations(prev => prev.filter(l => l.id !== item.id));
               if (res.mode === 'hidden') {
-                showSnackbar('Location hidden because it is used by existing sessions');
+                showSnackbar(
+                  'Location hidden because it is used by existing sessions',
+                );
               } else {
                 showSnackbar('Location deleted');
               }
             } catch (err: any) {
               Alert.alert(
                 'Error',
-                err?.message ??
-                  'Could not delete location. Please try again.',
+                err?.message ?? 'Could not delete location. Please try again.',
               );
             }
           },

@@ -77,6 +77,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
   const [showCheckedInSection, setShowCheckedInSection] = useState(false);
   const [sessionEndTime, setSessionEndTime] = useState<string | null>(null);
+  const [sessionCapacity, setSessionCapacity] = useState<number | null>(null);
 
   const [selectedMember, setSelectedMember] = useState<ApiClubMember | null>(
     null,
@@ -137,6 +138,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
       setMembers(apiMembers);
       setCheckedInIds(new Set(checkedIn.map(a => a.membershipId)));
       setSessionEndTime(session.endTime ?? null);
+      setSessionCapacity(session.capacity ?? null);
     } catch (err) {
       console.warn('[ManualCheckIn] loadMembers error:', err);
     } finally {
@@ -192,6 +194,9 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
   const totalNoCredits = noCreditMembers.length;
   const totalCheckedIn = checkedInMembers.length;
 
+  const isSessionFull =
+    sessionCapacity !== null && checkedInIds.size >= sessionCapacity;
+
   const listData = useMemo((): ListRow[] => {
     const rows: ListRow[] = [{type: 'summary', key: 'summary'}];
 
@@ -200,6 +205,14 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
         type: 'banner',
         key: 'banner-expired',
         message: 'This session is no longer eligible for backfill check-in.',
+      });
+    }
+
+    if (isSessionFull) {
+      rows.push({
+        type: 'banner',
+        key: 'banner-full',
+        message: 'This session is full. No more check-ins are allowed.',
       });
     }
 
@@ -274,7 +287,14 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
     }
 
     return rows;
-  }, [readyMembers, noCreditMembers, checkedInMembers, showCheckedInSection]);
+  }, [
+    readyMembers,
+    noCreditMembers,
+    checkedInMembers,
+    showCheckedInSection,
+    isSessionFull,
+    sessionMode,
+  ]);
 
   const handleOpenHistory = useCallback(
     (member: ApiClubMember) => {
@@ -329,10 +349,14 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
         } used`,
       );
     } catch (err: any) {
-      Alert.alert(
-        'Failed',
-        err?.message || 'Check-in failed. Please try again.',
-      );
+      const code = err?.code as string | undefined;
+      const message =
+        code === 'SESSION_FULL'
+          ? 'This session is full.'
+          : code === 'ALREADY_CHECKED_IN'
+          ? 'This member is already checked in.'
+          : err?.message || 'Check-in failed. Please try again.';
+      Alert.alert('Failed', message);
     } finally {
       setCheckingInId(null);
       closePeoplePicker();
@@ -416,7 +440,9 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
     const isCheckedIn = checkedInIds.has(item.membershipId);
     const hasNoCredits = item.credits <= 0;
     const isSessionExpired = sessionMode === 'expired';
-    const isDisabled = isCheckedIn || hasNoCredits || isSessionExpired;
+    const isFullBlock = isSessionFull && !isCheckedIn;
+    const isDisabled =
+      isCheckedIn || hasNoCredits || isSessionExpired || isFullBlock;
     const isProcessing = checkingInId === item.membershipId;
 
     return (
@@ -451,10 +477,17 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
             </View>
           )}
 
+          {!isProcessing && !isCheckedIn && isFullBlock && (
+            <View style={styles.badgeError}>
+              <Text style={styles.badgeText}>Session Full</Text>
+            </View>
+          )}
+
           {!isProcessing &&
             !isCheckedIn &&
             !hasNoCredits &&
-            !isSessionExpired && (
+            !isSessionExpired &&
+            !isFullBlock && (
               <View style={styles.badgeAction}>
                 <Text style={styles.badgeActionText}>
                   {sessionMode === 'backfill'
