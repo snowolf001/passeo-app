@@ -153,6 +153,9 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     ? checkedInMembers.some(m => m.membershipId === currentMembership.id)
     : false;
 
+  const isSessionFull =
+    session?.capacity != null && checkedInMembers.length >= session.capacity;
+
   const availableCredits = currentMembership?.credits ?? 0;
   const hasCredits = availableCredits > 0;
   const canManualCheckIn = currentMembership
@@ -181,6 +184,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
 
   const getHelperText = () => {
     if (isCheckedIn) return null;
+    if (isSessionFull) return 'This session is full.';
 
     switch (checkInMode) {
       case 'live':
@@ -285,7 +289,10 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     try {
       console.log('🚀 calling API...');
 
-      const result = await checkInToSession(session.id, creditsUsed);
+      const result = await checkInToSession(
+        session.id,
+        creditsUsed,
+      );
 
       console.log('✅ API SUCCESS:', result);
 
@@ -374,17 +381,27 @@ export default function SessionDetailScreen({route, navigation}: Props) {
           textStyle: styles.checkInBtnTextDark,
         };
       case 'live':
+      case 'backfill':
+        if (isSessionFull) {
+          return {
+            label: 'Session Full',
+            disabled: true,
+            style: styles.btnDisabled,
+            textStyle: styles.checkInBtnTextDark,
+          };
+        }
+        if (checkInMode === 'backfill') {
+          return {
+            label: 'Backfill Check-In',
+            disabled: false,
+            style: styles.btnBackfill,
+            textStyle: styles.checkInBtnTextLight,
+          };
+        }
         return {
           label: 'Check In',
           disabled: false,
           style: styles.btnCheckIn,
-          textStyle: styles.checkInBtnTextLight,
-        };
-      case 'backfill':
-        return {
-          label: 'Backfill Check-In',
-          disabled: false,
-          style: styles.btnBackfill,
           textStyle: styles.checkInBtnTextLight,
         };
       case 'upcoming':
@@ -540,7 +557,12 @@ export default function SessionDetailScreen({route, navigation}: Props) {
 
           <View style={styles.capacityRow}>
             <Text style={styles.capacityText}>
-              👥 {checkedInMembers.length} checked in
+              👥{' '}
+              {session.capacity != null
+                ? `${checkedInMembers.length} / ${session.capacity} checked in${
+                    isSessionFull ? ' · Full' : ''
+                  }`
+                : `${checkedInMembers.length} checked in`}
             </Text>
           </View>
 

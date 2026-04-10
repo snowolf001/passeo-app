@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import {Club, ClubSettings, Membership} from '../types';
 import {getMembershipById} from '../services/api/membershipApi';
+import {setActiveMemberId} from '../config/api';
 import {
   getStoredMembershipSession,
   saveStoredMembershipSession,
@@ -111,10 +112,12 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
       };
 
       setCurrentMembership(membership);
+      setActiveMemberId(membership.id);
       setCurrentClub(club);
     } catch {
       // Invalid or not found — clear stale storage and show join flow
       await clearStoredMembershipSession();
+      setActiveMemberId(null);
       setCurrentMembership(null);
       setCurrentClub(null);
     } finally {
@@ -140,6 +143,7 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
   // Clear local session — returns app to JoinOrCreate flow.
   const clearMembershipSession = useCallback(async () => {
     await clearStoredMembershipSession();
+    setActiveMemberId(null);
     setCurrentMembership(null);
     setCurrentClub(null);
   }, []);

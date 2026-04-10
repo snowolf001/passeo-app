@@ -95,9 +95,10 @@ export async function deleteClubLocation(
   clubId: string,
   locationId: string,
 ): Promise<void> {
-  await apiRequest<void>(`/api/clubs/${clubId}/locations/${locationId}`, {
-    method: 'DELETE',
-  });
+  await apiRequest<void>(
+    `/api/clubs/${clubId}/locations/${locationId}`,
+    {method: 'DELETE'},
+  );
 }
 
 /**
@@ -119,10 +120,12 @@ export async function joinClub(
  */
 export async function createClub(
   name: string,
+  firstName: string,
+  lastName: string,
 ): Promise<{membershipId: string; clubId: string}> {
   return apiRequest<{membershipId: string; clubId: string}>('/api/clubs', {
     method: 'POST',
-    body: {name},
+    body: {name, firstName, lastName},
   });
 }
 

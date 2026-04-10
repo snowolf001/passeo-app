@@ -13,6 +13,8 @@ export type ApiSession = {
   createdAt: string;
   locationId: string | null;
   locationName: string | null;
+  capacity: number | null;
+  status: 'active' | 'closed';
 };
 
 export type ApiCheckedInMember = {
@@ -104,12 +106,19 @@ export function getCheckInErrorMessage(error: unknown): string {
   switch (code) {
     case 'ALREADY_CHECKED_IN':
       return 'You have already checked in to this session.';
+    case 'SESSION_FULL':
+      return 'This session is full.';
+    case 'SESSION_CLOSED':
+      return 'This session is no longer accepting check-ins.';
     case 'SESSION_NOT_STARTED':
       return 'This session has not started yet.';
     case 'INSUFFICIENT_CREDITS':
       return 'Not enough credits remaining.';
     case 'MEMBERSHIP_NOT_FOUND':
       return 'Membership not found.';
+    case 'UNAUTHORIZED':
+    case 'FORBIDDEN':
+      return "You don't have permission to perform this action.";
     case 'NETWORK_ERROR':
       return 'Network error. Please check your connection.';
     default:

@@ -20,6 +20,20 @@ export const API_BASE_URL =
 // Must match the API_KEY environment variable on the backend.
 export const API_KEY = '3666B63B-7217-452E-AA3A-DA572A646CEA';
 
+let _activeMemberId: string | null = null;
+
+export function setActiveMemberId(id: string | null): void {
+  _activeMemberId = id;
+}
+
+export function getActiveMemberId(): string | null {
+  return _activeMemberId;
+}
+
 export function getApiHeaders(): Record<string, string> {
-  return {'x-api-key': API_KEY};
+  const headers: Record<string, string> = {'x-api-key': API_KEY};
+  if (_activeMemberId) {
+    headers['x-member-id'] = _activeMemberId;
+  }
+  return headers;
 }
