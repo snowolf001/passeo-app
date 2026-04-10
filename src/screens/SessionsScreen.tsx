@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   View,
   Text,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -11,7 +11,6 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {formatDate} from '../utils/date';
-import {CLUB_PRO_CONFIG} from '../config/appConfig';
 import {useAppTheme} from '../theme/useAppTheme';
 import type {ThemeColors} from '../theme/colors';
 
@@ -19,8 +18,6 @@ type Props = {navigation: any};
 
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_VISIBLE_SESSIONS = 50;
-// Past sessions older than this window are shown as locked (Pro required)
-const LOCKED_PAST_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export default function SessionsScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
@@ -60,43 +57,40 @@ export default function SessionsScreen({navigation}: Props) {
     return unsub;
   }, [navigation, loadSessions]);
 
-  const visibleSessions = useMemo(() => {
+  const sections = useMemo(() => {
     const now = Date.now();
-
-    return sessions
-      .filter(session => {
-        const startMs = new Date(session.startTime).getTime();
-        const endMs = new Date(session.endTime).getTime();
-        return startMs <= now + FOURTEEN_DAYS_MS && endMs >= now;
-      })
+    const upcoming = sessions
+      .filter(s => new Date(s.startTime).getTime() > now)
       .sort(
         (a, b) =>
           new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
-      )
-      .slice(0, MAX_VISIBLE_SESSIONS);
-  }, [sessions]);
+      );
 
-  // Past sessions shown as locked Pro items
-  const lockedSessions = useMemo(() => {
-    if (CLUB_PRO_CONFIG.IS_PRO) return [];
-    const now = Date.now();
-    return sessions
-      .filter(session => {
-        const endMs = new Date(session.endTime).getTime();
-        return endMs < now && endMs >= now - LOCKED_PAST_DAYS_MS;
-      })
+    const past = sessions
+      .filter(s => new Date(s.startTime).getTime() <= now)
       .sort(
         (a, b) =>
           new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
       );
+
+    const result = [];
+    if (upcoming.length > 0) {
+      result.push({title: 'Upcoming Sessions', data: upcoming});
+    }
+    if (past.length > 0) {
+      result.push({title: 'Past Sessions', data: past});
+    }
+    return result;
   }, [sessions]);
 
   const highlightedSession = useMemo(() => {
     const now = Date.now();
 
-    const liveSession = visibleSessions.find(session => {
+    const liveSession = sessions.find(session => {
       const start = new Date(session.startTime).getTime();
-      const end = new Date(session.endTime).getTime();
+      const end = session.endTime
+        ? new Date(session.endTime).getTime()
+        : Infinity;
       return now >= start && now <= end;
     });
 
@@ -110,9 +104,8 @@ export default function SessionsScreen({navigation}: Props) {
       };
     }
 
-    const nextSession = visibleSessions.find(
-      session => new Date(session.startTime).getTime() > now,
-    );
+    const nextSession = sections.find(s => s.title === 'Upcoming Sessions')
+      ?.data[0];
 
     if (nextSession) {
       return {
@@ -125,7 +118,7 @@ export default function SessionsScreen({navigation}: Props) {
     }
 
     return null;
-  }, [visibleSessions]);
+  }, [sessions, sections]);
 
   const getRoleLabel = () => {
     const role = currentMembership?.role;
@@ -146,7 +139,9 @@ export default function SessionsScreen({navigation}: Props) {
   const getStatusBadge = (session: ApiSession) => {
     const now = Date.now();
     const start = new Date(session.startTime).getTime();
-    const end = new Date(session.endTime).getTime();
+    const end = session.endTime
+      ? new Date(session.endTime).getTime()
+      : Infinity;
 
     if (now < start) {
       const diffHours = (start - now) / 3600000;
@@ -242,10 +237,13 @@ export default function SessionsScreen({navigation}: Props) {
         </Text>
       </View>
 
-      <FlatList
-        data={visibleSessions}
+      <SectionList
+        sections={sections}
         keyExtractor={item => item.id}
         renderItem={renderItem}
+        renderSectionHeader={({section: {title}}) => (
+          <Text style={[styles.sectionTitle, {marginTop: 20}]}>{title}</Text>
+        )}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <>
@@ -297,15 +295,13 @@ export default function SessionsScreen({navigation}: Props) {
               style={styles.topActionCard}
               onPress={() => navigation.navigate('BackfillSessions')}>
               <View style={styles.topActionTextWrap}>
-                <Text style={styles.topActionTitle}>Past Sessions</Text>
+                <Text style={styles.topActionTitle}>Backfill Check-In</Text>
                 <Text style={styles.topActionSubtitle}>
-                  View recently ended sessions and backfill availability
+                  Missed a session? Check in after it ends
                 </Text>
               </View>
               <Text style={styles.topActionArrow}>›</Text>
             </TouchableOpacity>
-
-            <Text style={styles.sectionTitle}>Sessions</Text>
           </>
         }
         ListEmptyComponent={
@@ -316,36 +312,7 @@ export default function SessionsScreen({navigation}: Props) {
             </Text>
           </View>
         }
-        ListFooterComponent={
-          lockedSessions.length > 0 ? (
-            <View style={styles.lockedSection}>
-              <Text style={styles.sectionTitle}>Past Sessions</Text>
-              {lockedSessions.map(session => (
-                <TouchableOpacity
-                  key={session.id}
-                  style={[styles.card, styles.cardLocked]}
-                  onPress={() => navigation.navigate('ClubProPreview')}>
-                  <View style={styles.cardTop}>
-                    <Text style={[styles.cardTitle, styles.cardTitleLocked]}>
-                      {'\uD83D\uDD12 '}
-                      {session.title ?? session.locationName ?? 'Session'}
-                    </Text>
-                    <View
-                      style={[styles.badgePill, {backgroundColor: '#F3F4F6'}]}>
-                      <Text style={[styles.badgeText, {color: '#8E8E93'}]}>
-                        Pro
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.detailText, {color: '#B0B0B8'}]}>
-                    {'\u23F1 '}
-                    {formatDate(session.startTime)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : null
-        }
+        ListFooterComponent={null}
       />
     </SafeAreaView>
   );
