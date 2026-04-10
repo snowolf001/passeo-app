@@ -11,7 +11,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {getMemberAttendance} from '../services/api/attendanceApi';
-import {getCheckInMode, isSessionEnded} from '../utils/checkIn';
+import {getCheckInMode} from '../utils/checkIn';
 import {useAppTheme} from '../theme/useAppTheme';
 import type {ThemeColors} from '../theme/colors';
 
@@ -102,11 +102,8 @@ export default function BackfillSessionsScreen({navigation}: Props) {
         return {session, mode};
       })
       .filter(item => {
-        if (!isSessionEnded(item.session)) {
-          return false;
-        }
         const startMs = new Date(item.session.startTime).getTime();
-        return startMs >= now - FOURTEEN_DAYS_MS;
+        return startMs < now && startMs >= now - FOURTEEN_DAYS_MS;
       })
       .sort(
         (a, b) =>

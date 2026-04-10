@@ -66,21 +66,8 @@ export default function SessionsScreen({navigation}: Props) {
           new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
       );
 
-    const past = sessions
-      .filter(s => new Date(s.startTime).getTime() <= now)
-      .sort(
-        (a, b) =>
-          new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
-      );
-
-    const result = [];
-    if (upcoming.length > 0) {
-      result.push({title: 'Upcoming Sessions', data: upcoming});
-    }
-    if (past.length > 0) {
-      result.push({title: 'Past Sessions', data: past});
-    }
-    return result;
+    if (upcoming.length === 0) return [];
+    return [{title: 'Upcoming Sessions', data: upcoming}];
   }, [sessions]);
 
   const highlightedSession = useMemo(() => {
@@ -233,7 +220,7 @@ export default function SessionsScreen({navigation}: Props) {
       <View style={styles.headerBlock}>
         <Text style={styles.headerTitle}>Club Schedule</Text>
         <Text style={styles.headerSubtitle}>
-          Upcoming sessions and recent activity
+          View and check in to upcoming sessions
         </Text>
       </View>
 
@@ -308,7 +295,7 @@ export default function SessionsScreen({navigation}: Props) {
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyTitle}>No sessions found</Text>
             <Text style={styles.emptyText}>
-              Upcoming and recent sessions will appear here.
+              No upcoming sessions scheduled yet.
             </Text>
           </View>
         }
