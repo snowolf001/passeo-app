@@ -27,6 +27,7 @@ export type ApiClubLocation = {
   clubId: string;
   name: string;
   address: string;
+  isHidden?: boolean;
 };
 
 /**
@@ -94,10 +95,13 @@ export async function addClubLocation(
 export async function deleteClubLocation(
   clubId: string,
   locationId: string,
-): Promise<void> {
-  await apiRequest<void>(`/api/clubs/${clubId}/locations/${locationId}`, {
-    method: 'DELETE',
-  });
+): Promise<{ success: boolean; mode: 'deleted' | 'hidden' }> {
+  return await apiRequest<{ success: boolean; mode: 'deleted' | 'hidden' }>(
+    `/api/clubs/${clubId}/locations/${locationId}`,
+    {
+      method: 'DELETE',
+    },
+  );
 }
 
 /**
