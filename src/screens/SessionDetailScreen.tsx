@@ -59,6 +59,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const [attendeesReport, setAttendeesReport] =
     useState<SessionAttendeesResponse | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
+  const [loadingReport, setLoadingReport] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
@@ -107,9 +108,13 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       // Load rich attendee report for hosts/admins
       const myRole = currentMembership?.role ?? '';
       if (['host', 'admin', 'owner'].includes(myRole)) {
+        setLoadingReport(true);
         getSessionAttendees(sessionId)
           .then(setAttendeesReport)
-          .catch(() => {});
+          .catch(err => {
+            console.warn('[SessionDetailScreen] attendee report failed:', err);
+          })
+          .finally(() => setLoadingReport(false));
       }
     } catch (err) {
       console.warn('[SessionDetailScreen] loadData failed:', err);
@@ -668,21 +673,24 @@ export default function SessionDetailScreen({route, navigation}: Props) {
                   ? ` (${checkedInMembers.length})`
                   : ''}
               </Text>
-              {attendeesReport && attendeesReport.attendees.length > 0 && (
+              {loadingReport ? (
+                <ActivityIndicator size="small" color="#8E8E93" />
+              ) : attendeesReport ? (
                 <TouchableOpacity
                   style={[
                     styles.exportPdfBtn,
-                    exportingPdf && styles.exportPdfBtnDisabled,
+                    (exportingPdf || attendeesReport.attendees.length === 0) &&
+                      styles.exportPdfBtnDisabled,
                   ]}
                   onPress={handleExportSessionPdf}
-                  disabled={exportingPdf}>
+                  disabled={exportingPdf || attendeesReport.attendees.length === 0}>
                   {exportingPdf ? (
                     <ActivityIndicator size="small" color="#FFF" />
                   ) : (
                     <Text style={styles.exportPdfBtnText}>Export PDF</Text>
                   )}
                 </TouchableOpacity>
-              )}
+              ) : null}
             </View>
 
             {attendeesReport && (
