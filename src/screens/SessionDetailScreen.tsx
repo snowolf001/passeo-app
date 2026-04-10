@@ -35,6 +35,7 @@ import {formatDate} from '../utils/date';
 import {ApiError} from '../types/api';
 import {useAppTheme} from '../theme/useAppTheme';
 import type {ThemeColors} from '../theme/colors';
+import {trackEvent} from '../analytics/trackEvent';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SessionDetail'>;
 
@@ -285,19 +286,29 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     }
 
     setCheckingIn(true);
+    trackEvent({
+      eventName: 'checkin_attempt',
+      sourceScreen: 'SessionDetail',
+      clubId: currentMembership.clubId,
+      sessionId: session.id,
+    });
 
     try {
       console.log('🚀 calling API...');
 
-      const result = await checkInToSession(
-        session.id,
-        creditsUsed,
-      );
+      const result = await checkInToSession(session.id, creditsUsed);
 
       console.log('✅ API SUCCESS:', result);
 
       const checkedInAt = result.checkedInAt ?? new Date().toISOString();
       const wasBackfill = checkInMode === 'backfill';
+
+      trackEvent({
+        eventName: 'checkin_success',
+        sourceScreen: 'SessionDetail',
+        clubId: currentMembership.clubId,
+        sessionId: session.id,
+      });
 
       showSnackbar(
         `${
@@ -348,6 +359,14 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         console.log('⚠️ ApiError code:', error.code);
         message = getCheckInErrorMessage(error);
       }
+
+      trackEvent({
+        eventName: 'checkin_failed',
+        sourceScreen: 'SessionDetail',
+        clubId: currentMembership.clubId,
+        sessionId: session.id,
+        errorCode: error instanceof ApiError ? error.code : 'NETWORK_ERROR',
+      });
 
       // 🔥 关键：一定让用户看到
       Alert.alert('Check-in failed', message);
@@ -437,12 +456,31 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       return;
     }
     setExportingPdf(true);
+    trackEvent({
+      eventName: 'export_pdf_attempt',
+      sourceScreen: 'SessionDetail',
+      clubId: currentMembership?.clubId,
+      sessionId: session?.id,
+    });
     try {
       await exportSessionParticipantsPdf(
         attendeesReport,
         currentClub?.name ?? 'Club',
       );
+      trackEvent({
+        eventName: 'export_pdf_success',
+        sourceScreen: 'SessionDetail',
+        clubId: currentMembership?.clubId,
+        sessionId: session?.id,
+      });
     } catch (err: any) {
+      trackEvent({
+        eventName: 'export_pdf_failed',
+        sourceScreen: 'SessionDetail',
+        clubId: currentMembership?.clubId,
+        sessionId: session?.id,
+        errorCode: err?.code ?? 'UNKNOWN',
+      });
       Alert.alert('Export Failed', err?.message ?? 'Could not generate PDF.');
     } finally {
       setExportingPdf(false);

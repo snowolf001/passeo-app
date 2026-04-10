@@ -10,6 +10,7 @@ import {
   TextInput,
   Alert,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Clipboard,
 } from 'react-native';
@@ -17,6 +18,7 @@ import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/types';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-aware-scroll-view';
 import {useApp} from '../context/AppContext';
 import {
   getClubMembers,
@@ -31,6 +33,7 @@ import {
 } from '../services/api/membershipApi';
 import {useAppTheme} from '../theme/useAppTheme';
 import type {ThemeColors} from '../theme/colors';
+import {trackEvent} from '../analytics/trackEvent';
 
 type Props = {navigation: any};
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'MemberCredits'>;
@@ -225,6 +228,11 @@ export default function MemberCreditsScreen({navigation}: Props) {
     try {
       const finalReason = reason.trim() || 'Manual adjustment';
       await adjustMemberCredits(selected.membershipId, parsed, finalReason);
+      trackEvent({
+        eventName: 'adjust_credits_success',
+        sourceScreen: 'MemberCredits',
+        clubId: currentMembership?.clubId,
+      });
       // Update local list optimistically
       setMembers(prev =>
         prev.map(m =>
@@ -235,6 +243,12 @@ export default function MemberCreditsScreen({navigation}: Props) {
       );
       closeModal();
     } catch (e: any) {
+      trackEvent({
+        eventName: 'adjust_credits_failed',
+        sourceScreen: 'MemberCredits',
+        clubId: currentMembership?.clubId,
+        errorCode: e?.code ?? 'UNKNOWN',
+      });
       Alert.alert('Error', e?.message ?? 'Failed to adjust credits.');
     } finally {
       setSaving(false);
@@ -325,221 +339,231 @@ export default function MemberCreditsScreen({navigation}: Props) {
         onRequestClose={closeModal}>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={styles.modalSheet}>
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={[styles.modalSheet, {maxHeight: '90%'}]}>
             <View style={styles.modalHandle} />
-            {/* ── Section 1: Member overview ─────────────────────────── */}
-            <View style={styles.overviewSection}>
-              <Text style={styles.overviewName}>
-                {selected?.userName ?? ''}
-              </Text>
-              <Text style={styles.overviewCredits}>
-                {selected?.credits ?? 0} credits
-              </Text>
-              {selected && (
-                <TouchableOpacity
-                  style={styles.historyLink}
-                  onPress={() => {
-                    closeModal();
-                    nav.navigate('MemberCreditHistory', {
-                      membershipId: selected.membershipId,
-                      memberName: selected.userName,
-                    });
-                  }}>
-                  <Text style={styles.historyLinkText}>
-                    View credit history →
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            <View style={styles.sectionDivider} />
-            {/* ── Section 2: Recovery code ───────────────────────────── */}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Recovery Code</Text>
-              <View style={styles.codeRow}>
-                {loadingCode ? (
-                  <ActivityIndicator size="small" color="#8E8E93" />
-                ) : (
-                  <>
-                    <Text style={styles.codeText}>{recoveryCode ?? '—'}</Text>
-                    {recoveryCode && (
-                      <TouchableOpacity
-                        style={styles.copyBtn}
-                        onPress={() => {
-                          Clipboard.setString(recoveryCode);
-                          showSnackbar('Recovery code copied to clipboard.');
-                        }}>
-                        <Text style={styles.copyBtnText}>Copy</Text>
-                      </TouchableOpacity>
-                    )}
-                  </>
+            <KeyboardAwareScrollView
+              enableOnAndroid
+              keyboardShouldPersistTaps="handled"
+              extraScrollHeight={24}
+              showsVerticalScrollIndicator={false}>
+              {/* ── Section 1: Member overview ─────────────────────────── */}
+              <View style={styles.overviewSection}>
+                <Text style={styles.overviewName}>
+                  {selected?.userName ?? ''}
+                </Text>
+                <Text style={styles.overviewCredits}>
+                  {selected?.credits ?? 0} credits
+                </Text>
+                {selected && (
+                  <TouchableOpacity
+                    style={styles.historyLink}
+                    onPress={() => {
+                      closeModal();
+                      nav.navigate('MemberCreditHistory', {
+                        membershipId: selected.membershipId,
+                        memberName: selected.userName,
+                      });
+                    }}>
+                    <Text style={styles.historyLinkText}>
+                      View credit history →
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
-            </View>
-            {/* Role Management — admin/owner only */}
-            {selected &&
-              selected.role !== 'owner' &&
-              (currentMembership?.role === 'admin' ||
-                currentMembership?.role === 'owner') && (
-                <>
-                  <View style={styles.sectionDivider} />
-                  <View style={styles.section}>
-                    <Text style={styles.sectionLabel}>Role</Text>
-                    <View style={styles.roleRow}>
-                      <TouchableOpacity
-                        style={[
-                          styles.roleBtn,
-                          selected.role === 'member' && styles.roleBtnActive,
-                        ]}
-                        onPress={() =>
-                          selected.role !== 'member' &&
-                          handleRoleChange('member')
-                        }
-                        disabled={changingRole || selected.role === 'member'}>
-                        <Text
-                          style={[
-                            styles.roleBtnText,
-                            selected.role === 'member' &&
-                              styles.roleBtnTextActive,
-                          ]}>
-                          Member
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.roleBtn,
-                          selected.role === 'host' && styles.roleBtnActive,
-                        ]}
-                        onPress={() =>
-                          selected.role !== 'host' && handleRoleChange('host')
-                        }
-                        disabled={changingRole || selected.role === 'host'}>
-                        <Text
-                          style={[
-                            styles.roleBtnText,
-                            selected.role === 'host' &&
-                              styles.roleBtnTextActive,
-                          ]}>
-                          Host
-                        </Text>
-                      </TouchableOpacity>
-                      {currentMembership?.role === 'owner' && (
+              <View style={styles.sectionDivider} />
+              {/* ── Section 2: Recovery code ───────────────────────────── */}
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Recovery Code</Text>
+                <View style={styles.codeRow}>
+                  {loadingCode ? (
+                    <ActivityIndicator size="small" color="#8E8E93" />
+                  ) : (
+                    <>
+                      <Text style={styles.codeText}>{recoveryCode ?? '—'}</Text>
+                      {recoveryCode && (
+                        <TouchableOpacity
+                          style={styles.copyBtn}
+                          onPress={() => {
+                            Clipboard.setString(recoveryCode);
+                            showSnackbar('Recovery code copied to clipboard.');
+                          }}>
+                          <Text style={styles.copyBtnText}>Copy</Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  )}
+                </View>
+              </View>
+              {/* Role Management — admin/owner only */}
+              {selected &&
+                selected.role !== 'owner' &&
+                (currentMembership?.role === 'admin' ||
+                  currentMembership?.role === 'owner') && (
+                  <>
+                    <View style={styles.sectionDivider} />
+                    <View style={styles.section}>
+                      <Text style={styles.sectionLabel}>Role</Text>
+                      <View style={styles.roleRow}>
                         <TouchableOpacity
                           style={[
                             styles.roleBtn,
-                            selected.role === 'admin' && styles.roleBtnActive,
+                            selected.role === 'member' && styles.roleBtnActive,
                           ]}
                           onPress={() =>
-                            selected.role !== 'admin' &&
-                            handleRoleChange('admin')
+                            selected.role !== 'member' &&
+                            handleRoleChange('member')
                           }
-                          disabled={changingRole || selected.role === 'admin'}>
+                          disabled={changingRole || selected.role === 'member'}>
                           <Text
                             style={[
                               styles.roleBtnText,
-                              selected.role === 'admin' &&
+                              selected.role === 'member' &&
                                 styles.roleBtnTextActive,
                             ]}>
-                            Admin
+                            Member
                           </Text>
                         </TouchableOpacity>
-                      )}
-                      {changingRole && (
-                        <ActivityIndicator
-                          size="small"
-                          color="#8E8E93"
-                          style={{marginLeft: 8}}
-                        />
-                      )}
-                    </View>
-                    {/* Transfer Ownership — owner only, target must be admin */}
-                    {currentMembership?.role === 'owner' &&
-                      selected.role === 'admin' && (
                         <TouchableOpacity
-                          style={styles.transferBtn}
-                          onPress={handleTransferOwnership}
-                          disabled={actionLoading}>
-                          {actionLoading ? (
-                            <ActivityIndicator color="#fff" size="small" />
-                          ) : (
-                            <Text style={styles.transferBtnText}>
-                              Transfer Ownership
-                            </Text>
-                          )}
+                          style={[
+                            styles.roleBtn,
+                            selected.role === 'host' && styles.roleBtnActive,
+                          ]}
+                          onPress={() =>
+                            selected.role !== 'host' && handleRoleChange('host')
+                          }
+                          disabled={changingRole || selected.role === 'host'}>
+                          <Text
+                            style={[
+                              styles.roleBtnText,
+                              selected.role === 'host' &&
+                                styles.roleBtnTextActive,
+                            ]}>
+                            Host
+                          </Text>
                         </TouchableOpacity>
-                      )}
-                  </View>
-                </>
-              )}
-            {/* Remove Member — admin/owner, not targeting owner */}
-            {selected &&
-              selected.role !== 'owner' &&
-              (currentMembership?.role === 'admin' ||
-                currentMembership?.role === 'owner') && (
-                <>
-                  <View style={styles.sectionDivider} />
-                  <View style={styles.section}>
-                    <TouchableOpacity
-                      style={styles.removeBtn}
-                      onPress={handleRemoveMember}
-                      disabled={actionLoading}>
-                      {actionLoading ? (
-                        <ActivityIndicator color="#FF3B30" size="small" />
-                      ) : (
-                        <Text style={styles.removeBtnText}>Remove Member</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-            <View style={styles.sectionDivider} />
-            {/* ── Section 3: Adjust credits ──────────────────────────── */}{' '}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Adjust Credits</Text>
-              <TextInput
-                style={styles.input}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="numeric"
-                placeholder="Enter amount (e.g. +5 or -2)"
-                placeholderTextColor="#C7C7CC"
-                returnKeyType="next"
-              />
-              <Text style={styles.fieldHint}>
-                + to add credits, - to remove credits
-              </Text>
-              <Text style={[styles.sectionLabel, {marginTop: 14}]}>
-                Reason <Text style={styles.fieldOptional}>(optional)</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                value={reason}
-                onChangeText={setReason}
-                placeholder="Default: Manual adjustment"
-                placeholderTextColor="#C7C7CC"
-                returnKeyType="done"
-                onSubmitEditing={handleSave}
-              />
-            </View>
-            {/* ── Action buttons ─────────────────────────────────────── */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={closeModal}
-                disabled={saving}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-                onPress={handleSave}
-                disabled={saving}>
-                {saving ? (
-                  <ActivityIndicator color="#FFF" size="small" />
-                ) : (
-                  <Text style={styles.saveBtnText}>Save</Text>
+                        {currentMembership?.role === 'owner' && (
+                          <TouchableOpacity
+                            style={[
+                              styles.roleBtn,
+                              selected.role === 'admin' && styles.roleBtnActive,
+                            ]}
+                            onPress={() =>
+                              selected.role !== 'admin' &&
+                              handleRoleChange('admin')
+                            }
+                            disabled={
+                              changingRole || selected.role === 'admin'
+                            }>
+                            <Text
+                              style={[
+                                styles.roleBtnText,
+                                selected.role === 'admin' &&
+                                  styles.roleBtnTextActive,
+                              ]}>
+                              Admin
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                        {changingRole && (
+                          <ActivityIndicator
+                            size="small"
+                            color="#8E8E93"
+                            style={{marginLeft: 8}}
+                          />
+                        )}
+                      </View>
+                      {/* Transfer Ownership — owner only, target must be admin */}
+                      {currentMembership?.role === 'owner' &&
+                        selected.role === 'admin' && (
+                          <TouchableOpacity
+                            style={styles.transferBtn}
+                            onPress={handleTransferOwnership}
+                            disabled={actionLoading}>
+                            {actionLoading ? (
+                              <ActivityIndicator color="#fff" size="small" />
+                            ) : (
+                              <Text style={styles.transferBtnText}>
+                                Transfer Ownership
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        )}
+                    </View>
+                  </>
                 )}
-              </TouchableOpacity>
-            </View>
+              {/* Remove Member — admin/owner, not targeting owner */}
+              {selected &&
+                selected.role !== 'owner' &&
+                (currentMembership?.role === 'admin' ||
+                  currentMembership?.role === 'owner') && (
+                  <>
+                    <View style={styles.sectionDivider} />
+                    <View style={styles.section}>
+                      <TouchableOpacity
+                        style={styles.removeBtn}
+                        onPress={handleRemoveMember}
+                        disabled={actionLoading}>
+                        {actionLoading ? (
+                          <ActivityIndicator color="#FF3B30" size="small" />
+                        ) : (
+                          <Text style={styles.removeBtnText}>
+                            Remove Member
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              <View style={styles.sectionDivider} />
+              {/* ── Section 3: Adjust credits ──────────────────────────── */}{' '}
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Adjust Credits</Text>
+                <TextInput
+                  style={styles.input}
+                  value={amount}
+                  onChangeText={setAmount}
+                  keyboardType="numeric"
+                  placeholder="Enter amount (e.g. +5 or -2)"
+                  placeholderTextColor="#C7C7CC"
+                  returnKeyType="next"
+                />
+                <Text style={styles.fieldHint}>
+                  + to add credits, - to remove credits
+                </Text>
+                <Text style={[styles.sectionLabel, {marginTop: 14}]}>
+                  Reason <Text style={styles.fieldOptional}>(optional)</Text>
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  value={reason}
+                  onChangeText={setReason}
+                  placeholder="Default: Manual adjustment"
+                  placeholderTextColor="#C7C7CC"
+                  returnKeyType="done"
+                  onSubmitEditing={handleSave}
+                />
+              </View>
+              {/* ── Action buttons ─────────────────────────────────────── */}
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={closeModal}
+                  disabled={saving}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+                  onPress={handleSave}
+                  disabled={saving}>
+                  {saving ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <Text style={styles.saveBtnText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </KeyboardAwareScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>

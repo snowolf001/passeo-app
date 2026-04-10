@@ -9,6 +9,7 @@ import RootNavigator from './src/navigation/RootNavigator';
 import {AppProvider} from './src/context/AppContext';
 import {endIap, initIap, syncProStatusFromStore} from './src/services/iap';
 import {useAppTheme} from './src/theme/useAppTheme';
+import {trackEvent} from './src/analytics/trackEvent';
 
 const toastConfig = {
   undoToast: ({text1, props}: any) => (
@@ -92,6 +93,8 @@ export default function App() {
     };
 
     setupIAP();
+
+    trackEvent({eventName: 'app_opened'});
 
     return () => {
       isMounted = false;
