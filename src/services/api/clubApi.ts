@@ -95,10 +95,9 @@ export async function deleteClubLocation(
   clubId: string,
   locationId: string,
 ): Promise<void> {
-  await apiRequest<void>(
-    `/api/clubs/${clubId}/locations/${locationId}`,
-    {method: 'DELETE'},
-  );
+  await apiRequest<void>(`/api/clubs/${clubId}/locations/${locationId}`, {
+    method: 'DELETE',
+  });
 }
 
 /**
@@ -108,11 +107,14 @@ export async function joinClub(
   joinCode: string,
   firstName: string,
   lastName: string,
-): Promise<{membershipId: string; clubId: string}> {
-  return apiRequest<{membershipId: string; clubId: string}>('/api/clubs/join', {
-    method: 'POST',
-    body: {joinCode, firstName, lastName},
-  });
+): Promise<{membershipId: string; clubId: string; userId: string}> {
+  return apiRequest<{membershipId: string; clubId: string; userId: string}>(
+    '/api/clubs/join',
+    {
+      method: 'POST',
+      body: {joinCode, firstName, lastName},
+    },
+  );
 }
 
 /**
@@ -122,11 +124,14 @@ export async function createClub(
   name: string,
   firstName: string,
   lastName: string,
-): Promise<{membershipId: string; clubId: string}> {
-  return apiRequest<{membershipId: string; clubId: string}>('/api/clubs', {
-    method: 'POST',
-    body: {name, firstName, lastName},
-  });
+): Promise<{membershipId: string; clubId: string; userId: string}> {
+  return apiRequest<{membershipId: string; clubId: string; userId: string}>(
+    '/api/clubs',
+    {
+      method: 'POST',
+      body: {name, firstName, lastName},
+    },
+  );
 }
 
 /**
