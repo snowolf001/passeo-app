@@ -873,10 +873,14 @@ export default function SessionDetailScreen({route, navigation}: Props) {
                   {checkingIn ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text style={styles.modalPrimaryButtonText}>
-                      {getModalActionText()} ({peopleCount}{' '}
-                      {peopleCount === 1 ? 'person' : 'people'})
-                    </Text>
+                    <>
+                      <Text style={styles.modalPrimaryButtonText}>
+                        {getModalActionText()}
+                      </Text>
+                      <Text style={styles.modalPrimaryButtonSub}>
+                        {peopleCount} {peopleCount === 1 ? 'person' : 'people'}
+                      </Text>
+                    </>
                   )}
                 </TouchableOpacity>
               </View>
@@ -1334,6 +1338,12 @@ function createStyles(c: ThemeColors) {
       fontSize: 16,
       fontWeight: '700',
       color: '#FFFFFF',
+    },
+    modalPrimaryButtonSub: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: 'rgba(255,255,255,0.85)',
+      marginTop: 1,
     },
   });
 }

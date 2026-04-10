@@ -654,10 +654,14 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
                   {!!checkingInId ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text style={styles.modalPrimaryButtonText}>
-                      {sessionMode === 'backfill' ? 'Backfill' : 'Check In'} (
-                      {peopleCount} {peopleCount === 1 ? 'person' : 'people'})
-                    </Text>
+                    <>
+                      <Text style={styles.modalPrimaryButtonText}>
+                        {sessionMode === 'backfill' ? 'Backfill' : 'Check In'}
+                      </Text>
+                      <Text style={styles.modalPrimaryButtonSub}>
+                        {peopleCount} {peopleCount === 1 ? 'person' : 'people'}
+                      </Text>
+                    </>
                   )}
                 </TouchableOpacity>
               </View>
@@ -973,6 +977,12 @@ function createStyles(c: ThemeColors) {
       fontSize: 16,
       fontWeight: '700',
       color: '#FFFFFF',
+    },
+    modalPrimaryButtonSub: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: 'rgba(255,255,255,0.85)',
+      marginTop: 1,
     },
     modalPrimaryButtonDisabled: {
       opacity: 0.7,
