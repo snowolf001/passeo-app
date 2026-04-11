@@ -353,6 +353,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
       trackEvent({
         eventName: 'manual_checkin_success',
         sourceScreen: 'ManualCheckIn',
+        clubId: currentMembership.clubId,
         sessionId: sessionId,
       });
     } catch (err: any) {
@@ -368,6 +369,7 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
       trackEvent({
         eventName: 'manual_checkin_failed',
         sourceScreen: 'ManualCheckIn',
+        clubId: currentMembership.clubId,
         sessionId: sessionId,
         errorCode: code || 'UNKNOWN_ERROR',
       });

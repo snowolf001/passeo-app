@@ -159,7 +159,7 @@ export default function CreateSessionScreen({navigation}: Props) {
 
     setLoading(true);
     try {
-      await createSession({
+      const session = await createSession({
         clubId: currentMembership.clubId,
         title: title.trim() || null,
         locationId: selectedLocationId,
@@ -171,6 +171,7 @@ export default function CreateSessionScreen({navigation}: Props) {
         eventName: 'session_created',
         sourceScreen: 'CreateSession',
         clubId: currentMembership.clubId,
+        sessionId: session.id,
       });
       showSnackbar('Session created!');
       setTimeout(() => navigation.goBack(), 1500);
