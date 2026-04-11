@@ -11,6 +11,7 @@ import {
   Modal,
   Pressable,
   Linking,
+  Platform,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -622,21 +623,23 @@ export default function SessionDetailScreen({route, navigation}: Props) {
           </Text>
           {session.title != null && session.locationName != null && (
             <TouchableOpacity
-              onPress={() => {
-                const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                  session.locationName!,
-                )}`;
-                Linking.openURL(url).catch(err =>
-                  console.error('Failed to open maps:', err),
-                );
-              }}>
-              <Text
-                style={[
-                  styles.detailRow,
-                  {color: colors.primary, textDecorationLine: 'underline'},
-                ]}>
-                📍 {session.locationName}
-              </Text>
+              onPress={() =>
+                openMap((session as any).address || session.locationName!)
+              }
+              activeOpacity={0.7}>
+              <View style={styles.locationRow}>
+                <View style={styles.locationContent}>
+                  <Text style={styles.locationText}>
+                    📍 {session.locationName}
+                  </Text>
+                  {(session as any).address ? (
+                    <Text style={styles.locationAddressText}>
+                      {(session as any).address}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={styles.locationHint}>Open in Maps</Text>
+              </View>
             </TouchableOpacity>
           )}
           <Text style={styles.detailRow}>
@@ -991,6 +994,29 @@ const roleColor = (role: string): object => {
   return map[role] ?? map.member;
 };
 
+function openMap(locationName: string) {
+  if (!locationName) return;
+  const encoded = encodeURIComponent(locationName);
+
+  const url = Platform.select({
+    ios: `maps:0,0?q=${encoded}`,
+    android: `geo:0,0?q=${encoded}`,
+  });
+
+  if (url) {
+    Linking.openURL(url).catch(() => {
+      // fallback
+      const fallback = `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+      Linking.openURL(fallback).catch(e =>
+        console.log('Map fallback failed', e),
+      );
+    });
+  } else {
+    const fallback = `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+    Linking.openURL(fallback).catch(e => console.log('Map fallback failed', e));
+  }
+}
+
 function getCheckInTypeLabel(type: string): string {
   switch (type) {
     case 'live':
@@ -1078,6 +1104,31 @@ function createStyles(c: ThemeColors) {
       fontSize: 15,
       color: c.text,
       marginTop: 4,
+    },
+    locationRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    locationContent: {
+      flex: 1,
+      paddingRight: 10,
+    },
+    locationText: {
+      fontSize: 15,
+      color: c.primary,
+      fontWeight: '600',
+    },
+    locationAddressText: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 4,
+      marginLeft: 22,
+    },
+    locationHint: {
+      fontSize: 12,
+      color: c.textMuted,
     },
     addressText: {
       fontSize: 13,
