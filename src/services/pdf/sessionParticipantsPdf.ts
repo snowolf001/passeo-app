@@ -112,10 +112,10 @@ type Col = {
 };
 
 const ATTENDEE_COLS: Col[] = [
-  {header: 'Name', widthFraction: 0.38},
-  {header: 'Type', widthFraction: 0.16},
-  {header: 'Participation', widthFraction: 0.17, align: 'right', bold: true},
-  {header: 'Checked In', widthFraction: 0.29},
+  {header: 'Name', widthFraction: 0.26},
+  {header: 'Method', widthFraction: 0.23},
+  {header: 'Credits', widthFraction: 0.33, align: 'right', bold: true},
+  {header: 'Checked In', widthFraction: 0.18},
 ];
 
 // ─── Low-level drawing primitive ─────────────────────────────────────────────
@@ -450,12 +450,23 @@ function drawAttendeesSection(
       renderTH();
     }
 
+    const getCheckInTypeLabel = (type: string): string => {
+      const map: Record<string, string> = {
+        live: 'Self Check-in',
+        manual: 'Checked in by Host',
+        backfill: 'Backfilled',
+      };
+      return map[type] ?? 'Unknown';
+    };
+
     drawTableRow(
       b,
       [
         att.memberName,
-        att.checkInType,
-        String(att.creditsUsed),
+        getCheckInTypeLabel(att.checkInType),
+        `${att.creditsUsed} credit${att.creditsUsed !== 1 ? 's' : ''}${
+          att.creditsUsed > 1 ? ' (includes guests)' : ''
+        }`,
         fmtShort(att.checkedInAt),
       ],
       i,
@@ -473,7 +484,7 @@ function drawAttendeesSection(
       ? 'No attendees'
       : `${attendees.length} attendee${
           attendees.length !== 1 ? 's' : ''
-        } \u2022 ${totalParticipation} total participation`;
+        } \u2022 ${totalParticipation} total credits`;
   const sumFont = b.pickFontForText(summaryText, 'regular');
   const sumW = sumFont.widthOfTextAtSize(summaryText, T_SMALL);
   b.drawTextSafe(summaryText, {
@@ -574,8 +585,8 @@ export async function exportSessionParticipantsPdf(
     `Date: ${sessionDate}`,
   );
 
-  // ── Hero: Total Participation ────────────────────────────────────────────────
-  drawHero(b, String(data.summary.totalParticipation), 'Total Participation');
+  // ── Hero: Total Credits Used ──────────────────────────────────────────────────────────
+  drawHero(b, String(data.summary.totalParticipation), 'Total Credits Used');
 
   // ── KPI row: secondary metrics ───────────────────────────────────────────────
   drawKpiRow(b, [

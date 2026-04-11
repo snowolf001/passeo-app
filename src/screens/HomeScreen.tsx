@@ -22,6 +22,7 @@ export default function HomeScreen({navigation}: Props) {
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [nextSession, setNextSession] = useState<ApiSession | null>(null);
+  const [todaySession, setTodaySession] = useState<ApiSession | null>(null);
   const [isTodayCheckedIn, setIsTodayCheckedIn] = useState(false);
   const [hasTodaySession, setHasTodaySession] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -70,6 +71,7 @@ export default function HomeScreen({navigation}: Props) {
 
     if (todaySession) {
       setHasTodaySession(true);
+      setTodaySession(todaySession);
       try {
         const attendance = await getMemberAttendance(currentMembership.id);
         setIsTodayCheckedIn(
@@ -80,6 +82,7 @@ export default function HomeScreen({navigation}: Props) {
       }
     } else {
       setHasTodaySession(false);
+      setTodaySession(null);
       setIsTodayCheckedIn(false);
     }
 
@@ -117,9 +120,13 @@ export default function HomeScreen({navigation}: Props) {
 
   const todayStatusCard = () => {
     if (loading) return null;
-    if (isTodayCheckedIn) {
+    if (isTodayCheckedIn && todaySession) {
       return (
-        <View style={[styles.statusCard, styles.statusCheckedIn]}>
+        <TouchableOpacity
+          style={[styles.statusCard, styles.statusCheckedIn]}
+          onPress={() =>
+            navigation.navigate('SessionDetail', {sessionId: todaySession.id})
+          }>
           <Text style={styles.statusIcon}>✅</Text>
           <View style={styles.statusTextWrap}>
             <Text style={[styles.statusTitle, styles.statusTitleDark]}>
@@ -129,12 +136,16 @@ export default function HomeScreen({navigation}: Props) {
               You're good to go!
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
       );
     }
-    if (hasTodaySession) {
+    if (hasTodaySession && todaySession) {
       return (
-        <View style={[styles.statusCard, styles.statusAvailable]}>
+        <TouchableOpacity
+          style={[styles.statusCard, styles.statusAvailable]}
+          onPress={() =>
+            navigation.navigate('SessionDetail', {sessionId: todaySession.id})
+          }>
           <Text style={styles.statusIcon}>🏃</Text>
           <View style={styles.statusTextWrap}>
             <Text style={[styles.statusTitle, styles.statusTitleDark]}>
@@ -144,7 +155,7 @@ export default function HomeScreen({navigation}: Props) {
               You haven't checked in yet.
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
       );
     }
     return (

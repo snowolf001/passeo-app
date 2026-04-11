@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  Linking,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -60,6 +61,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     useState<SessionAttendeesResponse | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [reportFetchFailed, setReportFetchFailed] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
@@ -93,42 +95,60 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     setPeopleCount(1);
   }, [checkingIn]);
 
-  const loadData = useCallback(async () => {
-    setLoadingSession(true);
-    setCheckedInMembers([]);
-    setAttendeesReport(null);
-    try {
-      const [loadedSession, members] = await Promise.all([
-        apiGetSessionById(sessionId),
-        apiGetCheckedInMembers(sessionId),
-      ]);
-      setSession(loadedSession);
-      setCheckedInMembers(members);
-
-      // Load rich attendee report for hosts/admins
-      const myRole = currentMembership?.role ?? '';
-      if (['host', 'admin', 'owner'].includes(myRole)) {
-        setLoadingReport(true);
-        getSessionAttendees(sessionId)
-          .then(setAttendeesReport)
-          .catch(err => {
-            console.warn('[SessionDetailScreen] attendee report failed:', err);
-          })
-          .finally(() => setLoadingReport(false));
+  const loadData = useCallback(
+    async (softRefresh = false) => {
+      if (!softRefresh) {
+        setLoadingSession(true);
+        // Only clear if not softly refreshing
+        // setCheckedInMembers([]);
+        // setAttendeesReport(null);
       }
-    } catch (err) {
-      console.warn('[SessionDetailScreen] loadData failed:', err);
-    } finally {
-      setLoadingSession(false);
-    }
-  }, [sessionId, currentMembership?.role]);
+      setReportFetchFailed(false);
+      try {
+        const [loadedSession, members] = await Promise.all([
+          apiGetSessionById(sessionId),
+          apiGetCheckedInMembers(sessionId),
+        ]);
+        setSession(loadedSession);
+        setCheckedInMembers(members);
+
+        // Load rich attendee report for hosts/admins
+        const myRole = currentMembership?.role ?? '';
+        if (['host', 'admin', 'owner'].includes(myRole)) {
+          if (!softRefresh) setLoadingReport(true);
+          getSessionAttendees(sessionId)
+            .then(report => {
+              setAttendeesReport(report);
+              setReportFetchFailed(false);
+            })
+            .catch(err => {
+              console.warn(
+                '[SessionDetailScreen] attendee report failed:',
+                err,
+              );
+              setReportFetchFailed(true);
+            })
+            .finally(() => {
+              if (!softRefresh) setLoadingReport(false);
+            });
+        }
+      } catch (err) {
+        console.warn('[SessionDetailScreen] loadData failed:', err);
+      } finally {
+        if (!softRefresh) {
+          setLoadingSession(false);
+        }
+      }
+    },
+    [sessionId, currentMembership?.role],
+  );
 
   useEffect(() => {
-    loadData();
+    loadData(false);
   }, [loadData]);
 
   useEffect(() => {
-    const unsub = navigation.addListener('focus', loadData);
+    const unsub = navigation.addListener('focus', () => loadData(false));
     return unsub;
   }, [navigation, loadData]);
 
@@ -149,11 +169,10 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       return;
     }
 
-    // Re-fetch the checked-in list so we have the correct flat API shape.
-    apiGetCheckedInMembers(sessionId)
-      .then(setCheckedInMembers)
-      .catch(() => {});
-  }, [lastCheckInEvent, sessionId]);
+    // A check-in happened elsewhere (e.g. ManualCheckInScreen)
+    // Perform a soft refresh to keep attendees report synced without flicker
+    loadData(true);
+  }, [lastCheckInEvent, sessionId, loadData]);
 
   const isCheckedIn = currentMembership
     ? checkedInMembers.some(m => m.membershipId === currentMembership.id)
@@ -350,11 +369,15 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         membershipId: currentMembership.id,
         sessionId: session.id,
         checkedInAt,
+        // Hack: trigger a refresh by including a random timestamp or similar
       });
 
       console.log('✅ closing modal');
       setShowPeoplePicker(false);
       setPeopleCount(1);
+
+      // Perform a soft refresh to ensure attendees report and capacity are 100% accurate
+      loadData(true);
     } catch (error) {
       console.log('❌ API ERROR:', error);
 
@@ -560,6 +583,18 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   };
 
   const renderContent = () => {
+    // 调试日志
+    console.log('[SessionDetail] role =', currentMembership?.role);
+    console.log('[SessionDetail] canManualCheckIn =', canManualCheckIn);
+    console.log('[SessionDetail] loadingReport =', loadingReport);
+    console.log('[SessionDetail] hasAttendeesReport =', !!attendeesReport);
+    console.log('[SessionDetail] reportFetchFailed =', reportFetchFailed);
+    console.log(
+      '[SessionDetail] attendeeCount =',
+      attendeesReport?.attendees?.length ?? null,
+    );
+    console.log('[SessionDetail] sessionId =', sessionId);
+
     if (loadingSession && !session) {
       return (
         <View style={styles.center}>
@@ -586,7 +621,23 @@ export default function SessionDetailScreen({route, navigation}: Props) {
             {session.title ?? session.locationName ?? 'Session'}
           </Text>
           {session.title != null && session.locationName != null && (
-            <Text style={styles.detailRow}>📍 {session.locationName}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  session.locationName!,
+                )}`;
+                Linking.openURL(url).catch(err =>
+                  console.error('Failed to open maps:', err),
+                );
+              }}>
+              <Text
+                style={[
+                  styles.detailRow,
+                  {color: colors.primary, textDecorationLine: 'underline'},
+                ]}>
+                📍 {session.locationName}
+              </Text>
+            </TouchableOpacity>
           )}
           <Text style={styles.detailRow}>
             ⏱ {formatDate(session.startTime)}
@@ -614,24 +665,26 @@ export default function SessionDetailScreen({route, navigation}: Props) {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={[styles.checkInBtn, ciBtn.style]}
-            onPress={openSelfCheckInPicker}
-            disabled={ciBtn.disabled || checkingIn}>
-            {checkingIn ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={[styles.checkInBtnTextBase, ciBtn.textStyle]}>
-                {ciBtn.label}
-              </Text>
-            )}
-          </TouchableOpacity>
+        {checkInMode !== 'already_checked_in' && checkInMode !== 'expired' && (
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={[styles.checkInBtn, ciBtn.style]}
+              onPress={openSelfCheckInPicker}
+              disabled={ciBtn.disabled || checkingIn}>
+              {checkingIn ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={[styles.checkInBtnTextBase, ciBtn.textStyle]}>
+                  {ciBtn.label}
+                </Text>
+              )}
+            </TouchableOpacity>
 
-          {helperText && <Text style={styles.helperText}>{helperText}</Text>}
-        </View>
+            {helperText && <Text style={styles.helperText}>{helperText}</Text>}
+          </View>
+        )}
 
-        {canManualCheckIn && session && (
+        {canManualCheckIn && session && checkInMode !== 'expired' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Host Tools</Text>
             <TouchableOpacity
@@ -673,25 +726,57 @@ export default function SessionDetailScreen({route, navigation}: Props) {
                   ? ` (${checkedInMembers.length})`
                   : ''}
               </Text>
-              {loadingReport ? (
-                <ActivityIndicator size="small" color="#8E8E93" />
-              ) : attendeesReport ? (
+              <View
+                style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                {loadingReport && (
+                  <ActivityIndicator size="small" color="#8E8E93" />
+                )}
+
+                {reportFetchFailed && !loadingReport && (
+                  <TouchableOpacity onPress={loadData}>
+                    <Text style={styles.retryText}>Retry</Text>
+                  </TouchableOpacity>
+                )}
+
                 <TouchableOpacity
                   style={[
                     styles.exportPdfBtn,
-                    (exportingPdf || attendeesReport.attendees.length === 0) &&
+                    (exportingPdf ||
+                      reportFetchFailed ||
+                      !attendeesReport ||
+                      attendeesReport.attendees.length === 0) &&
                       styles.exportPdfBtnDisabled,
                   ]}
                   onPress={handleExportSessionPdf}
-                  disabled={exportingPdf || attendeesReport.attendees.length === 0}>
+                  disabled={
+                    exportingPdf ||
+                    reportFetchFailed ||
+                    !attendeesReport ||
+                    attendeesReport.attendees.length === 0
+                  }>
                   {exportingPdf ? (
                     <ActivityIndicator size="small" color="#FFF" />
                   ) : (
                     <Text style={styles.exportPdfBtnText}>Export PDF</Text>
                   )}
                 </TouchableOpacity>
-              ) : null}
+              </View>
             </View>
+
+            {reportFetchFailed && !loadingReport && (
+              <Text
+                style={[
+                  styles.helperText,
+                  {
+                    color: colors.danger,
+                    marginBottom: 12,
+                    marginTop: -6,
+                    textAlign: 'left',
+                  },
+                ]}>
+                Could not load attendee report. Retry to enable export.
+              </Text>
+            )}
 
             {attendeesReport && (
               <View style={styles.summaryRow}>
@@ -699,13 +784,13 @@ export default function SessionDetailScreen({route, navigation}: Props) {
                   <Text style={styles.summaryValue}>
                     {attendeesReport.summary.totalParticipation}
                   </Text>
-                  <Text style={styles.summaryLabel}>Total Participation</Text>
+                  <Text style={styles.summaryLabel}>Total Credits Used</Text>
                 </View>
                 <View style={styles.summaryCard}>
                   <Text style={styles.summaryValue}>
                     {attendeesReport.summary.totalCheckIns}
                   </Text>
-                  <Text style={styles.summaryLabel}>Check-ins</Text>
+                  <Text style={styles.summaryLabel}>Check{'\u2011'}ins</Text>
                 </View>
                 <View style={styles.summaryCard}>
                   <Text style={styles.summaryValue}>
@@ -724,32 +809,28 @@ export default function SessionDetailScreen({route, navigation}: Props) {
                 keyExtractor={item => item.attendanceId}
                 renderItem={({item}) => (
                   <View style={styles.attendeeRow}>
-                    <View style={styles.attendeeLeft}>
+                    <View style={styles.attendeeHeaderRow}>
                       <Text style={styles.memberName}>{item.memberName}</Text>
-                      <View style={styles.attendeeMeta}>
-                        <View
-                          style={[
-                            styles.checkInTypeBadge,
-                            checkInTypeColor(item.checkInType),
-                          ]}>
-                          <Text style={styles.checkInTypeBadgeText}>
-                            {item.checkInType}
-                          </Text>
-                        </View>
-                        <Text style={styles.attendeeDetail}>
-                          {item.creditsUsed} credit
-                          {item.creditsUsed !== 1 ? 's' : ''}
-                        </Text>
-                      </View>
-                      {item.checkedInByName && (
+                      <Text style={styles.attendeeTime}>
+                        {formatDate(item.checkedInAt)}
+                      </Text>
+                    </View>
+                    <Text style={styles.attendeeMethodText}>
+                      {`${getCheckInTypeLabel(item.checkInType)} · ${
+                        item.creditsUsed
+                      } credit${item.creditsUsed === 1 ? '' : 's'}`}
+                    </Text>
+                    {item.creditsUsed > 1 && (
+                      <Text style={styles.attendeeSubText}>
+                        Includes guests
+                      </Text>
+                    )}
+                    {item.checkedInByName &&
+                      item.checkedInByName !== item.memberName && (
                         <Text style={styles.checkedInByText}>
                           by {item.checkedInByName}
                         </Text>
                       )}
-                    </View>
-                    <Text style={styles.attendeeTime}>
-                      {formatDate(item.checkedInAt)}
-                    </Text>
                   </View>
                 )}
                 scrollEnabled={false}
@@ -910,14 +991,18 @@ const roleColor = (role: string): object => {
   return map[role] ?? map.member;
 };
 
-const checkInTypeColor = (type: string): object => {
-  const map: Record<string, object> = {
-    live: {backgroundColor: '#DCFCE7'},
-    backfill: {backgroundColor: '#FEF3C7'},
-    manual: {backgroundColor: '#DBEAFE'},
-  };
-  return map[type] ?? {backgroundColor: '#F3F4F6'};
-};
+function getCheckInTypeLabel(type: string): string {
+  switch (type) {
+    case 'live':
+      return 'Self check-in';
+    case 'manual':
+      return 'Checked in by host';
+    case 'backfill':
+      return 'Backfilled';
+    default:
+      return 'Check-in';
+  }
+}
 
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
@@ -1066,6 +1151,11 @@ function createStyles(c: ThemeColors) {
       fontSize: 12,
       fontWeight: '700',
     },
+    retryText: {
+      color: c.primary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
     checkInBtn: {
       borderRadius: 14,
       paddingVertical: 16,
@@ -1180,7 +1270,8 @@ function createStyles(c: ThemeColors) {
       flex: 1,
       backgroundColor: c.surfaceRaised,
       borderRadius: 10,
-      padding: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 6,
       alignItems: 'center',
     },
     summaryValue: {
@@ -1189,54 +1280,44 @@ function createStyles(c: ThemeColors) {
       color: c.text,
     },
     summaryLabel: {
-      fontSize: 11,
+      fontSize: 10,
       color: c.textMuted,
       marginTop: 2,
       textTransform: 'uppercase',
       fontWeight: '600',
+      textAlign: 'center',
     },
     attendeeRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      paddingVertical: 10,
+      flexDirection: 'column',
+      paddingVertical: 12,
       borderBottomWidth: 1,
       borderBottomColor: c.border,
     },
-    attendeeLeft: {
-      flex: 1,
-      marginRight: 8,
-    },
-    attendeeMeta: {
+    attendeeHeaderRow: {
       flexDirection: 'row',
+      justifyContent: 'space-between',
       alignItems: 'center',
-      gap: 6,
-      marginTop: 3,
     },
-    attendeeDetail: {
-      fontSize: 12,
+    attendeeMethodText: {
+      fontSize: 14,
       color: c.textMuted,
+      fontWeight: '500',
+      marginTop: 4,
+    },
+    attendeeSubText: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 2,
     },
     attendeeTime: {
       fontSize: 12,
       color: c.textMuted,
-      marginTop: 2,
     },
     checkedInByText: {
-      fontSize: 11,
+      fontSize: 13,
       color: c.textMuted,
       marginTop: 2,
-    },
-    checkInTypeBadge: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 5,
-    },
-    checkInTypeBadgeText: {
-      fontSize: 10,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      color: '#374151',
+      opacity: 0.8,
     },
     modalOverlay: {
       flex: 1,

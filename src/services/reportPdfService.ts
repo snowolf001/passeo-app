@@ -494,7 +494,7 @@ function drawTrendChartSection(b: PdfBuilder, trendData: TrendPoint[]) {
     borderWidth: 0,
   });
 
-  b.drawTextSafe('Participation Trend', {
+  b.drawTextSafe('Credits Trend', {
     x: shellX + 12,
     y: topY - 16,
     size: T_SECTION,
@@ -811,7 +811,7 @@ export async function exportSessionReportPdf(
   );
 
   drawHeroMetric(b, {
-    label: 'Total Participation',
+    label: 'Total Credits Used',
     value: String(data.summary.totalParticipation),
   });
 
@@ -825,20 +825,31 @@ export async function exportSessionReportPdf(
     'Attendees',
     data.attendees,
     [
-      {header: 'Name', widthFraction: 0.4},
-      {header: 'Type', widthFraction: 0.15},
-      {header: 'Participation', widthFraction: 0.15, align: 'right'},
-      {header: 'Checked In', widthFraction: 0.3},
+      {header: 'Name', widthFraction: 0.26},
+      {header: 'Method', widthFraction: 0.23},
+      {header: 'Credits', widthFraction: 0.33, align: 'right'},
+      {header: 'Checked In', widthFraction: 0.18},
     ],
-    att => [
-      att.memberName,
-      att.checkInType,
-      String(att.creditsUsed),
-      formatDateShort(att.checkedInAt),
-    ],
-  );
+    att => {
+      const getCheckInTypeLabel = (type: string): string => {
+        const map: Record<string, string> = {
+          live: 'Self Check-in',
+          manual: 'Checked in by Host',
+          backfill: 'Backfilled',
+        };
+        return map[type] ?? 'Unknown';
+      };
 
-  drawGeneratedLine(b);
+      return [
+        att.memberName,
+        getCheckInTypeLabel(att.checkInType),
+        `${att.creditsUsed} credit${att.creditsUsed !== 1 ? 's' : ''}${
+          att.creditsUsed > 1 ? ' (includes guests)' : ''
+        }`,
+        formatDateShort(att.checkedInAt),
+      ];
+    },
+  );
 
   await b.addFooterToAllPages(`session-${data.session.id.slice(0, 8)}`);
 
@@ -874,7 +885,7 @@ export async function exportSummaryReportPdf(
   );
 
   drawHeroMetric(b, {
-    label: 'Total Participation',
+    label: 'Total Credits Used',
     value: String(data.summary.totalParticipation),
     trend,
   });
@@ -897,7 +908,7 @@ export async function exportSummaryReportPdf(
       {header: 'Date', widthFraction: 0.22},
       {header: 'Check-ins', widthFraction: 0.16, align: 'right'},
       {
-        header: 'Participation',
+        header: 'Credits',
         widthFraction: 0.22,
         align: 'right',
         bold: true,
