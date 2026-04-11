@@ -24,8 +24,8 @@ android {
         applicationId "com.cleanutilityapps.passeo"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 21
-        versionName "1.1.21"
+        versionCode 2
+        versionName "1.0.2"
         missingDimensionStrategy "store", "play"
     }
 
@@ -47,11 +47,11 @@ android {
         release {
             def storeFileName = project.hasProperty('PASSEO_UPLOAD_STORE_FILE')
                     ? PASSEO_UPLOAD_STORE_FILE
-                    : 'passeo-release.keystore'
+                    : 'passeo-key.keystore'
 
             def aliasName = project.hasProperty('PASSEO_UPLOAD_KEY_ALIAS')
                     ? PASSEO_UPLOAD_KEY_ALIAS
-                    : 'passeo'
+                    : 'passeo-key'
 
             if (!project.hasProperty('PASSEO_UPLOAD_STORE_PASSWORD') ||
                     !project.hasProperty('PASSEO_UPLOAD_KEY_PASSWORD')) {

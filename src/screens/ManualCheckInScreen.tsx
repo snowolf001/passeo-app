@@ -24,6 +24,7 @@ import {DEFAULT_CLUB_SETTINGS} from '../types';
 import {RootStackParamList} from '../navigation/types';
 import {useAppTheme} from '../theme/useAppTheme';
 import type {ThemeColors} from '../theme/colors';
+import {trackEvent} from '../analytics/trackEvent';
 
 function isSessionEnded(endTime: string | null | undefined): boolean {
   if (!endTime) return false;
@@ -348,6 +349,12 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
           creditsUsed !== 1 ? 's' : ''
         } used`,
       );
+
+      trackEvent({
+        eventName: 'manual_checkin_success',
+        sourceScreen: 'ManualCheckIn',
+        sessionId: sessionId,
+      });
     } catch (err: any) {
       const code = err?.code as string | undefined;
       const message =
@@ -357,6 +364,13 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
           ? 'This member is already checked in.'
           : err?.message || 'Check-in failed. Please try again.';
       Alert.alert('Failed', message);
+
+      trackEvent({
+        eventName: 'manual_checkin_failed',
+        sourceScreen: 'ManualCheckIn',
+        sessionId: sessionId,
+        errorCode: code || 'UNKNOWN_ERROR',
+      });
     } finally {
       setCheckingInId(null);
       closePeoplePicker();
