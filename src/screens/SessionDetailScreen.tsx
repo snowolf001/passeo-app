@@ -736,7 +736,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
                 )}
 
                 {reportFetchFailed && !loadingReport && (
-                  <TouchableOpacity onPress={loadData}>
+                  <TouchableOpacity onPress={() => loadData(false)}>
                     <Text style={styles.retryText}>Retry</Text>
                   </TouchableOpacity>
                 )}
