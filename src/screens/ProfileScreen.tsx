@@ -84,6 +84,10 @@ export default function ProfileScreen({navigation}: Props) {
             try {
               await leaveClub(currentMembership.clubId);
               await clearMembershipSession();
+              navigation.reset({
+                index: 0,
+                routes: [{name: 'JoinOrCreateClub'}],
+              });
             } catch (err: any) {
               const code = err?.code as string | undefined;
               if (code === 'OWNER_TRANSFER_REQUIRED') {

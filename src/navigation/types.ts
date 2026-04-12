@@ -5,6 +5,9 @@
 export type RootStackParamList = {
   // Pre-auth / onboarding
   JoinOrCreateClub: undefined;
+  JoinClub: undefined;
+  CreateClub: undefined;
+  RestoreMembership: undefined;
 
   // Main tabbed app
   MainTabs: undefined;

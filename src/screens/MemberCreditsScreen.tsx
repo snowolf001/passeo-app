@@ -62,6 +62,7 @@ export default function MemberCreditsScreen({navigation}: Props) {
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
   const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modalScrollRef = useRef<ScrollView>(null);
 
   const showSnackbar = useCallback((message: string) => {
     if (snackTimer.current) {
@@ -335,8 +336,8 @@ export default function MemberCreditsScreen({navigation}: Props) {
         onRequestClose={closeModal}>
         <KeyboardAvoidingView
           style={{flex: 1}}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-          keyboardVerticalOffset={0}>
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}>
           <View style={styles.modalOverlay}>
             <View
               style={[
@@ -347,7 +348,8 @@ export default function MemberCreditsScreen({navigation}: Props) {
               ]}>
               <View style={styles.modalHandle} />
               <ScrollView
-                contentContainerStyle={{paddingBottom: 16}}
+                ref={modalScrollRef}
+                contentContainerStyle={{paddingBottom: 24}}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}>
                 {/* ── Section 1: Member overview ─────────────────────────── */}
@@ -515,6 +517,13 @@ export default function MemberCreditsScreen({navigation}: Props) {
                     placeholder="Enter amount (e.g. +5 or -2)"
                     placeholderTextColor="#C7C7CC"
                     returnKeyType="next"
+                    onFocus={() =>
+                      setTimeout(
+                        () =>
+                          modalScrollRef.current?.scrollToEnd({animated: true}),
+                        150,
+                      )
+                    }
                   />
                   <Text style={styles.fieldHint}>
                     + to add credits, - to remove credits
@@ -530,6 +539,13 @@ export default function MemberCreditsScreen({navigation}: Props) {
                     placeholderTextColor="#C7C7CC"
                     returnKeyType="done"
                     onSubmitEditing={handleSave}
+                    onFocus={() =>
+                      setTimeout(
+                        () =>
+                          modalScrollRef.current?.scrollToEnd({animated: true}),
+                        150,
+                      )
+                    }
                   />
                 </View>
                 {/* ── Action buttons ── */}

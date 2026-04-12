@@ -8,6 +8,9 @@ import {useAppTheme} from '../theme/useAppTheme';
 
 import MainTabNavigator from './MainTabNavigator';
 import JoinOrCreateClubScreen from '../screens/JoinOrCreateClubScreen';
+import JoinScreen from '../screens/JoinScreen';
+import CreateClubScreen from '../screens/CreateClubScreen';
+import RestoreMembershipScreen from '../screens/RestoreMembershipScreen';
 import SessionDetailScreen from '../screens/SessionDetailScreen';
 import ManualCheckInScreen from '../screens/ManualCheckInScreen';
 import CreateSessionScreen from '../screens/CreateSessionScreen';
@@ -52,6 +55,21 @@ export default function RootNavigator() {
       <Stack.Screen
         name="JoinOrCreateClub"
         component={JoinOrCreateClubScreen}
+      />
+      <Stack.Screen
+        name="JoinClub"
+        component={JoinScreen}
+        options={{headerShown: true, title: 'Join a Club'}}
+      />
+      <Stack.Screen
+        name="CreateClub"
+        component={CreateClubScreen}
+        options={{headerShown: true, title: 'Create a Club'}}
+      />
+      <Stack.Screen
+        name="RestoreMembership"
+        component={RestoreMembershipScreen}
+        options={{headerShown: true, title: 'Restore Membership'}}
       />
 
       <Stack.Screen name="MainTabs" component={MainTabNavigator} />
