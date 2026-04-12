@@ -21,4 +21,4 @@
 - Prefer well-maintained RN libraries for scanning/PDF/storage
 - No experimental/beta Babel packages
 - Always include basic error handling and loading states
-- Use Yarn v1 only (no npm, no Yarn Berry, no pnpm)
+- Use npm only (no yarn, no pnpm)

@@ -6,6 +6,7 @@ import {Buffer} from 'buffer';
 import {Alert, Platform} from 'react-native';
 import RNFS from 'react-native-fs';
 import RNBlobUtil from 'react-native-blob-util';
+import Share from 'react-native-share';
 
 import {BRANDING} from '../config/branding';
 import {PdfBuilder, PAGE_MARGIN} from './pdf/PdfBuilder';
@@ -758,24 +759,34 @@ async function writePdf(
 }
 
 async function openPdf(outputPath: string): Promise<void> {
+  const url = `file://${outputPath}`;
+  const filename =
+    outputPath
+      .split('/')
+      .pop()
+      ?.replace(/\.pdf$/i, '') || 'report';
+
   try {
-    if (Platform.OS === 'android') {
-      console.log('[PDF Export] opening via actionViewIntent (android)');
-      await RNBlobUtil.android.actionViewIntent(outputPath, 'application/pdf');
-    } else {
-      console.log('[PDF Export] opening via openDocument (ios)');
-      await RNBlobUtil.ios.openDocument(outputPath);
+    await Share.open({
+      url,
+      filename,
+      type: 'application/pdf',
+      title: 'Share PDF',
+      failOnCancel: false,
+    });
+  } catch (err: any) {
+    const isCancel =
+      err?.message === 'User did not share' ||
+      err?.message === 'User canceled' ||
+      err?.message === 'CANCELLED';
+
+    if (isCancel) {
+      return;
     }
-  } catch (openErr: any) {
-    console.warn('[PDF Export] open failed:', openErr?.message ?? openErr);
-    if (openErr?.code === 'ENOAPP') {
-      Alert.alert(
-        'No PDF Viewer',
-        'The PDF was saved but no app is installed to open it. Install a PDF viewer and try again.',
-      );
-    } else {
-      throw openErr;
-    }
+    Alert.alert(
+      'Sharing Failed',
+      err?.message ?? 'An unknown error occurred while sharing the PDF.',
+    );
   }
 }
 
@@ -784,7 +795,7 @@ async function openPdf(outputPath: string): Promise<void> {
 export async function exportSessionReportPdf(
   data: SessionAttendeesResponse,
   clubName: string,
-): Promise<void> {
+): Promise<string> {
   await ensureReportsDir();
 
   const sessionDate = formatDateShort(data.session.startsAt);
@@ -854,7 +865,7 @@ export async function exportSessionReportPdf(
   await b.addFooterToAllPages(`session-${data.session.id.slice(0, 8)}`);
 
   await writePdf(doc, outputPath, 'session report');
-  await openPdf(outputPath);
+  return outputPath;
 }
 
 export async function exportSummaryReportPdf(
@@ -863,7 +874,7 @@ export async function exportSummaryReportPdf(
   startDate: string,
   endDate: string,
   trend?: string,
-): Promise<void> {
+): Promise<string> {
   await ensureReportsDir();
 
   const fileName = `attendance-summary-${startDate}_to_${endDate}.pdf`;
@@ -927,5 +938,5 @@ export async function exportSummaryReportPdf(
   await b.addFooterToAllPages(`summary-${startDate}-${endDate}`);
 
   await writePdf(doc, outputPath, 'summary report');
-  await openPdf(outputPath);
+  return outputPath;
 }

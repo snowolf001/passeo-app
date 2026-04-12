@@ -20,6 +20,10 @@ android {
 
     namespace "com.cleanutilityapps.passeo"
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId "com.cleanutilityapps.passeo"
         minSdkVersion rootProject.ext.minSdkVersion

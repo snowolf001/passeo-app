@@ -20,6 +20,7 @@ import {Buffer} from 'buffer';
 import {Alert, Platform} from 'react-native';
 import RNFS from 'react-native-fs';
 import RNBlobUtil from 'react-native-blob-util';
+import Share from 'react-native-share';
 
 import {BRANDING} from '../../config/branding';
 import {PdfBuilder, PAGE_MARGIN, CONTENT_BOTTOM_LIMIT} from './PdfBuilder';
@@ -69,38 +70,27 @@ const SEC_GAP = 14; // spacing after a section header strip
 const T_TITLE = 22;
 const T_SUBTITLE = 14;
 const T_META = 9;
-const T_HERO_VAL = 52; // larger, more dominant
-const T_HERO_LBL = 10; // slightly smaller, lighter feel
-const T_METRIC_VAL = 22; // increased for readability
-const T_METRIC_LBL = 9;
-const T_SECTION = 11;
-const T_TH = 8;
+const T_SECTION = 12;
+const T_TH = 9;
 const T_BODY = 10;
-const T_SMALL = 8; // bottom summary line
+const T_SMALL = 9;
 
 // Palette — independent from reportPdfService
 const C_INK = rgb(0.067, 0.067, 0.067); // #111
 const C_SECONDARY = rgb(0.4, 0.4, 0.4); // #666
-const C_MUTED = rgb(0.6, 0.6, 0.6);
-const C_DIVIDER = rgb(0.898, 0.898, 0.898); // #E5E5E5
-const C_BORDER = rgb(0.8, 0.84, 0.92); // crisper card borders
-const C_HERO_BG = rgb(0.933, 0.961, 1.0); // #EEF5FF — clean pale blue
-const C_HERO_BDR = rgb(0.72, 0.82, 0.95); // slightly stronger hero border
-const C_CARD_BG = rgb(0.988, 0.992, 1.0); // near-white with blue tint
-const C_CARD_BDR = rgb(0.82, 0.86, 0.93); // card border
-const C_LIGHT_BG = rgb(0.969, 0.973, 0.98); // #F7F8FA section header
-const C_TABLE_SECTION_BG = rgb(0.976, 0.98, 0.988); // subtle attendees wrapper
-const C_TH_BG = rgb(0.965, 0.969, 0.976); // slightly tinted TH
-const C_STRIPE = rgb(0.99, 0.992, 0.996); // very subtle row stripe
-const C_ROW_LINE = rgb(0.922, 0.925, 0.933); // row divider
+const C_MUTED = rgb(0.65, 0.65, 0.65); // light gray
+const C_DIVIDER = rgb(0.92, 0.92, 0.92); // #EBEBEB
+const C_BORDER = rgb(0.94, 0.94, 0.94); // very light gray
+const C_LIGHT_BG = rgb(0.98, 0.98, 0.98); // section header
+const C_TABLE_SECTION_BG = rgb(1, 1, 1);
+const C_TH_BG = rgb(0.96, 0.96, 0.96); // #F5F5F5
+const C_STRIPE = rgb(1, 1, 1); // clean white background for rows
+const C_ROW_LINE = rgb(0.94, 0.94, 0.94); // row divider
 
 // Sizing
-const HERO_H = 100; // taller hero card — more presence
-const CARD_H = 74; // taller KPI cards
-const CARD_GAP = 14; // more breathing room between cards
 const STRIP_H = 34; // section title strip
-const TH_H = 26; // table header row
-const ROW_H = 30; // taller rows — more readable
+const TH_H = 32; // table header row
+const ROW_H = 36; // taller rows
 
 // ─── Column spec ──────────────────────────────────────────────────────────────
 
@@ -152,10 +142,23 @@ function drawHeader(
   b.moveDown(8);
   const baseY = b.y;
 
+  // SMALL BRAND LABEL (replaces empty space at top)
+  const brandPasseo = 'P A S S E O';
+  b.drawTextSafe(brandPasseo, {
+    x: PAGE_MARGIN,
+    y: baseY,
+    size: 8,
+    color: C_MUTED,
+    fontType: 'bold',
+    kind: 'title',
+  });
+
+  b.moveDown(20);
+
   // Report title (left) + generated date (right) on same baseline
   b.drawTextSafe(title, {
     x: PAGE_MARGIN,
-    y: baseY,
+    y: b.y,
     size: T_TITLE,
     color: C_INK,
     fontType: 'bold',
@@ -166,7 +169,7 @@ function drawHeader(
   const genW = b.fontAscii.widthOfTextAtSize(genText, T_META);
   b.drawTextSafe(genText, {
     x: b.width - PAGE_MARGIN - genW,
-    y: baseY,
+    y: b.y,
     size: T_META,
     color: C_MUTED,
     fontType: 'regular',
@@ -201,86 +204,45 @@ function drawHeader(
   b.moveDown(GAP);
 }
 
-function drawHero(b: PdfBuilder, value: string, label: string) {
-  const cw = b.width - PAGE_MARGIN * 2;
-  b.checkPageBreak(HERO_H + GAP + 8);
-  const topY = b.y;
-
-  // Clean pale-blue card with soft border
-  fillRect(b, PAGE_MARGIN, topY, cw, HERO_H, C_HERO_BG, C_HERO_BDR, 1);
-
-  // Large centred value — 52pt, dominant
-  const valFont = b.pickFontForText(value, 'bold');
-  const valW = valFont.widthOfTextAtSize(value, T_HERO_VAL);
-  b.drawTextSafe(value, {
-    x: PAGE_MARGIN + (cw - valW) / 2,
-    y: topY - 50,
-    size: T_HERO_VAL,
-    color: C_INK,
-    fontType: 'bold',
-    kind: 'body',
-  });
-
-  // Smaller muted label
-  const lblFont = b.pickFontForText(label, 'regular');
-  const lblW = lblFont.widthOfTextAtSize(label, T_HERO_LBL);
-  b.drawTextSafe(label, {
-    x: PAGE_MARGIN + (cw - lblW) / 2,
-    y: topY - 72,
-    size: T_HERO_LBL,
-    color: C_MUTED,
-    fontType: 'regular',
-    kind: 'body',
-  });
-
-  b.moveDown(HERO_H + GAP);
-}
-
-function drawKpiRow(
+function drawCompactMetricsRow(
   b: PdfBuilder,
-  items: Array<{value: string; label: string}>,
+  metrics: Array<{label: string; value: string}>,
 ) {
-  if (!items.length) {
-    return;
-  }
+  if (!metrics.length) return;
 
   const cw = b.width - PAGE_MARGIN * 2;
-  const totalGaps = CARD_GAP * (items.length - 1);
-  const cardW = (cw - totalGaps) / items.length;
-
-  b.checkPageBreak(CARD_H + GAP + 4);
+  const colW = cw / metrics.length;
+  b.checkPageBreak(40);
   const topY = b.y;
 
-  items.forEach((item, i) => {
-    const x = PAGE_MARGIN + i * (cardW + CARD_GAP);
+  metrics.forEach((m, i) => {
+    const x = PAGE_MARGIN + i * colW;
 
-    // Near-white tinted card with crisper border
-    fillRect(b, x, topY, cardW, CARD_H, C_CARD_BG, C_CARD_BDR, 1);
-
-    const vFont = b.pickFontForText(item.value, 'bold');
-    const vW = vFont.widthOfTextAtSize(item.value, T_METRIC_VAL);
-    b.drawTextSafe(item.value, {
-      x: x + (cardW - vW) / 2,
-      y: topY - 30,
-      size: T_METRIC_VAL,
-      color: C_INK,
-      fontType: 'bold',
-      kind: 'body',
-    });
-
-    const lFont = b.pickFontForText(item.label, 'regular');
-    const lW = lFont.widthOfTextAtSize(item.label, T_METRIC_LBL);
-    b.drawTextSafe(item.label, {
-      x: x + (cardW - lW) / 2,
-      y: topY - 52,
-      size: T_METRIC_LBL,
+    // Small label
+    b.drawTextSafe(`${m.label}:`, {
+      x,
+      y: topY,
+      size: 10,
       color: C_SECONDARY,
       fontType: 'regular',
       kind: 'body',
     });
+
+    const lFont = b.pickFontForText(`${m.label}:`, 'regular');
+    const labelW = lFont.widthOfTextAtSize(`${m.label}:`, 10);
+
+    // Bold value right next to it
+    b.drawTextSafe(m.value, {
+      x: x + labelW + 6,
+      y: topY,
+      size: 10,
+      color: C_INK,
+      fontType: 'bold',
+      kind: 'body',
+    });
   });
 
-  b.moveDown(CARD_H + GAP);
+  b.moveDown(32); // tighter padding before table
 }
 
 function drawSectionHeader(b: PdfBuilder, title: string) {
@@ -360,12 +322,20 @@ function drawTableRow(
     const text = raw.length > 40 ? `${raw.slice(0, 38)}…` : raw;
     const tw = b.fontAscii.widthOfTextAtSize(text, T_BODY);
     const isBold = col.bold === true;
+    const isMethod = col.header === 'Method';
+
+    let textColor;
+    if (isMethod) {
+      textColor = C_MUTED;
+    } else {
+      textColor = isBold ? C_INK : C_SECONDARY;
+    }
 
     b.drawTextSafe(text, {
       x: col.align === 'right' ? cx + colW - 14 - tw : cx,
-      y: yTop - ROW_H + 10, // vertically centred in taller row
+      y: yTop - ROW_H + 12, // vertically centred in taller row
       size: T_BODY,
-      color: isBold ? C_INK : C_SECONDARY,
+      color: textColor,
       fontType: isBold ? 'bold' : 'regular',
       kind: 'body',
     });
@@ -477,25 +447,7 @@ function drawAttendeesSection(
     b.moveDown(ROW_H);
   });
 
-  // Bottom summary line
-  b.moveDown(10);
-  const summaryText =
-    attendees.length === 0
-      ? 'No attendees'
-      : `${attendees.length} attendee${
-          attendees.length !== 1 ? 's' : ''
-        } \u2022 ${totalParticipation} total credits`;
-  const sumFont = b.pickFontForText(summaryText, 'regular');
-  const sumW = sumFont.widthOfTextAtSize(summaryText, T_SMALL);
-  b.drawTextSafe(summaryText, {
-    x: PAGE_MARGIN + (tableW - sumW) / 2, // centred
-    y: b.y,
-    size: T_SMALL,
-    color: C_MUTED,
-    fontType: 'regular',
-    kind: 'body',
-  });
-  b.moveDown(T_SMALL + 4);
+  // Note: Bottom summary removed line here. We now append a Session Summary at the end of the generator.
 
   // Draw the wrapper border — only when we're still on the same page the table
   // started on.  If rows pushed us to a new page the cross-page rect is skipped.
@@ -506,12 +458,103 @@ function drawAttendeesSection(
       y: wrapBottomY,
       width: tableW,
       height: wrapTopY - wrapBottomY,
-      borderColor: rgb(0.82, 0.83, 0.86),
-      borderWidth: 0.75,
+      borderColor: C_BORDER,
+      borderWidth: 0.5,
     });
   }
 
-  b.moveDown(14);
+  b.moveDown(24);
+}
+
+function drawSessionSummary(
+  b: PdfBuilder,
+  totalAttendees: number,
+  totalCredits: number,
+  uniqueMembers: number,
+) {
+  b.checkPageBreak(80); // ensure space for summary
+  const topY = b.y;
+
+  b.drawTextSafe('Session Summary', {
+    x: PAGE_MARGIN,
+    y: topY,
+    size: 11,
+    color: C_INK,
+    fontType: 'bold',
+    kind: 'title',
+  });
+
+  b.moveDown(20);
+
+  const lines = [
+    `Total attendees: ${totalAttendees}`,
+    `Total credits: ${totalCredits}`,
+    `Unique members: ${uniqueMembers}`,
+  ];
+
+  lines.forEach(line => {
+    b.drawTextSafe(line, {
+      x: PAGE_MARGIN,
+      y: b.y,
+      size: 10,
+      color: C_SECONDARY,
+      fontType: 'regular',
+      kind: 'body',
+    });
+    b.moveDown(16);
+  });
+
+  b.moveDown(10);
+}
+
+async function drawSessionFooter(b: PdfBuilder, reportId: string) {
+  const pages = b.doc.getPages();
+  const totalPages = pages.length;
+  const yPos = PAGE_MARGIN - 20;
+
+  const brandText = 'Generated by Passeo';
+  const idText = `Report ID: ${reportId}`;
+
+  // Temporarily iterate, bypass standard footer code
+  pages.forEach((page, idx) => {
+    const {width} = page.getSize();
+    const pageNumText = `Page ${idx + 1} of ${totalPages}`;
+
+    const font = b.pickFontForText(brandText, 'regular');
+
+    // Left
+    b.currentPage = page;
+    b.drawTextSafe(idText, {
+      x: PAGE_MARGIN,
+      y: yPos,
+      size: T_SMALL,
+      color: C_MUTED,
+      fontType: 'regular',
+      kind: 'body',
+    });
+
+    // Center
+    const numWidth = font.widthOfTextAtSize(pageNumText, T_SMALL);
+    b.drawTextSafe(pageNumText, {
+      x: (width - numWidth) / 2,
+      y: yPos,
+      size: T_SMALL,
+      color: C_MUTED,
+      fontType: 'regular',
+      kind: 'body',
+    });
+
+    // Right
+    const brandWidth = font.widthOfTextAtSize(brandText, T_SMALL);
+    b.drawTextSafe(brandText, {
+      x: width - PAGE_MARGIN - brandWidth,
+      y: yPos,
+      size: T_SMALL,
+      color: C_MUTED,
+      fontType: 'regular',
+      kind: 'body',
+    });
+  });
 }
 
 // ─── Write & open ─────────────────────────────────────────────────────────────
@@ -532,21 +575,34 @@ async function writePdf(doc: PDFDocument, path: string): Promise<void> {
 }
 
 async function openPdf(path: string): Promise<void> {
+  const url = `file://${path}`;
+  const filename =
+    path
+      .split('/')
+      .pop()
+      ?.replace(/\.pdf$/i, '') || 'session-participants';
+
   try {
-    if (Platform.OS === 'android') {
-      await RNBlobUtil.android.actionViewIntent(path, 'application/pdf');
-    } else {
-      await RNBlobUtil.ios.openDocument(path);
-    }
+    await Share.open({
+      url,
+      filename,
+      type: 'application/pdf',
+      title: 'Share PDF',
+      failOnCancel: false,
+    });
   } catch (err: any) {
-    if (err?.code === 'ENOAPP') {
-      Alert.alert(
-        'No PDF Viewer',
-        'The PDF was saved but no app is installed to open it. Install a PDF viewer and try again.',
-      );
-    } else {
-      throw err;
+    const isCancel =
+      err?.message === 'User did not share' ||
+      err?.message === 'User canceled' ||
+      err?.message === 'CANCELLED';
+
+    if (isCancel) {
+      return;
     }
+    Alert.alert(
+      'Sharing Failed',
+      err?.message ?? 'An unknown error occurred while sharing the PDF.',
+    );
   }
 }
 
@@ -559,7 +615,7 @@ async function openPdf(path: string): Promise<void> {
 export async function exportSessionParticipantsPdf(
   data: SessionAttendeesResponse,
   clubName: string,
-): Promise<void> {
+): Promise<string> {
   await ensureDir();
 
   const fileDate = data.session.startsAt.slice(0, 10);
@@ -585,11 +641,9 @@ export async function exportSessionParticipantsPdf(
     `Date: ${sessionDate}`,
   );
 
-  // ── Hero: Total Credits Used ──────────────────────────────────────────────────────────
-  drawHero(b, String(data.summary.totalParticipation), 'Total Credits Used');
-
-  // ── KPI row: secondary metrics ───────────────────────────────────────────────
-  drawKpiRow(b, [
+  // ── Compact summary metrics row ───────────────────────────────────────────────
+  drawCompactMetricsRow(b, [
+    {label: 'Total Credits', value: String(data.summary.totalParticipation)},
     {label: 'Check-ins', value: String(data.summary.totalCheckIns)},
     {label: 'Unique Members', value: String(data.summary.uniqueMembers)},
   ]);
@@ -602,9 +656,17 @@ export async function exportSessionParticipantsPdf(
   );
   drawAttendeesSection(b, data.attendees, data.summary.totalParticipation);
 
+  // ── End of file Session Summary ──────────────────────────────────────────────
+  drawSessionSummary(
+    b,
+    attendeeCount,
+    data.summary.totalParticipation,
+    data.summary.uniqueMembers,
+  );
+
   // ── Footer (Report ID / Page X of Y / attribution) ───────────────────────────
-  await b.addFooterToAllPages(`session-${data.session.id.slice(0, 8)}`);
+  await drawSessionFooter(b, `session-${data.session.id.slice(0, 8)}`);
 
   await writePdf(doc, outputPath);
-  await openPdf(outputPath);
+  return outputPath;
 }

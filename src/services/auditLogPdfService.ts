@@ -7,6 +7,7 @@ import {Buffer} from 'buffer';
 import {Alert, Platform} from 'react-native';
 import RNFS from 'react-native-fs';
 import RNBlobUtil from 'react-native-blob-util';
+import Share from 'react-native-share';
 
 import {BRANDING} from '../config/branding';
 import {
@@ -83,21 +84,34 @@ async function writePdf(
 }
 
 async function openPdf(outputPath: string): Promise<void> {
+  const url = `file://${outputPath}`;
+  const filename =
+    outputPath
+      .split('/')
+      .pop()
+      ?.replace(/\.pdf$/i, '') || 'audit-log';
+
   try {
-    if (Platform.OS === 'android') {
-      await RNBlobUtil.android.actionViewIntent(outputPath, 'application/pdf');
-    } else {
-      await RNBlobUtil.ios.openDocument(outputPath);
+    await Share.open({
+      url,
+      filename,
+      type: 'application/pdf',
+      title: 'Share Audit Log PDF',
+      failOnCancel: false,
+    });
+  } catch (err: any) {
+    const isCancel =
+      err?.message === 'User did not share' ||
+      err?.message === 'User canceled' ||
+      err?.message === 'CANCELLED';
+
+    if (isCancel) {
+      return;
     }
-  } catch (openErr: any) {
-    if (openErr?.code === 'ENOAPP') {
-      Alert.alert(
-        'No PDF Viewer',
-        'The PDF was saved but no app is installed to open it. Install a PDF viewer and try again.',
-      );
-    } else {
-      throw openErr;
-    }
+    Alert.alert(
+      'Sharing Failed',
+      err?.message ?? 'An unknown error occurred while sharing the PDF.',
+    );
   }
 }
 
@@ -600,13 +614,13 @@ export async function exportAuditLogPdf(
     startDate?: string;
     endDate?: string;
   } = {},
-): Promise<void> {
+): Promise<string | undefined> {
   if (logs.length === 0) {
     Alert.alert(
       'Nothing to Export',
       'No log entries match the current filters.',
     );
-    return;
+    return undefined;
   }
 
   try {
@@ -635,12 +649,13 @@ export async function exportAuditLogPdf(
     await b.addFooterToAllPages('audit-log');
 
     await writePdf(pdfDoc, outputPath, 'AuditLog');
-    await openPdf(outputPath);
+    return outputPath;
   } catch (err: any) {
     console.error('[AuditLogPDF] Export failed:', err);
     Alert.alert(
       'Export Failed',
       err?.message ?? 'An unexpected error occurred.',
     );
+    return undefined;
   }
 }

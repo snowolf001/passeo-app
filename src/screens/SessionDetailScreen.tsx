@@ -492,7 +492,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       sessionId: session?.id,
     });
     try {
-      await exportSessionParticipantsPdf(
+      const outputPath = await exportSessionParticipantsPdf(
         attendeesReport,
         currentClub?.name ?? 'Club',
       );
@@ -501,6 +501,11 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         sourceScreen: 'SessionDetail',
         clubId: currentMembership?.clubId,
         sessionId: session?.id,
+      });
+      navigation.navigate('PdfPreview', {
+        url: `file://${outputPath}`,
+        title: 'Session Participants',
+        filename: outputPath.split('/').pop(),
       });
     } catch (err: any) {
       trackEvent({
@@ -626,20 +631,14 @@ export default function SessionDetailScreen({route, navigation}: Props) {
               onPress={() =>
                 openMap((session as any).address || session.locationName!)
               }
-              activeOpacity={0.7}>
-              <View style={styles.locationRow}>
-                <View style={styles.locationContent}>
-                  <Text style={styles.locationText}>
-                    📍 {session.locationName}
-                  </Text>
-                  {(session as any).address ? (
-                    <Text style={styles.locationAddressText}>
-                      {(session as any).address}
-                    </Text>
-                  ) : null}
-                </View>
-                <Text style={styles.locationHint}>Open in Maps</Text>
-              </View>
+              activeOpacity={0.7}
+              style={styles.locationContainer}>
+              <Text style={styles.locationText}>📍 {session.locationName}</Text>
+              {(session as any).address ? (
+                <Text style={styles.locationAddressText}>
+                  {(session as any).address}
+                </Text>
+              ) : null}
             </TouchableOpacity>
           )}
           <Text style={styles.detailRow}>
@@ -1105,15 +1104,9 @@ function createStyles(c: ThemeColors) {
       color: c.text,
       marginTop: 4,
     },
-    locationRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+    locationContainer: {
       marginTop: 8,
-    },
-    locationContent: {
-      flex: 1,
-      paddingRight: 10,
+      paddingVertical: 4,
     },
     locationText: {
       fontSize: 15,
@@ -1125,10 +1118,6 @@ function createStyles(c: ThemeColors) {
       color: c.textMuted,
       marginTop: 4,
       marginLeft: 22,
-    },
-    locationHint: {
-      fontSize: 12,
-      color: c.textMuted,
     },
     addressText: {
       fontSize: 13,

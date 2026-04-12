@@ -170,12 +170,19 @@ export default function ReportsScreen({navigation}: Props) {
     }
     setExportingPdf(true);
     try {
-      await exportSummaryReportPdf(
+      const outputPath = await exportSummaryReportPdf(
         rangeData,
         currentClub?.name ?? 'Club',
         startDate,
         endDate,
       );
+      if (outputPath) {
+        navigation.navigate('PdfPreview', {
+          url: `file://${outputPath}`,
+          title: 'Summary Report',
+          filename: outputPath.split('/').pop(),
+        });
+      }
     } catch (err: any) {
       Alert.alert('Export Failed', err?.message ?? 'Could not generate PDF.');
     } finally {

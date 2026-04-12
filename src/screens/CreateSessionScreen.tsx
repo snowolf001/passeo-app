@@ -8,12 +8,15 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  KeyboardAvoidingView,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard
 } from 'react-native';
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {KeyboardAwareScrollView} from 'react-native-keyboard-aware-scroll-view';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useApp} from '../context/AppContext';
 import {getClubLocations, ApiClubLocation} from '../services/api/clubApi';
@@ -273,11 +276,15 @@ export default function CreateSessionScreen({navigation}: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <KeyboardAwareScrollView
-        enableOnAndroid
-        keyboardShouldPersistTaps="handled"
-        extraScrollHeight={24}
-        contentContainerStyle={styles.scroll}>
+      <KeyboardAvoidingView 
+        style={{flex: 1}} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scroll}>
         {/* Location — first, since it is required and the core choice */}
         <View style={styles.field}>
           <Text style={styles.label}>Location *</Text>
@@ -411,7 +418,9 @@ export default function CreateSessionScreen({navigation}: Props) {
             <Text style={styles.submitButtonText}>Create Session</Text>
           )}
         </TouchableOpacity>
-      </KeyboardAwareScrollView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
       {snackVisible && (
         <View pointerEvents="none" style={styles.snackbar}>
           <Text style={styles.snackbarText}>{snackMsg}</Text>
@@ -599,3 +608,4 @@ function createStyles(c: ThemeColors) {
     submitButtonText: {color: '#FFF', fontSize: 17, fontWeight: '700'},
   });
 }
+

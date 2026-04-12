@@ -10,9 +10,13 @@ import {
   ActivityIndicator,
   Switch,
   Clipboard,
+  KeyboardAvoidingView,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Platform
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {KeyboardAwareScrollView} from 'react-native-keyboard-aware-scroll-view';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useApp} from '../context/AppContext';
 import {
@@ -249,7 +253,13 @@ export default function ClubSettingsScreen({navigation}: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <KeyboardAwareScrollView
+            <KeyboardAvoidingView 
+        style={{flex: 1}} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
         enableOnAndroid
         keyboardShouldPersistTaps="handled"
         extraScrollHeight={24}
@@ -427,7 +437,9 @@ export default function ClubSettingsScreen({navigation}: Props) {
             </TouchableOpacity>
           </View>
         )}
-      </KeyboardAwareScrollView>
+                </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
       {snackVisible && (
         <View pointerEvents="none" style={styles.snackbar}>
           <Text style={styles.snackbarText}>{snackMsg}</Text>
@@ -614,3 +626,4 @@ function createStyles(c: ThemeColors) {
     optionPillTextActive: {color: c.primary},
   });
 }
+

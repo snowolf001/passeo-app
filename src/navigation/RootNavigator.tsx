@@ -21,6 +21,7 @@ import ReportsScreen from '../screens/ReportsScreen';
 import AuditLogScreen from '../screens/AuditLogScreen';
 import MemberCreditsScreen from '../screens/MemberCreditsScreen';
 import ClubProPreviewScreen from '../screens/ClubProPreviewScreen';
+import PdfPreviewScreen from '../screens/PdfPreviewScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -127,6 +128,14 @@ export default function RootNavigator() {
         name="ClubProPreview"
         component={ClubProPreviewScreen}
         options={{headerShown: true, title: 'Club Pro'}}
+      />
+      <Stack.Screen
+        name="PdfPreview"
+        component={PdfPreviewScreen}
+        options={({route}) => ({
+          headerShown: true,
+          title: route.params?.title ?? 'PDF Preview',
+        })}
       />
     </Stack.Navigator>
   );

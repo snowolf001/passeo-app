@@ -1,4 +1,4 @@
-﻿import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,10 @@ import {
   Modal,
   Platform,
   Alert,
+  KeyboardAvoidingView,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
@@ -226,12 +230,23 @@ export default function AuditLogScreen({navigation}: Props) {
       const eventTypeLabel = EVENT_TYPE_OPTIONS.find(
         o => o.value === appliedEventType,
       )?.label;
-      await exportAuditLogPdf(filteredLogs, currentClub.name, {
-        memberName: appliedMember?.userName,
-        eventTypeLabel,
-        startDate: appliedStart || undefined,
-        endDate: appliedEnd || undefined,
-      });
+      const outputPath = await exportAuditLogPdf(
+        filteredLogs,
+        currentClub.name,
+        {
+          memberName: appliedMember?.userName,
+          eventTypeLabel,
+          startDate: appliedStart || undefined,
+          endDate: appliedEnd || undefined,
+        },
+      );
+      if (outputPath) {
+        navigation.navigate('PdfPreview', {
+          url: `file://${outputPath}`,
+          title: 'Audit Log',
+          filename: outputPath.split('/').pop(),
+        });
+      }
     } catch (err: any) {
       Alert.alert('Export failed', err?.message ?? 'Could not export PDF.');
     } finally {
@@ -348,7 +363,7 @@ export default function AuditLogScreen({navigation}: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      {/* Filter section – two rows */}
+      {/* Filter section � two rows */}
       <View style={styles.filterSection}>
         {/* Row 1: chip filters */}
         <View style={styles.filterRow}>
@@ -372,7 +387,7 @@ export default function AuditLogScreen({navigation}: Props) {
                 styles.filterChipCaret,
                 appliedMember && styles.filterChipTextActive,
               ]}>
-              ▾
+              ?
             </Text>
           </TouchableOpacity>
 
@@ -396,7 +411,7 @@ export default function AuditLogScreen({navigation}: Props) {
                 styles.filterChipCaret,
                 appliedEventType && styles.filterChipTextActive,
               ]}>
-              ▾
+              ?
             </Text>
           </TouchableOpacity>
         </View>
@@ -428,7 +443,7 @@ export default function AuditLogScreen({navigation}: Props) {
           </TouchableOpacity>
           {hasActiveFilters && (
             <TouchableOpacity style={styles.clearBtn} onPress={clearFilters}>
-              <Text style={styles.clearBtnText}>✕</Text>
+              <Text style={styles.clearBtnText}>?</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -459,15 +474,15 @@ export default function AuditLogScreen({navigation}: Props) {
         <View style={styles.activeSummary}>
           <Text style={styles.activeSummaryText}>
             Filtered
-            {appliedMember ? ` · ${appliedMember.userName}` : ''}
+            {appliedMember ? ` � ${appliedMember.userName}` : ''}
             {appliedEventType
-              ? ` · ${
+              ? ` � ${
                   EVENT_TYPE_OPTIONS.find(o => o.value === appliedEventType)
                     ?.label ?? appliedEventType
                 }`
               : ''}
-            {appliedStart ? ` · from ${appliedStart}` : ''}
-            {appliedEnd ? ` · to ${appliedEnd}` : ''}
+            {appliedStart ? ` � from ${appliedStart}` : ''}
+            {appliedEnd ? ` � to ${appliedEnd}` : ''}
           </Text>
         </View>
       )}

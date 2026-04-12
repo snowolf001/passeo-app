@@ -7,9 +7,13 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {KeyboardAwareScrollView} from 'react-native-keyboard-aware-scroll-view';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {
   joinClub,
@@ -29,7 +33,7 @@ export default function JoinOrCreateClubScreen(_: Props) {
   const {setActiveMembershipSession} = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const scrollRef = useRef<KeyboardAwareScrollView>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const [joinCode, setJoinCode] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -183,195 +187,212 @@ export default function JoinOrCreateClubScreen(_: Props) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAwareScrollView
-        ref={scrollRef}
-        enableOnAndroid
-        keyboardShouldPersistTaps="handled"
-        extraScrollHeight={24}
-        contentContainerStyle={styles.scroll}>
-        <Text style={styles.appTitle}>Club App</Text>
-        <Text style={styles.subtitle}>
-          {
-            'First time? Join or create a club.\nComing back? Recover your membership below.'
-          }
-        </Text>
+      <KeyboardAvoidingView
+        style={styles.flex1}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            ref={scrollRef}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.scroll}>
+            <Text style={styles.appTitle}>Club App</Text>
+            <Text style={styles.subtitle}>
+              {
+                'First time? Join or create a club.\nComing back? Recover your membership below.'
+              }
+            </Text>
 
-        {/* ── Join a Club ── */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Join a Club</Text>
-          <Text style={styles.cardHint}>
-            Use this if you are joining for the first time.
-          </Text>
-          <View style={styles.nameRow}>
-            <TextInput
-              style={[styles.input, styles.nameInput]}
-              placeholder="First name"
-              placeholderTextColor="#AEAEB2"
-              value={firstName}
-              onChangeText={setFirstName}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-            <TextInput
-              style={[styles.input, styles.nameInput]}
-              placeholder="Last name"
-              placeholderTextColor="#AEAEB2"
-              value={lastName}
-              onChangeText={setLastName}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-          </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Join code (e.g. IRON2024)"
-            placeholderTextColor="#AEAEB2"
-            value={joinCode}
-            onChangeText={setJoinCode}
-            autoCapitalize="characters"
-            autoCorrect={false}
-          />
-          <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              !(firstName.trim() && lastName.trim() && joinCode.trim()) &&
-                styles.primaryButtonDisabled,
-            ]}
-            onPress={handleJoin}
-            disabled={
-              joiningClub ||
-              creatingClub ||
-              !firstName.trim() ||
-              !lastName.trim() ||
-              !joinCode.trim()
-            }>
-            {joiningClub ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.primaryButtonText}>Join Club</Text>
-            )}
-          </TouchableOpacity>
-          {nameConflictError && (
-            <View style={styles.conflictBox}>
-              <Text style={styles.conflictText}>
-                {
-                  'This name already exists in this club.\nIf you already joined this club before, please use your recovery code. Otherwise, choose a different name.'
-                }
+            {/* ── Join a Club ── */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Join a Club</Text>
+              <Text style={styles.cardHint}>
+                Use this if you are joining for the first time.
               </Text>
+              <View style={styles.nameRow}>
+                <TextInput
+                  style={[styles.input, styles.nameInput]}
+                  placeholder="First name"
+                  placeholderTextColor="#AEAEB2"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                />
+                <TextInput
+                  style={[styles.input, styles.nameInput]}
+                  placeholder="Last name"
+                  placeholderTextColor="#AEAEB2"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Join code (e.g. IRON2024)"
+                placeholderTextColor="#AEAEB2"
+                value={joinCode}
+                onChangeText={setJoinCode}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
               <TouchableOpacity
-                style={styles.useRecoveryBtn}
-                onPress={handleUseRecoveryCode}>
-                <Text style={styles.useRecoveryBtnText}>Use Recovery Code</Text>
+                style={[
+                  styles.primaryButton,
+                  !(firstName.trim() && lastName.trim() && joinCode.trim()) &&
+                    styles.primaryButtonDisabled,
+                ]}
+                onPress={handleJoin}
+                disabled={
+                  joiningClub ||
+                  creatingClub ||
+                  !firstName.trim() ||
+                  !lastName.trim() ||
+                  !joinCode.trim()
+                }>
+                {joiningClub ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Join Club</Text>
+                )}
+              </TouchableOpacity>
+              {nameConflictError && (
+                <View style={styles.conflictBox}>
+                  <Text style={styles.conflictText}>
+                    {
+                      'This name already exists in this club.\nIf you already joined this club before, please use your recovery code. Otherwise, choose a different name.'
+                    }
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.useRecoveryBtn}
+                    onPress={handleUseRecoveryCode}>
+                    <Text style={styles.useRecoveryBtnText}>
+                      Use Recovery Code
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.divider} />
+            </View>
+
+            {/* ── Create a Club ── */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Create a Club</Text>
+              <Text style={styles.cardHint}>You will become the owner.</Text>
+              <View style={styles.nameRow}>
+                <TextInput
+                  style={[styles.input, styles.nameInput]}
+                  placeholder="First name"
+                  placeholderTextColor="#AEAEB2"
+                  value={createFirstName}
+                  onChangeText={setCreateFirstName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                />
+                <TextInput
+                  style={[styles.input, styles.nameInput]}
+                  placeholder="Last name"
+                  placeholderTextColor="#AEAEB2"
+                  value={createLastName}
+                  onChangeText={setCreateLastName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Club name"
+                placeholderTextColor="#AEAEB2"
+                value={clubName}
+                onChangeText={setClubName}
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  !(
+                    createFirstName.trim() &&
+                    createLastName.trim() &&
+                    clubName.trim()
+                  ) && styles.primaryButtonDisabled,
+                ]}
+                onPress={handleCreate}
+                disabled={
+                  joiningClub ||
+                  creatingClub ||
+                  !createFirstName.trim() ||
+                  !createLastName.trim() ||
+                  !clubName.trim()
+                }>
+                {creatingClub ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Create Club</Text>
+                )}
               </TouchableOpacity>
             </View>
-          )}
-        </View>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.divider} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.divider} />
-        </View>
+            {/* ── Recover Membership ── */}
+            <View style={styles.sectionLabelRow}>
+              <View style={styles.divider} />
+              <Text style={styles.sectionLabelText}>Already a member?</Text>
+              <View style={styles.divider} />
+            </View>
 
-        {/* ── Create a Club ── */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Create a Club</Text>
-          <Text style={styles.cardHint}>You will become the owner.</Text>
-          <View style={styles.nameRow}>
-            <TextInput
-              style={[styles.input, styles.nameInput]}
-              placeholder="First name"
-              placeholderTextColor="#AEAEB2"
-              value={createFirstName}
-              onChangeText={setCreateFirstName}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-            <TextInput
-              style={[styles.input, styles.nameInput]}
-              placeholder="Last name"
-              placeholderTextColor="#AEAEB2"
-              value={createLastName}
-              onChangeText={setCreateLastName}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-          </View>
-          <TextInput
-            style={styles.input}
-            placeholder="Club name"
-            placeholderTextColor="#AEAEB2"
-            value={clubName}
-            onChangeText={setClubName}
-            autoCorrect={false}
-          />
-          <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              !(
-                createFirstName.trim() &&
-                createLastName.trim() &&
-                clubName.trim()
-              ) && styles.primaryButtonDisabled,
-            ]}
-            onPress={handleCreate}
-            disabled={
-              joiningClub ||
-              creatingClub ||
-              !createFirstName.trim() ||
-              !createLastName.trim() ||
-              !clubName.trim()
-            }>
-            {creatingClub ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.primaryButtonText}>Create Club</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Recover Membership ── */}
-        <View style={styles.sectionLabelRow}>
-          <View style={styles.divider} />
-          <Text style={styles.sectionLabelText}>Already a member?</Text>
-          <View style={styles.divider} />
-        </View>
-
-        <View style={[styles.card, styles.restoreCard]}>
-          <Text style={styles.cardTitle}>Recover Membership</Text>
-          <Text style={styles.cardHint}>
-            {conflictJoinCode
-              ? `Enter your recovery code to restore your "${
-                  firstName.trim() || ''
-                } ${lastName.trim() || ''}" membership.`
-              : 'Already joined before? Enter your recovery code to restore access.'}
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Recovery Code (e.g. XXXX-XXXX-XXXX)"
-            placeholderTextColor="#AEAEB2"
-            value={recoveryCode}
-            onChangeText={setRecoveryCode}
-            autoCapitalize="characters"
-            autoCorrect={false}
-          />
-          <TouchableOpacity
-            style={[
-              styles.secondaryButton,
-              !recoveryCode.trim() && styles.secondaryButtonDisabled,
-            ]}
-            onPress={handleRestore}
-            disabled={
-              restoring || joiningClub || creatingClub || !recoveryCode.trim()
-            }>
-            {restoring ? (
-              <ActivityIndicator color="#007AFF" />
-            ) : (
-              <Text style={styles.secondaryButtonText}>Restore Membership</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAwareScrollView>
+            <View style={[styles.card, styles.restoreCard]}>
+              <Text style={styles.cardTitle}>Recover Membership</Text>
+              <Text style={styles.cardHint}>
+                {conflictJoinCode
+                  ? `Enter your recovery code to restore your "${
+                      firstName.trim() || ''
+                    } ${lastName.trim() || ''}" membership.`
+                  : 'Already joined before? Enter your recovery code to restore access.'}
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Recovery Code (e.g. XXXX-XXXX-XXXX)"
+                placeholderTextColor="#AEAEB2"
+                value={recoveryCode}
+                onChangeText={setRecoveryCode}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                onFocus={() =>
+                  setTimeout(
+                    () => scrollRef.current?.scrollToEnd({animated: true}),
+                    150,
+                  )
+                }
+              />
+              <TouchableOpacity
+                style={[
+                  styles.secondaryButton,
+                  !recoveryCode.trim() && styles.secondaryButtonDisabled,
+                ]}
+                onPress={handleRestore}
+                disabled={
+                  restoring ||
+                  joiningClub ||
+                  creatingClub ||
+                  !recoveryCode.trim()
+                }>
+                {restoring ? (
+                  <ActivityIndicator color="#007AFF" />
+                ) : (
+                  <Text style={styles.secondaryButtonText}>
+                    Restore Membership
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -379,7 +400,8 @@ export default function JoinOrCreateClubScreen(_: Props) {
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: {flex: 1, backgroundColor: c.background},
-    scroll: {padding: 24, paddingBottom: 48},
+    flex1: {flex: 1},
+    scroll: {padding: 24, paddingBottom: 40},
     appTitle: {
       fontSize: 32,
       fontWeight: 'bold',
