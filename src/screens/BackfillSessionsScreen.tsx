@@ -191,9 +191,7 @@ export default function BackfillSessionsScreen({navigation}: Props) {
   };
 
   const isPrivileged =
-    currentMembership.role === 'host' ||
-    currentMembership.role === 'admin' ||
-    currentMembership.role === 'owner';
+    currentMembership.role === 'host' || currentMembership.role === 'owner';
 
   const renderItem = ({item}: {item: SessionListItem}) => {
     const {session, mode} = item;
@@ -201,7 +199,7 @@ export default function BackfillSessionsScreen({navigation}: Props) {
     const helperText = getHelperText(mode);
 
     // Members can only tap a card when backfill is available.
-    // Hosts/admins/owners can tap any card to open SessionDetailScreen.
+    // Hosts/owners can tap any card to open SessionDetailScreen.
     const isBackfillable = mode === 'backfill' || mode === 'live';
     const isTappable = isPrivileged || isBackfillable;
 

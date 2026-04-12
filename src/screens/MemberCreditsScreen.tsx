@@ -124,7 +124,7 @@ export default function MemberCreditsScreen({navigation}: Props) {
     if (!selected || !currentMembership) return;
     Alert.alert(
       'Transfer Ownership',
-      `Transfer ownership to ${selected.userName}? You will become an admin after transfer. This cannot be undone.`,
+      `Transfer ownership to ${selected.userName}? You will become a host after transfer. This cannot be undone.`,
       [
         {text: 'Cancel', style: 'cancel'},
         {
@@ -182,14 +182,9 @@ export default function MemberCreditsScreen({navigation}: Props) {
     );
   };
 
-  const handleRoleChange = (newRole: 'member' | 'host' | 'admin' | 'admin') => {
+  const handleRoleChange = (newRole: 'member' | 'host') => {
     if (!selected) return;
-    const label =
-      newRole === 'admin'
-        ? 'Make Admin'
-        : newRole === 'host'
-        ? 'Make Host'
-        : 'Make Member';
+    const label = newRole === 'host' ? 'Promote to Host' : 'Make Member';
     Alert.alert(label, `Change ${selected.userName}'s role to ${newRole}?`, [
       {text: 'Cancel', style: 'cancel'},
       {
@@ -407,10 +402,10 @@ export default function MemberCreditsScreen({navigation}: Props) {
                     )}
                   </View>
                 </View>
-                {/* Role Management — admin/owner only */}
+                {/* Role Management — host/owner only */}
                 {selected &&
                   selected.role !== 'owner' &&
-                  (currentMembership?.role === 'admin' ||
+                  (currentMembership?.role === 'host' ||
                     currentMembership?.role === 'owner') && (
                     <>
                       <View style={styles.sectionDivider} />
@@ -458,30 +453,6 @@ export default function MemberCreditsScreen({navigation}: Props) {
                               Host
                             </Text>
                           </TouchableOpacity>
-                          {currentMembership?.role === 'owner' && (
-                            <TouchableOpacity
-                              style={[
-                                styles.roleBtn,
-                                selected.role === 'admin' &&
-                                  styles.roleBtnActive,
-                              ]}
-                              onPress={() =>
-                                selected.role !== 'admin' &&
-                                handleRoleChange('admin')
-                              }
-                              disabled={
-                                changingRole || selected.role === 'admin'
-                              }>
-                              <Text
-                                style={[
-                                  styles.roleBtnText,
-                                  selected.role === 'admin' &&
-                                    styles.roleBtnTextActive,
-                                ]}>
-                                Admin
-                              </Text>
-                            </TouchableOpacity>
-                          )}
                           {changingRole && (
                             <ActivityIndicator
                               size="small"
@@ -490,9 +461,9 @@ export default function MemberCreditsScreen({navigation}: Props) {
                             />
                           )}
                         </View>
-                        {/* Transfer Ownership — owner only, target must be admin */}
+                        {/* Transfer Ownership — owner only, target must be host */}
                         {currentMembership?.role === 'owner' &&
-                          selected.role === 'admin' && (
+                          selected.role === 'host' && (
                             <TouchableOpacity
                               style={styles.transferBtn}
                               onPress={handleTransferOwnership}
@@ -509,10 +480,10 @@ export default function MemberCreditsScreen({navigation}: Props) {
                       </View>
                     </>
                   )}
-                {/* Remove Member — admin/owner, not targeting owner */}
+                {/* Remove Member — host/owner, not targeting owner */}
                 {selected &&
                   selected.role !== 'owner' &&
-                  (currentMembership?.role === 'admin' ||
+                  (currentMembership?.role === 'host' ||
                     currentMembership?.role === 'owner') && (
                     <>
                       <View style={styles.sectionDivider} />

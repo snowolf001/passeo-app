@@ -30,7 +30,6 @@ export default function HomeScreen({navigation}: Props) {
   const ROLE_LABELS: Record<string, string> = {
     member: 'Member',
     host: 'Host',
-    admin: 'Admin',
     owner: 'Owner',
   };
 
@@ -116,7 +115,7 @@ export default function HomeScreen({navigation}: Props) {
   }
 
   const role = currentMembership.role;
-  const canCreateSession = ['host', 'admin', 'owner'].includes(role);
+  const canCreateSession = ['host', 'owner'].includes(role);
 
   const todayStatusCard = () => {
     if (loading) return null;

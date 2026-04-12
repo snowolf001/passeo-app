@@ -43,8 +43,8 @@ export default function ProfileScreen({navigation}: Props) {
   }
 
   const role = currentMembership.role;
-  const isAdminOrOwner = ['admin', 'owner'].includes(role);
-  const canManageClub = ['host', 'admin', 'owner'].includes(role);
+  const isOwnerOrHost = ['host', 'owner'].includes(role);
+  const canManageClub = ['host', 'owner'].includes(role);
 
   // Club Pro gating — flip CLUB_PRO_CONFIG.IS_PRO when billing is ready
   const isClubPro = CLUB_PRO_CONFIG.IS_PRO;
@@ -54,7 +54,6 @@ export default function ProfileScreen({navigation}: Props) {
   const ROLE_LABELS: Record<string, string> = {
     member: 'Member',
     host: 'Host',
-    admin: 'Admin',
     owner: 'Owner',
   };
 
@@ -95,7 +94,7 @@ export default function ProfileScreen({navigation}: Props) {
               } else if (code === 'OWNER_PROMOTE_AND_TRANSFER_REQUIRED') {
                 Alert.alert(
                   'Cannot Leave',
-                  'Please promote another member to admin first, then transfer ownership before leaving.',
+                  'Please promote another member to host first, then transfer ownership before leaving.',
                 );
               } else {
                 Alert.alert(
@@ -155,7 +154,7 @@ export default function ProfileScreen({navigation}: Props) {
             <Text style={styles.infoValue}>{currentClub.name}</Text>
           </View>
 
-          {isAdminOrOwner && (
+          {isOwnerOrHost && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Join Code</Text>
               <View style={styles.joinCodeRow}>
@@ -214,7 +213,7 @@ export default function ProfileScreen({navigation}: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* ===== ADMIN ===== */}
+        {/* ===== HOST / OWNER ===== */}
         {canManageClub && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Club Management</Text>

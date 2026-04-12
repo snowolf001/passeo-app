@@ -61,7 +61,7 @@ function TransactionRow({item}: {item: ApiCreditTransaction}) {
   const title = isCredit
     ? item.note ?? 'Credits added'
     : item.sessionTitle ?? 'Check-in';
-  const subtitle = isCredit ? `Added by ${item.actorName ?? 'Admin'}` : null;
+  const subtitle = isCredit ? `Added by ${item.actorName ?? 'Host'}` : null;
 
   return (
     <View style={styles.row}>

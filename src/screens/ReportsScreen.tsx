@@ -246,7 +246,7 @@ export default function ReportsScreen({navigation}: Props) {
   };
 
   const role = currentMembership?.role ?? '';
-  const canViewMemberHistory = ['host', 'admin', 'owner'].includes(role);
+  const canViewMemberHistory = ['host', 'owner'].includes(role);
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>

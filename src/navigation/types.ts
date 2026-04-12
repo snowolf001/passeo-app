@@ -18,7 +18,7 @@ export type RootStackParamList = {
   AttendanceHistory: {membershipId: string; title?: string};
   CreditHistory: undefined;
 
-  // Reports & admin
+  // Reports & management
   MemberHistory: {membershipId: string; title?: string};
   Reports: undefined;
   AuditLog: undefined;

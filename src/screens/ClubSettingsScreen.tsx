@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+﻿import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
   ScrollView,
   TouchableWithoutFeedback,
   Keyboard,
-  Platform
+  Platform,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -227,13 +227,9 @@ export default function ClubSettingsScreen({navigation}: Props) {
   }
 
   const isOwner = currentMembership.role === 'owner';
-  const isAdminOrOwner = ['admin', 'owner'].includes(currentMembership.role);
-  const canSeeJoinCode = ['owner', 'admin', 'host'].includes(
-    currentMembership.role,
-  );
-  const canRegenerateJoinCode = ['owner', 'admin'].includes(
-    currentMembership.role,
-  );
+  const isHostOrOwner = ['host', 'owner'].includes(currentMembership.role);
+  const canSeeJoinCode = ['owner', 'host'].includes(currentMembership.role);
+  const canRegenerateJoinCode = ['owner'].includes(currentMembership.role);
 
   const renderLocation = ({item}: {item: ApiClubLocation}) => (
     <View style={styles.locationCard}>
@@ -241,7 +237,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
         <Text style={styles.locationName}>{item.name}</Text>
         <Text style={styles.locationAddress}>{item.address}</Text>
       </View>
-      {isAdminOrOwner && (
+      {isHostOrOwner && (
         <TouchableOpacity
           style={styles.locationDeleteBtn}
           onPress={() => handleDeleteLocation(item)}>
@@ -253,191 +249,196 @@ export default function ClubSettingsScreen({navigation}: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-            <KeyboardAvoidingView 
-        style={{flex: 1}} 
+      <KeyboardAvoidingView
+        style={{flex: 1}}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
-      >
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView
-        enableOnAndroid
-        keyboardShouldPersistTaps="handled"
-        extraScrollHeight={24}
-        contentContainerStyle={styles.scroll}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Club Info</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Name</Text>
-            <Text style={styles.infoValue}>{currentClub.name}</Text>
-          </View>
-          {canSeeJoinCode && (
-            <View style={styles.joinCodeRow}>
-              <Text style={styles.infoLabel}>Join Code</Text>
-              <View style={styles.joinCodeActions}>
-                <Text style={styles.joinCodeValue}>
-                  {joinCode ?? currentClub.joinCode}
+            enableOnAndroid
+            keyboardShouldPersistTaps="handled"
+            extraScrollHeight={24}
+            contentContainerStyle={styles.scroll}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Club Info</Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Name</Text>
+                <Text style={styles.infoValue}>{currentClub.name}</Text>
+              </View>
+              {canSeeJoinCode && (
+                <View style={styles.joinCodeRow}>
+                  <Text style={styles.infoLabel}>Join Code</Text>
+                  <View style={styles.joinCodeActions}>
+                    <Text style={styles.joinCodeValue}>
+                      {joinCode ?? currentClub.joinCode}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.joinCodeBtn}
+                      onPress={() => {
+                        Clipboard.setString(
+                          joinCode ?? currentClub.joinCode ?? '',
+                        );
+                        showSnackbar('Join code copied');
+                      }}>
+                      <Text style={styles.joinCodeBtnText}>Copy</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Saved Locations</Text>
+              {loading ? (
+                <ActivityIndicator color="#007AFF" />
+              ) : locations.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  {isHostOrOwner
+                    ? 'No locations yet. Add one below.'
+                    : 'No locations have been added yet.'}
                 </Text>
+              ) : (
+                <FlatList
+                  data={locations}
+                  keyExtractor={item => item.id}
+                  renderItem={renderLocation}
+                  scrollEnabled={false}
+                />
+              )}
+              {!isHostOrOwner && (
+                <Text style={styles.hostNote}>
+                  Only owners can add or edit locations.
+                </Text>
+              )}
+            </View>
+
+            {isHostOrOwner && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Add Location</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Location name (e.g. Main Studio)"
+                  placeholderTextColor="#AEAEB2"
+                  value={locationName}
+                  onChangeText={setLocationName}
+                />
+                <TextInput
+                  style={[styles.input, styles.inputMulti]}
+                  placeholder="Full address"
+                  placeholderTextColor="#AEAEB2"
+                  value={locationAddress}
+                  onChangeText={setLocationAddress}
+                  multiline
+                />
                 <TouchableOpacity
-                  style={styles.joinCodeBtn}
-                  onPress={() => {
-                    Clipboard.setString(joinCode ?? currentClub.joinCode ?? '');
-                    showSnackbar('Join code copied');
-                  }}>
-                  <Text style={styles.joinCodeBtnText}>Copy</Text>
+                  style={styles.addButton}
+                  onPress={handleAddLocation}
+                  disabled={addingLocation}>
+                  {addingLocation ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.addButtonText}>Add Location</Text>
+                  )}
                 </TouchableOpacity>
               </View>
-            </View>
-          )}
-        </View>
+            )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Saved Locations</Text>
-          {loading ? (
-            <ActivityIndicator color="#007AFF" />
-          ) : locations.length === 0 ? (
-            <Text style={styles.emptyText}>
-              {isAdminOrOwner
-                ? 'No locations yet. Add one below.'
-                : 'No locations have been added yet.'}
-            </Text>
-          ) : (
-            <FlatList
-              data={locations}
-              keyExtractor={item => item.id}
-              renderItem={renderLocation}
-              scrollEnabled={false}
-            />
-          )}
-          {!isAdminOrOwner && (
-            <Text style={styles.hostNote}>
-              Only admins can add or edit locations.
-            </Text>
-          )}
-        </View>
+            {isHostOrOwner && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Check-In Policy</Text>
 
-        {isAdminOrOwner && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Add Location</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Location name (e.g. Main Studio)"
-              placeholderTextColor="#AEAEB2"
-              value={locationName}
-              onChangeText={setLocationName}
-            />
-            <TextInput
-              style={[styles.input, styles.inputMulti]}
-              placeholder="Full address"
-              placeholderTextColor="#AEAEB2"
-              value={locationAddress}
-              onChangeText={setLocationAddress}
-              multiline
-            />
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={handleAddLocation}
-              disabled={addingLocation}>
-              {addingLocation ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.addButtonText}>Add Location</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+                <View style={styles.settingRow}>
+                  <View style={styles.settingLabelWrap}>
+                    <Text style={styles.settingLabel}>
+                      Allow Member Self Backfill
+                    </Text>
+                    <Text style={styles.settingHint}>
+                      Members can check in after a session ends
+                    </Text>
+                  </View>
+                  <Switch
+                    value={localSettings.allowMemberBackfill}
+                    onValueChange={val =>
+                      handleSettingChange('allowMemberBackfill', val)
+                    }
+                    trackColor={{false: '#E5E5EA', true: '#34C759'}}
+                    thumbColor="#FFF"
+                  />
+                </View>
 
-        {isAdminOrOwner && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Check-In Policy</Text>
+                {localSettings.allowMemberBackfill && (
+                  <>
+                    <Text style={styles.settingGroupLabel}>
+                      Member Backfill Window
+                    </Text>
+                    <View style={styles.optionRow}>
+                      {[12, 24, 48].map(h => (
+                        <TouchableOpacity
+                          key={h}
+                          style={[
+                            styles.optionPill,
+                            localSettings.memberBackfillHours === h &&
+                              styles.optionPillActive,
+                          ]}
+                          onPress={() =>
+                            handleSettingChange('memberBackfillHours', h)
+                          }>
+                          <Text
+                            style={[
+                              styles.optionPillText,
+                              localSettings.memberBackfillHours === h &&
+                                styles.optionPillTextActive,
+                            ]}>
+                            {h}h
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
 
-            <View style={styles.settingRow}>
-              <View style={styles.settingLabelWrap}>
-                <Text style={styles.settingLabel}>
-                  Allow Member Self Backfill
-                </Text>
-                <Text style={styles.settingHint}>
-                  Members can check in after a session ends
-                </Text>
-              </View>
-              <Switch
-                value={localSettings.allowMemberBackfill}
-                onValueChange={val =>
-                  handleSettingChange('allowMemberBackfill', val)
-                }
-                trackColor={{false: '#E5E5EA', true: '#34C759'}}
-                thumbColor="#FFF"
-              />
-            </View>
-
-            {localSettings.allowMemberBackfill && (
-              <>
                 <Text style={styles.settingGroupLabel}>
-                  Member Backfill Window
+                  Host Backfill Window
                 </Text>
                 <View style={styles.optionRow}>
-                  {[12, 24, 48].map(h => (
+                  {([24, 48, 72, 168] as const).map(h => (
                     <TouchableOpacity
                       key={h}
                       style={[
                         styles.optionPill,
-                        localSettings.memberBackfillHours === h &&
+                        localSettings.hostBackfillHours === h &&
                           styles.optionPillActive,
                       ]}
                       onPress={() =>
-                        handleSettingChange('memberBackfillHours', h)
+                        handleSettingChange('hostBackfillHours', h)
                       }>
                       <Text
                         style={[
                           styles.optionPillText,
-                          localSettings.memberBackfillHours === h &&
+                          localSettings.hostBackfillHours === h &&
                             styles.optionPillTextActive,
                         ]}>
-                        {h}h
+                        {h === 168 ? '7d' : `${h}h`}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-              </>
+              </View>
             )}
 
-            <Text style={styles.settingGroupLabel}>
-              Host / Admin Backfill Window
-            </Text>
-            <View style={styles.optionRow}>
-              {([24, 48, 72, 168] as const).map(h => (
+            {isOwner && (
+              <View style={[styles.section, styles.dangerZone]}>
+                <Text style={styles.sectionTitle}>Ownership</Text>
                 <TouchableOpacity
-                  key={h}
-                  style={[
-                    styles.optionPill,
-                    localSettings.hostBackfillHours === h &&
-                      styles.optionPillActive,
-                  ]}
-                  onPress={() => handleSettingChange('hostBackfillHours', h)}>
-                  <Text
-                    style={[
-                      styles.optionPillText,
-                      localSettings.hostBackfillHours === h &&
-                        styles.optionPillTextActive,
-                    ]}>
-                    {h === 168 ? '7d' : `${h}h`}
+                  style={styles.dangerButton}
+                  onPress={handleTransferOwnership}>
+                  <Text style={styles.dangerButtonText}>
+                    Transfer Ownership
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {isOwner && (
-          <View style={[styles.section, styles.dangerZone]}>
-            <Text style={styles.sectionTitle}>Ownership</Text>
-            <TouchableOpacity
-              style={styles.dangerButton}
-              onPress={handleTransferOwnership}>
-              <Text style={styles.dangerButtonText}>Transfer Ownership</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-                </ScrollView>
+              </View>
+            )}
+          </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
       {snackVisible && (
@@ -626,4 +627,3 @@ function createStyles(c: ThemeColors) {
     optionPillTextActive: {color: c.primary},
   });
 }
-

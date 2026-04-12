@@ -113,8 +113,8 @@ export default function SessionsScreen({navigation}: Props) {
     switch (role) {
       case 'owner':
         return 'Owner';
-      case 'admin':
-        return 'Admin';
+      case 'host':
+        return 'Host';
       case 'host':
         return 'Host';
       case 'member':

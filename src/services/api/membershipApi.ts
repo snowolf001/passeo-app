@@ -8,7 +8,7 @@ export type ApiMembership = {
   userName: string;
   displayName: string;
   recoveryCode: string;
-  role: 'member' | 'host' | 'admin' | 'owner';
+  role: 'member' | 'host' | 'owner';
   credits: number;
   active: boolean;
 };
@@ -40,7 +40,7 @@ export async function getMembershipById(
 
 /**
  * POST /api/memberships/:membershipId/credits
- * Adds credits to a member. Host/admin only.
+ * Adds credits to a member. Host/owner only.
  */
 export async function adjustMemberCredits(
   membershipId: string,
@@ -68,7 +68,7 @@ export async function recoverMembership(
 
 export async function updateMemberRole(
   membershipId: string,
-  role: 'member' | 'host' | 'admin',
+  role: 'member' | 'host',
 ): Promise<ApiMembership> {
   return apiRequest<ApiMembership>(`/api/memberships/${membershipId}/role`, {
     method: 'PATCH',

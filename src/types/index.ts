@@ -2,7 +2,7 @@
 // Club App – Core Type Definitions
 // ============================================================
 
-export type UserRole = 'member' | 'host' | 'admin' | 'owner';
+export type UserRole = 'member' | 'host' | 'owner';
 
 // A person in the system. Minimal – identity only.
 export type User = {

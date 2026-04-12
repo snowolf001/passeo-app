@@ -140,7 +140,7 @@ export async function createClub(
 
 /**
  * POST /api/clubs/:clubId/regenerate-join-code
- * Generates a new join code. Owner/admin only.
+ * Generates a new join code. Owner only.
  */
 export async function regenerateJoinCode(
   clubId: string,
@@ -153,7 +153,7 @@ export async function regenerateJoinCode(
 
 /**
  * POST /api/clubs/:clubId/transfer-ownership
- * Transfers ownership to an existing admin. Owner only.
+ * Transfers ownership to an existing host. Owner only.
  */
 export async function transferOwnership(
   clubId: string,
@@ -167,7 +167,7 @@ export async function transferOwnership(
 
 /**
  * DELETE /api/clubs/:clubId/members/:membershipId
- * Removes a member. Owner/admin only.
+ * Removes a member. Owner/host only.
  */
 export async function removeMember(
   clubId: string,

@@ -113,9 +113,9 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         setSession(loadedSession);
         setCheckedInMembers(members);
 
-        // Load rich attendee report for hosts/admins
+        // Load rich attendee report for hosts/owners
         const myRole = currentMembership?.role ?? '';
-        if (['host', 'admin', 'owner'].includes(myRole)) {
+        if (['host', 'owner'].includes(myRole)) {
           if (!softRefresh) setLoadingReport(true);
           getSessionAttendees(sessionId)
             .then(report => {
@@ -185,7 +185,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const availableCredits = currentMembership?.credits ?? 0;
   const hasCredits = availableCredits > 0;
   const canManualCheckIn = currentMembership
-    ? ['host', 'admin', 'owner'].includes(currentMembership.role)
+    ? ['host', 'owner'].includes(currentMembership.role)
     : false;
 
   const checkInMode: CheckInMode = useMemo(() => {
@@ -716,7 +716,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
           </View>
         )}
 
-        {/* Rich attendee report for hosts/admins */}
+        {/* Rich attendee report for hosts/owners */}
         {canManualCheckIn ? (
           <View style={styles.section}>
             <View style={styles.attendeesSectionHeader}>
@@ -986,7 +986,6 @@ export default function SessionDetailScreen({route, navigation}: Props) {
 const roleColor = (role: string): object => {
   const map: Record<string, object> = {
     owner: {backgroundColor: '#FFEDD5'},
-    admin: {backgroundColor: '#EDE9FE'},
     host: {backgroundColor: '#DBEAFE'},
     member: {backgroundColor: '#F3F4F6'},
   };

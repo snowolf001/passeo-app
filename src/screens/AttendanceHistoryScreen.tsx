@@ -115,7 +115,7 @@ function HistoryRow({item}: {item: ApiAttendanceItem}) {
 
       <Text style={styles.checkInMethod}>
         {item.checkInMethod === 'manual'
-          ? '👤 Checked in by host/admin'
+          ? '👤 Checked in by host'
           : '✋ Self check-in'}
       </Text>
     </View>

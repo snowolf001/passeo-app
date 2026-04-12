@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   TouchableWithoutFeedback,
-  Keyboard
+  Keyboard,
 } from 'react-native';
 import DateTimePicker, {
   DateTimePickerEvent,
@@ -32,7 +32,9 @@ export default function CreateSessionScreen({navigation}: Props) {
   const {currentMembership} = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const isAdmin = ['admin', 'owner'].includes(currentMembership?.role ?? '');
+  const isHostOrOwner = ['host', 'owner'].includes(
+    currentMembership?.role ?? '',
+  );
   const isHost = currentMembership?.role === 'host';
 
   const [title, setTitle] = useState('');
@@ -204,7 +206,7 @@ export default function CreateSessionScreen({navigation}: Props) {
           {isHost ? (
             <Text style={styles.noLocationBody}>
               You can't create a session yet because no locations have been
-              added. Please ask an admin to add one in Club Settings.
+              added. Please ask the owner or a host to add one in Club Settings.
             </Text>
           ) : (
             <>
@@ -229,7 +231,7 @@ export default function CreateSessionScreen({navigation}: Props) {
         {isHost && (
           <View style={styles.hostInfoBanner}>
             <Text style={styles.hostInfoText}>
-              ℹ️ Only admins can add or remove locations.
+              ℹ️ Only the owner can add or remove locations.
             </Text>
           </View>
         )}
@@ -276,148 +278,147 @@ export default function CreateSessionScreen({navigation}: Props) {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <KeyboardAvoidingView 
-        style={{flex: 1}} 
+      <KeyboardAvoidingView
+        style={{flex: 1}}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
-      >
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scroll}>
-        {/* Location — first, since it is required and the core choice */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Location *</Text>
-          {renderLocationSection()}
-        </View>
+            {/* Location — first, since it is required and the core choice */}
+            <View style={styles.field}>
+              <Text style={styles.label}>Location *</Text>
+              {renderLocationSection()}
+            </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Session Name (Optional)</Text>
-          <TextInput
-            style={styles.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="e.g. Morning HIIT"
-            placeholderTextColor="#AEAEB2"
-          />
-        </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Session Name (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="e.g. Morning HIIT"
+                placeholderTextColor="#AEAEB2"
+              />
+            </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Date *</Text>
-          <TouchableOpacity
-            style={styles.pickerBtn}
-            onPress={() => setShowDatePicker(true)}
-            activeOpacity={0.7}>
-            <Text
+            <View style={styles.field}>
+              <Text style={styles.label}>Date *</Text>
+              <TouchableOpacity
+                style={styles.pickerBtn}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.7}>
+                <Text
+                  style={[
+                    styles.pickerBtnText,
+                    !sessionDate && styles.pickerBtnPlaceholder,
+                  ]}>
+                  {formatDateLabel(sessionDate)}
+                </Text>
+                <Text style={styles.pickerIcon}>📅</Text>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  mode="date"
+                  value={sessionDate ?? new Date()}
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(e: DateTimePickerEvent, d?: Date) => {
+                    setShowDatePicker(Platform.OS === 'ios');
+                    if (e.type === 'set' && d) setSessionDate(d);
+                    else if (Platform.OS !== 'ios') setShowDatePicker(false);
+                  }}
+                />
+              )}
+            </View>
+
+            <View style={styles.row}>
+              <View style={[styles.field, {flex: 1}]}>
+                <Text style={styles.label}>Start Time *</Text>
+                <TouchableOpacity
+                  style={styles.pickerBtn}
+                  onPress={() => setShowStartPicker(true)}
+                  activeOpacity={0.7}>
+                  <Text
+                    style={[
+                      styles.pickerBtnText,
+                      !startTime && styles.pickerBtnPlaceholder,
+                    ]}>
+                    {formatTimeLabel(startTime, 'Select')}
+                  </Text>
+                  <Text style={styles.pickerIcon}>🕐</Text>
+                </TouchableOpacity>
+                {showStartPicker && (
+                  <DateTimePicker
+                    mode="time"
+                    value={startTime ?? new Date()}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    is24Hour={false}
+                    onChange={(e: DateTimePickerEvent, d?: Date) => {
+                      setShowStartPicker(Platform.OS === 'ios');
+                      if (e.type === 'set' && d) setStartTime(d);
+                      else if (Platform.OS !== 'ios') setShowStartPicker(false);
+                    }}
+                  />
+                )}
+              </View>
+              <View style={{width: 12}} />
+              <View style={[styles.field, {flex: 1}]}>
+                <Text style={styles.label}>End Time</Text>
+                <TouchableOpacity
+                  style={styles.pickerBtn}
+                  onPress={() => setShowEndPicker(true)}
+                  activeOpacity={0.7}>
+                  <Text
+                    style={[
+                      styles.pickerBtnText,
+                      !endTime && styles.pickerBtnPlaceholder,
+                    ]}>
+                    {formatTimeLabel(endTime, 'Optional')}
+                  </Text>
+                  <Text style={styles.pickerIcon}>🕐</Text>
+                </TouchableOpacity>
+                {showEndPicker && (
+                  <DateTimePicker
+                    mode="time"
+                    value={endTime ?? startTime ?? new Date()}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    is24Hour={false}
+                    onChange={(e: DateTimePickerEvent, d?: Date) => {
+                      setShowEndPicker(Platform.OS === 'ios');
+                      if (e.type === 'set' && d) setEndTime(d);
+                      else if (Platform.OS !== 'ios') setShowEndPicker(false);
+                    }}
+                  />
+                )}
+              </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Capacity (optional)</Text>
+              <TextInput
+                style={styles.input}
+                value={capacity}
+                onChangeText={setCapacity}
+                placeholder="e.g. 20"
+                placeholderTextColor="#AEAEB2"
+                keyboardType="number-pad"
+              />
+            </View>
+
+            <TouchableOpacity
               style={[
-                styles.pickerBtnText,
-                !sessionDate && styles.pickerBtnPlaceholder,
-              ]}>
-              {formatDateLabel(sessionDate)}
-            </Text>
-            <Text style={styles.pickerIcon}>📅</Text>
-          </TouchableOpacity>
-          {showDatePicker && (
-            <DateTimePicker
-              mode="date"
-              value={sessionDate ?? new Date()}
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(e: DateTimePickerEvent, d?: Date) => {
-                setShowDatePicker(Platform.OS === 'ios');
-                if (e.type === 'set' && d) setSessionDate(d);
-                else if (Platform.OS !== 'ios') setShowDatePicker(false);
-              }}
-            />
-          )}
-        </View>
-
-        <View style={styles.row}>
-          <View style={[styles.field, {flex: 1}]}>
-            <Text style={styles.label}>Start Time *</Text>
-            <TouchableOpacity
-              style={styles.pickerBtn}
-              onPress={() => setShowStartPicker(true)}
-              activeOpacity={0.7}>
-              <Text
-                style={[
-                  styles.pickerBtnText,
-                  !startTime && styles.pickerBtnPlaceholder,
-                ]}>
-                {formatTimeLabel(startTime, 'Select')}
-              </Text>
-              <Text style={styles.pickerIcon}>🕐</Text>
+                styles.submitButton,
+                !canSubmit && styles.submitButtonDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={!canSubmit}>
+              {loading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>Create Session</Text>
+              )}
             </TouchableOpacity>
-            {showStartPicker && (
-              <DateTimePicker
-                mode="time"
-                value={startTime ?? new Date()}
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                is24Hour={false}
-                onChange={(e: DateTimePickerEvent, d?: Date) => {
-                  setShowStartPicker(Platform.OS === 'ios');
-                  if (e.type === 'set' && d) setStartTime(d);
-                  else if (Platform.OS !== 'ios') setShowStartPicker(false);
-                }}
-              />
-            )}
-          </View>
-          <View style={{width: 12}} />
-          <View style={[styles.field, {flex: 1}]}>
-            <Text style={styles.label}>End Time</Text>
-            <TouchableOpacity
-              style={styles.pickerBtn}
-              onPress={() => setShowEndPicker(true)}
-              activeOpacity={0.7}>
-              <Text
-                style={[
-                  styles.pickerBtnText,
-                  !endTime && styles.pickerBtnPlaceholder,
-                ]}>
-                {formatTimeLabel(endTime, 'Optional')}
-              </Text>
-              <Text style={styles.pickerIcon}>🕐</Text>
-            </TouchableOpacity>
-            {showEndPicker && (
-              <DateTimePicker
-                mode="time"
-                value={endTime ?? startTime ?? new Date()}
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                is24Hour={false}
-                onChange={(e: DateTimePickerEvent, d?: Date) => {
-                  setShowEndPicker(Platform.OS === 'ios');
-                  if (e.type === 'set' && d) setEndTime(d);
-                  else if (Platform.OS !== 'ios') setShowEndPicker(false);
-                }}
-              />
-            )}
-          </View>
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Capacity (optional)</Text>
-          <TextInput
-            style={styles.input}
-            value={capacity}
-            onChangeText={setCapacity}
-            placeholder="e.g. 20"
-            placeholderTextColor="#AEAEB2"
-            keyboardType="number-pad"
-          />
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            !canSubmit && styles.submitButtonDisabled,
-          ]}
-          onPress={handleSubmit}
-          disabled={!canSubmit}>
-          {loading ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <Text style={styles.submitButtonText}>Create Session</Text>
-          )}
-        </TouchableOpacity>
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
@@ -608,4 +609,3 @@ function createStyles(c: ThemeColors) {
     submitButtonText: {color: '#FFF', fontSize: 17, fontWeight: '700'},
   });
 }
-
