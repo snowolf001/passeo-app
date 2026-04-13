@@ -174,41 +174,42 @@ function drawHeader(
 ) {
   b.moveDown(8);
 
-  const titleY = b.y;
+  // Line 1: Brand (subtle)
+  b.drawTextSafe('PASSEO', {
+    x: PAGE_MARGIN,
+    y: b.y,
+    size: 10,
+    color: C_MUTED,
+    fontType: 'regular',
+    kind: 'body',
+  });
+  b.moveDown(16);
+
+  // Line 2: Club name
+  if (subtitle) {
+    b.drawTextSafe(subtitle, {
+      x: PAGE_MARGIN,
+      y: b.y,
+      size: 17,
+      color: C_INK,
+      fontType: 'bold',
+      kind: 'title',
+    });
+    b.moveDown(22);
+  }
+
+  // Line 3: Report title
   b.drawTextSafe(title, {
     x: PAGE_MARGIN,
-    y: titleY,
+    y: b.y,
     size: T_TITLE,
     color: C_INK,
     fontType: 'bold',
     kind: 'title',
   });
+  b.moveDown(26);
 
-  const genText = `Generated on ${formatDateLong()}`;
-  const genW = b.fontAscii.widthOfTextAtSize(genText, T_META);
-  b.drawTextSafe(genText, {
-    x: b.width - PAGE_MARGIN - genW,
-    y: titleY,
-    size: T_META,
-    color: C_SECONDARY,
-    fontType: 'regular',
-    kind: 'body',
-  });
-
-  b.moveDown(24);
-
-  if (subtitle) {
-    b.drawTextSafe(subtitle, {
-      x: PAGE_MARGIN,
-      y: b.y,
-      size: T_SUBTITLE,
-      color: C_INK,
-      fontType: 'bold',
-      kind: 'body',
-    });
-    b.moveDown(14);
-  }
-
+  // Line 4: Meta row — left=context info, right=generated date
   if (meta) {
     b.drawTextSafe(meta, {
       x: PAGE_MARGIN,
@@ -218,8 +219,18 @@ function drawHeader(
       fontType: 'regular',
       kind: 'body',
     });
-    b.moveDown(16);
   }
+  const genText = `Generated on ${formatDateLong()}`;
+  const genW = b.fontAscii.widthOfTextAtSize(genText, T_META);
+  b.drawTextSafe(genText, {
+    x: b.width - PAGE_MARGIN - genW,
+    y: b.y,
+    size: T_META,
+    color: C_SECONDARY,
+    fontType: 'regular',
+    kind: 'body',
+  });
+  b.moveDown(16);
 
   b.drawDivider(b.y, 0.5, C_DIVIDER);
   b.moveDown(REPORT_GAP);
@@ -284,28 +295,23 @@ function drawSummaryMetricsRow(b: PdfBuilder, items: SummaryItem[]) {
 
   const contentWidth = b.width - PAGE_MARGIN * 2;
   const gap = 10;
-  const cardH = 68;
+  const cardH = 44;
   const totalGaps = gap * (items.length - 1);
   const cardW = (contentWidth - totalGaps) / items.length;
+  const labelColor = rgb(0.42, 0.44, 0.5); // #6B7280
 
-  b.checkPageBreak(cardH + 12);
-
+  b.checkPageBreak(cardH + 8);
   const topY = b.y;
 
   items.forEach((item, i) => {
     const x = PAGE_MARGIN + i * (cardW + gap);
 
-    drawBox(b, x, topY, cardW, cardH, {
-      background: C_CARD_BG,
-      borderColor: C_BORDER,
-      borderWidth: 1,
-    });
-
+    // No background, no border
     const valueFont = b.pickFontForText(item.value, 'bold');
     const valueW = valueFont.widthOfTextAtSize(item.value, T_METRIC_VAL);
     b.drawTextSafe(item.value, {
       x: x + (cardW - valueW) / 2,
-      y: topY - 30,
+      y: topY - 10,
       size: T_METRIC_VAL,
       color: C_INK,
       fontType: 'bold',
@@ -316,15 +322,15 @@ function drawSummaryMetricsRow(b: PdfBuilder, items: SummaryItem[]) {
     const labelW = labelFont.widthOfTextAtSize(item.label, T_METRIC_LBL);
     b.drawTextSafe(item.label, {
       x: x + (cardW - labelW) / 2,
-      y: topY - 49,
+      y: topY - 30,
       size: T_METRIC_LBL,
-      color: C_SECONDARY,
+      color: labelColor,
       fontType: 'regular',
       kind: 'body',
     });
   });
 
-  b.moveDown(cardH + 18);
+  b.moveDown(cardH + 10);
 }
 
 function drawSectionHeaderOnly(b: PdfBuilder, title: string) {
@@ -837,26 +843,28 @@ export async function exportSessionReportPdf(
     data.attendees,
     [
       {header: 'Name', widthFraction: 0.26},
-      {header: 'Method', widthFraction: 0.23},
-      {header: 'Credits', widthFraction: 0.33, align: 'right'},
-      {header: 'Checked In', widthFraction: 0.18},
+      {header: 'Check-in Method', widthFraction: 0.23},
+      {header: 'Credits Used', widthFraction: 0.33, align: 'right'},
+      {header: 'Date', widthFraction: 0.18},
     ],
     att => {
       const getCheckInTypeLabel = (type: string): string => {
         const map: Record<string, string> = {
-          live: 'Self Check-in',
-          manual: 'Checked in by Host',
+          live: 'Self check-in',
+          manual: 'Host check-in',
           backfill: 'Backfilled',
         };
         return map[type] ?? 'Unknown';
       };
 
+      // Credits column cleanup
+      let creditsText = String(att.creditsUsed);
+      if (att.creditsUsed > 1) creditsText += ' (incl. guests)';
+
       return [
         att.memberName,
         getCheckInTypeLabel(att.checkInType),
-        `${att.creditsUsed} credit${att.creditsUsed !== 1 ? 's' : ''}${
-          att.creditsUsed > 1 ? ' (includes guests)' : ''
-        }`,
+        creditsText,
         formatDateShort(att.checkedInAt),
       ];
     },
@@ -888,42 +896,120 @@ export async function exportSummaryReportPdf(
   b.registerFontkit();
   await b.init();
 
-  drawHeader(
-    b,
-    'Attendance Summary',
-    clubName,
-    `Period: ${startDate} to ${endDate}`,
-  );
+  // Format date range for header: "Mar 14 – Apr 13, 2026"
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const rangeText = `${start.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })} – ${end.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })}, ${end.getFullYear()}`;
+  drawHeader(b, 'Attendance Summary', clubName, rangeText);
 
-  drawHeroMetric(b, {
-    label: 'Total Credits Used',
-    value: String(data.summary.totalParticipation),
-    trend,
+  // Main metric (Total Credits Used) with precise spacing
+  const mainValue = String(data.summary.totalParticipation);
+  const mainLabel = 'Total Credits Used';
+  b.drawTextSafe(mainValue, {
+    x: PAGE_MARGIN + 8,
+    y: b.y,
+    size: 32,
+    lineHeight: 38,
+    color: C_INK,
+    fontType: 'bold',
+    kind: 'body',
   });
+  b.moveDown(6); // marginBottom for main metric
+  b.drawTextSafe(mainLabel, {
+    x: PAGE_MARGIN + 8,
+    y: b.y,
+    size: 13,
+    lineHeight: 24,
+    color: C_SECONDARY,
+    fontType: 'regular',
+    kind: 'body',
+  });
+  b.moveDown(24); // marginBottom after label
 
-  drawSummaryMetricsRow(b, [
+  // Secondary metrics (Unique Members, Check-ins, Sessions) with precise spacing
+  const contentWidth = b.width - PAGE_MARGIN * 2;
+  const cardW = (contentWidth - 20) / 3;
+  const cardY = b.y;
+  const borderColor = rgb(0.898, 0.898, 0.898); // #E5E7EB
+  const secMetrics = [
     {label: 'Unique Members', value: String(data.summary.uniqueMembers)},
     {label: 'Check-ins', value: String(data.summary.totalCheckIns)},
     {label: 'Sessions', value: String(data.summary.totalSessions)},
-  ]);
+  ];
+  secMetrics.forEach((item, i) => {
+    const x = PAGE_MARGIN + i * (cardW + 10);
+    b.currentPage.drawRectangle({
+      x,
+      y: cardY - 48,
+      width: cardW,
+      height: 48,
+      color: C_WHITE,
+      borderColor,
+      borderWidth: 1,
+    });
+    // Padding top
+    let y = cardY - 10;
+    const valueFont = b.pickFontForText(item.value, 'bold');
+    const valueW = valueFont.widthOfTextAtSize(item.value, 20);
+    b.drawTextSafe(item.value, {
+      x: x + (cardW - valueW) / 2,
+      y,
+      size: 20,
+      lineHeight: 26,
+      color: C_INK,
+      fontType: 'bold',
+      kind: 'body',
+    });
+    y -= 18; // marginBottom for value
+    const labelFont = b.pickFontForText(item.label, 'regular');
+    const labelW = labelFont.widthOfTextAtSize(item.label, 9);
+    b.drawTextSafe(item.label, {
+      x: x + (cardW - labelW) / 2,
+      y,
+      size: 9,
+      lineHeight: 18,
+      color: C_SECONDARY,
+      fontType: 'regular',
+      kind: 'body',
+    });
+  });
+  b.moveDown(56);
 
+  // (No extra date line here)
+
+  // Chart container with border and padding
   const trendData = buildTrendData(data.sessions);
+  b.currentPage.drawRectangle({
+    x: PAGE_MARGIN,
+    y: b.y - 160,
+    width: contentWidth,
+    height: 160,
+    color: C_WHITE,
+    borderColor,
+    borderWidth: 1,
+  });
+  b.moveDown(12);
   drawTrendChartSection(b, trendData);
+  b.moveDown(8);
 
+  // Section titles and table header cleanup (remove stray dash/empty section)
+  drawSectionHeaderOnly(b, 'Session Breakdown');
   drawPagedTableSection<SessionBreakdownItem>(
     b,
-    'Session Breakdown',
+    // Remove the empty summary/placeholder block by passing null/undefined as the section summary
+    undefined,
     data.sessions,
     [
       {header: 'Session', widthFraction: 0.4},
       {header: 'Date', widthFraction: 0.22},
       {header: 'Check-ins', widthFraction: 0.16, align: 'right'},
-      {
-        header: 'Credits',
-        widthFraction: 0.22,
-        align: 'right',
-        bold: true,
-      },
+      {header: 'Credits Used', widthFraction: 0.22, align: 'right', bold: true},
     ],
     s => [
       s.title ?? s.locationName ?? 'Session',

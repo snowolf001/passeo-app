@@ -12,20 +12,28 @@ import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {formatDate} from '../utils/date';
 import {useAppTheme} from '../theme/useAppTheme';
+import {useProStatus} from '../hooks/useProStatus';
+import {
+  canAccessFullHistory,
+  FREE_SESSION_LIMIT,
+} from '../config/entitlementConfig';
+import UpgradeModal from '../components/UpgradeModal';
 import type {ThemeColors} from '../theme/colors';
 
+type SessionRow = ApiSession & {locked?: boolean};
 type Props = {navigation: any};
 
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
-const MAX_VISIBLE_SESSIONS = 50;
 
 export default function SessionsScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const {isPro} = useProStatus();
   const [sessions, setSessions] = useState<ApiSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [upgradeVisible, setUpgradeVisible] = useState(false);
 
   const loadSessions = useCallback(async () => {
     const clubId = currentClub?.id;
@@ -57,8 +65,9 @@ export default function SessionsScreen({navigation}: Props) {
     return unsub;
   }, [navigation, loadSessions]);
 
-  const sections = useMemo(() => {
+  const {sections, lockedCount} = useMemo(() => {
     const now = Date.now();
+
     const upcoming = sessions
       .filter(s => new Date(s.startTime).getTime() > now)
       .sort(
@@ -66,9 +75,41 @@ export default function SessionsScreen({navigation}: Props) {
           new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
       );
 
-    if (upcoming.length === 0) return [];
-    return [{title: 'Upcoming Sessions', data: upcoming}];
-  }, [sessions]);
+    const past = sessions
+      .filter(s => new Date(s.startTime).getTime() <= now)
+      .sort(
+        (a, b) =>
+          new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
+      );
+
+    const freePast = canAccessFullHistory(isPro)
+      ? past
+      : past.slice(0, FREE_SESSION_LIMIT);
+    const lockedPast = canAccessFullHistory(isPro)
+      ? []
+      : past.slice(FREE_SESSION_LIMIT);
+
+    const builtSections: {title: string; data: SessionRow[]}[] = [];
+
+    if (upcoming.length > 0) {
+      builtSections.push({
+        title: 'Upcoming Sessions',
+        data: upcoming.map(s => ({...s, locked: false})),
+      });
+    }
+
+    if (freePast.length > 0 || lockedPast.length > 0) {
+      builtSections.push({
+        title: 'Past Sessions',
+        data: [
+          ...freePast.map(s => ({...s, locked: false})),
+          ...lockedPast.map(s => ({...s, locked: true})),
+        ],
+      });
+    }
+
+    return {sections: builtSections, lockedCount: lockedPast.length};
+  }, [sessions, isPro]);
 
   const highlightedSession = useMemo(() => {
     const now = Date.now();
@@ -163,7 +204,27 @@ export default function SessionsScreen({navigation}: Props) {
     };
   };
 
-  const renderItem = ({item}: {item: ApiSession}) => {
+  const renderItem = ({item}: {item: SessionRow}) => {
+    if (item.locked) {
+      return (
+        <TouchableOpacity
+          style={[styles.card, styles.cardLocked]}
+          onPress={() => setUpgradeVisible(true)}>
+          <View style={styles.cardTop}>
+            <Text
+              style={[styles.cardTitle, styles.cardTitleLocked]}
+              numberOfLines={1}>
+              {item.title ?? item.locationName ?? 'Session'}
+            </Text>
+            <Text style={styles.lockBadge}>🔒</Text>
+          </View>
+          <Text style={[styles.detailText, {color: colors.textMuted}]}>
+            {formatDate(item.startTime)}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
     const badge = getStatusBadge(item);
 
     return (
@@ -299,7 +360,21 @@ export default function SessionsScreen({navigation}: Props) {
             </Text>
           </View>
         }
-        ListFooterComponent={null}
+        ListFooterComponent={
+          lockedCount > 0 ? (
+            <TouchableOpacity
+              style={styles.upgradeBanner}
+              onPress={() => setUpgradeVisible(true)}>
+              <Text style={styles.upgradeBannerText}>
+                🔒 Upgrade to Pro to unlock full history
+              </Text>
+            </TouchableOpacity>
+          ) : null
+        }
+      />
+      <UpgradeModal
+        visible={upgradeVisible}
+        onClose={() => setUpgradeVisible(false)}
       />
     </SafeAreaView>
   );
@@ -514,6 +589,23 @@ function createStyles(c: ThemeColors) {
       backgroundColor: c.surfaceRaised,
     },
     cardTitleLocked: {
+      color: c.textMuted,
+    },
+    lockBadge: {
+      fontSize: 14,
+    },
+    upgradeBanner: {
+      marginTop: 8,
+      marginBottom: 16,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    upgradeBannerText: {
+      fontSize: 14,
+      fontWeight: '600',
       color: c.textMuted,
     },
   });

@@ -15,6 +15,9 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getAuditLogs, AuditLogItem} from '../services/api/reportApi';
@@ -96,6 +99,8 @@ export default function AuditLogScreen({navigation}: Props) {
   );
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
   // Event type filter
   const [eventTypePickerOpen, setEventTypePickerOpen] = useState(false);
@@ -387,7 +392,7 @@ export default function AuditLogScreen({navigation}: Props) {
                 styles.filterChipCaret,
                 appliedMember && styles.filterChipTextActive,
               ]}>
-              ?
+              {String.fromCharCode(8964)}
             </Text>
           </TouchableOpacity>
 
@@ -411,41 +416,91 @@ export default function AuditLogScreen({navigation}: Props) {
                 styles.filterChipCaret,
                 appliedEventType && styles.filterChipTextActive,
               ]}>
-              ?
+              {String.fromCharCode(8964)}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Row 2: date inputs + Apply/Clear + Export */}
+        {/* Row 2: date buttons */}
         <View style={styles.filterRow}>
-          <TextInput
-            style={[styles.dateInput, appliedStart && styles.dateInputActive]}
-            value={startDate}
-            onChangeText={setStartDate}
-            placeholder="From YYYY-MM-DD"
-            placeholderTextColor="#AEAEB2"
-            autoCorrect={false}
-            autoCapitalize="none"
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={[styles.dateInput, appliedEnd && styles.dateInputActive]}
-            value={endDate}
-            onChangeText={setEndDate}
-            placeholder="To YYYY-MM-DD"
-            placeholderTextColor="#AEAEB2"
-            autoCorrect={false}
-            autoCapitalize="none"
-            keyboardType="numeric"
-          />
-          <TouchableOpacity style={styles.applyBtn} onPress={applyFilters}>
-            <Text style={styles.applyBtnText}>Apply</Text>
+          <TouchableOpacity
+            style={[styles.dateBtn, appliedStart && styles.dateBtnActive]}
+            onPress={() => setShowStartPicker(true)}>
+            <Text
+              style={[
+                styles.dateBtnText,
+                !startDate && styles.dateBtnPlaceholder,
+                appliedStart && styles.dateBtnTextActive,
+              ]}
+              numberOfLines={1}
+              ellipsizeMode="tail">
+              {startDate || 'From'}
+            </Text>
           </TouchableOpacity>
-          {hasActiveFilters && (
-            <TouchableOpacity style={styles.clearBtn} onPress={clearFilters}>
-              <Text style={styles.clearBtnText}>?</Text>
+          <TouchableOpacity
+            style={[styles.dateBtn, appliedEnd && styles.dateBtnActive]}
+            onPress={() => setShowEndPicker(true)}>
+            <Text
+              style={[
+                styles.dateBtnText,
+                !endDate && styles.dateBtnPlaceholder,
+                appliedEnd && styles.dateBtnTextActive,
+              ]}
+              numberOfLines={1}
+              ellipsizeMode="tail">
+              {endDate || 'To'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {showStartPicker && (
+          <DateTimePicker
+            mode="date"
+            value={startDate ? new Date(startDate) : new Date()}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(e: DateTimePickerEvent, d?: Date) => {
+              setShowStartPicker(Platform.OS === 'ios');
+              if (e.type === 'set' && d) {
+                const sy = d.getFullYear();
+                const sm = String(d.getMonth() + 1).padStart(2, '0');
+                const sd = String(d.getDate()).padStart(2, '0');
+                setStartDate(`${sy}-${sm}-${sd}`);
+              } else if (Platform.OS !== 'ios') {
+                setShowStartPicker(false);
+              }
+            }}
+          />
+        )}
+        {showEndPicker && (
+          <DateTimePicker
+            mode="date"
+            value={endDate ? new Date(endDate) : new Date()}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(e: DateTimePickerEvent, d?: Date) => {
+              setShowEndPicker(Platform.OS === 'ios');
+              if (e.type === 'set' && d) {
+                const ey = d.getFullYear();
+                const em = String(d.getMonth() + 1).padStart(2, '0');
+                const ed = String(d.getDate()).padStart(2, '0');
+                setEndDate(`${ey}-${em}-${ed}`);
+              } else if (Platform.OS !== 'ios') {
+                setShowEndPicker(false);
+              }
+            }}
+          />
+        )}
+
+        {/* Row 3: Apply + Clear (left) | Export PDF (right) */}
+        <View style={[styles.filterRow, {justifyContent: 'space-between'}]}>
+          <View style={styles.filterRow}>
+            <TouchableOpacity style={styles.applyBtn} onPress={applyFilters}>
+              <Text style={styles.applyBtnText}>Apply</Text>
             </TouchableOpacity>
-          )}
+            {hasActiveFilters && (
+              <TouchableOpacity style={styles.clearBtn} onPress={clearFilters}>
+                <Text style={styles.clearBtnText}>{'\u2715'}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <TouchableOpacity
             style={[
               styles.exportBtn,
@@ -474,15 +529,15 @@ export default function AuditLogScreen({navigation}: Props) {
         <View style={styles.activeSummary}>
           <Text style={styles.activeSummaryText}>
             Filtered
-            {appliedMember ? ` � ${appliedMember.userName}` : ''}
+            {appliedMember ? ` \u00B7 ${appliedMember.userName}` : ''}
             {appliedEventType
-              ? ` � ${
+              ? ` \u00B7 ${
                   EVENT_TYPE_OPTIONS.find(o => o.value === appliedEventType)
                     ?.label ?? appliedEventType
                 }`
               : ''}
-            {appliedStart ? ` � from ${appliedStart}` : ''}
-            {appliedEnd ? ` � to ${appliedEnd}` : ''}
+            {appliedStart ? ` \u00B7 from ${appliedStart}` : ''}
+            {appliedEnd ? ` \u00B7 to ${appliedEnd}` : ''}
           </Text>
         </View>
       )}
@@ -660,7 +715,6 @@ function createStyles(c: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      flexWrap: 'wrap',
     },
     filterChip: {
       flexDirection: 'row',
@@ -670,31 +724,32 @@ function createStyles(c: ThemeColors) {
       paddingHorizontal: 10,
       paddingVertical: 7,
       gap: 4,
-      maxWidth: 130,
+      flex: 1,
     },
     filterChipActive: {
       backgroundColor: '#EBF4FF',
       borderWidth: 1,
       borderColor: c.primary,
     },
-    filterChipText: {fontSize: 13, color: c.text, flexShrink: 1},
+    filterChipText: {fontSize: 13, color: c.text, flex: 1},
     filterChipTextActive: {color: c.primary},
     filterChipCaret: {fontSize: 10, color: c.textMuted},
-    dateInput: {
+    dateBtn: {
       flex: 1,
-      minWidth: 90,
       backgroundColor: c.surfaceRaised,
       borderRadius: 8,
-      paddingHorizontal: 8,
-      paddingVertical: Platform.OS === 'ios' ? 7 : 5,
-      fontSize: 12,
-      color: c.text,
+      paddingHorizontal: 10,
+      paddingVertical: Platform.OS === 'ios' ? 9 : 7,
+      justifyContent: 'center',
     },
-    dateInputActive: {
+    dateBtnActive: {
       backgroundColor: '#EBF4FF',
       borderWidth: 1,
       borderColor: c.primary,
     },
+    dateBtnText: {fontSize: 13, color: c.text},
+    dateBtnPlaceholder: {color: '#AEAEB2'},
+    dateBtnTextActive: {color: c.primary},
     applyBtn: {
       backgroundColor: c.primary,
       borderRadius: 8,

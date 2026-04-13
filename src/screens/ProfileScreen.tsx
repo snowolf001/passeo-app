@@ -10,9 +10,14 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
-import {CLUB_PRO_CONFIG} from '../config/appConfig';
 import {leaveClub} from '../services/api/clubApi';
 import {useAppTheme} from '../theme/useAppTheme';
+import {useProStatus} from '../hooks/useProStatus';
+import {
+  canAccessSummaryReports,
+  canAccessAuditLogs,
+} from '../config/entitlementConfig';
+import UpgradeModal from '../components/UpgradeModal';
 import type {ThemeColors} from '../theme/colors';
 
 type Props = {navigation: any};
@@ -21,9 +26,11 @@ export default function ProfileScreen({navigation}: Props) {
   const {currentMembership, currentClub, clearMembershipSession} = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const {isPro, plan, setPlan} = useProStatus();
 
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
+  const [upgradeVisible, setUpgradeVisible] = useState(false);
   const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showSnackbar = useCallback((message: string) => {
@@ -45,11 +52,6 @@ export default function ProfileScreen({navigation}: Props) {
   const role = currentMembership.role;
   const isOwnerOrHost = ['host', 'owner'].includes(role);
   const canManageClub = ['host', 'owner'].includes(role);
-
-  // Club Pro gating — flip CLUB_PRO_CONFIG.IS_PRO when billing is ready
-  const isClubPro = CLUB_PRO_CONFIG.IS_PRO;
-  const goProGate = () => navigation.navigate('ClubProPreview');
-  // TODO: club_click_reports_locked / club_click_audit_logs_locked events here
 
   const ROLE_LABELS: Record<string, string> = {
     member: 'Member',
@@ -236,7 +238,9 @@ export default function ProfileScreen({navigation}: Props) {
             <TouchableOpacity
               style={styles.actionItem}
               onPress={() =>
-                isClubPro ? navigation.navigate('Reports') : goProGate()
+                canAccessSummaryReports(isPro)
+                  ? navigation.navigate('Reports')
+                  : setUpgradeVisible(true)
               }>
               <Text style={styles.actionItemText}>Reports</Text>
               <Text style={styles.chevron}>›</Text>
@@ -255,7 +259,9 @@ export default function ProfileScreen({navigation}: Props) {
             <TouchableOpacity
               style={styles.actionItem}
               onPress={() =>
-                isClubPro ? navigation.navigate('AuditLog') : goProGate()
+                canAccessAuditLogs(isPro)
+                  ? navigation.navigate('AuditLog')
+                  : setUpgradeVisible(true)
               }>
               <Text style={styles.actionItemText}>Audit Log</Text>
               <Text style={styles.chevron}>›</Text>
@@ -316,7 +322,39 @@ export default function ProfileScreen({navigation}: Props) {
             </Text>
           )}
         </View>
+
+        {/* ===== DEV ONLY: Subscription Debug ===== */}
+        {__DEV__ && (
+          <View style={[styles.card, styles.devCard]}>
+            <Text style={styles.devCardTitle}>
+              Subscription Debug (DEV ONLY)
+            </Text>
+            <TouchableOpacity
+              style={styles.devButton}
+              onPress={() => setPlan('pro_monthly')}>
+              <Text style={styles.devButtonText}>Turn Pro ON (Monthly)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.devButton}
+              onPress={() => setPlan('pro_yearly')}>
+              <Text style={styles.devButtonText}>Turn Pro ON (Yearly)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.devButton, styles.devButtonOff]}
+              onPress={() => setPlan('free')}>
+              <Text style={styles.devButtonOffText}>Turn Pro OFF</Text>
+            </TouchableOpacity>
+            <Text style={styles.devStatus}>
+              Plan: {plan} {isPro ? '✓ Pro' : '✗ Free'}
+            </Text>
+          </View>
+        )}
       </ScrollView>
+
+      <UpgradeModal
+        visible={upgradeVisible}
+        onClose={() => setUpgradeVisible(false)}
+      />
       {snackVisible && (
         <View pointerEvents="none" style={styles.snackbar}>
           <Text style={styles.snackbarText}>{snackMsg}</Text>
@@ -508,6 +546,46 @@ function createStyles(c: ThemeColors) {
       color: c.textMuted,
       textAlign: 'center',
       marginTop: 8,
+    },
+    devCard: {
+      borderWidth: 1,
+      borderColor: '#FFA500',
+      borderStyle: 'dashed',
+    },
+    devCardTitle: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#FFA500',
+      marginBottom: 12,
+      textTransform: 'uppercase',
+    },
+    devButton: {
+      paddingVertical: 11,
+      paddingHorizontal: 14,
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 8,
+      marginBottom: 8,
+      alignItems: 'center',
+    },
+    devButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.primary,
+    },
+    devButtonOff: {
+      borderWidth: 1,
+      borderColor: c.danger,
+    },
+    devButtonOffText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.danger,
+    },
+    devStatus: {
+      marginTop: 4,
+      fontSize: 12,
+      color: c.textMuted,
+      textAlign: 'center',
     },
   });
 }

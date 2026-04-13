@@ -7,7 +7,11 @@ import {
   StyleSheet,
   ActivityIndicator,
   TextInput,
+  Platform,
 } from 'react-native';
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-aware-scroll-view';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
@@ -22,6 +26,9 @@ import {
 import {exportSummaryReportPdf} from '../services/reportPdfService';
 import {formatDate} from '../utils/date';
 import {useAppTheme} from '../theme/useAppTheme';
+import {useProStatus} from '../hooks/useProStatus';
+import {canAccessMemberHistory} from '../config/entitlementConfig';
+import UpgradeModal from '../components/UpgradeModal';
 import type {ThemeColors} from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Reports'>;
@@ -51,52 +58,11 @@ const PRESETS = [
 ];
 
 export default function ReportsScreen({navigation}: Props) {
-  const {currentClub, currentMembership} = useApp();
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+  const {currentClub} = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-
-  // ── Last session ──────────────────────────────────────────────────────────
-  const [lastSession, setLastSession] = useState<SessionBreakdownItem | null>(
-    null,
-  );
-  const [lastSessionLoading, setLastSessionLoading] = useState(true);
-  const [lastSessionExpanded, setLastSessionExpanded] = useState(false);
-  const [lastSessionError, setLastSessionError] = useState<string | null>(null);
-
-  const isSessionLive = (session: SessionBreakdownItem | null): boolean => {
-    if (!session) return false;
-    const now = Date.now();
-    const started = new Date(session.startsAt).getTime();
-    const ended = session.endsAt ? new Date(session.endsAt).getTime() : null;
-    return started <= now && (ended === null || ended > now);
-  };
-
-  // Full load — shows spinner, resets expanded
-  const loadLastSession = useCallback(() => {
-    if (!currentClub) {
-      setLastSessionLoading(false);
-      setLastSessionError('No club loaded');
-      return;
-    }
-    setLastSessionLoading(true);
-    setLastSessionError(null);
-    setLastSessionExpanded(false);
-    getSessionsBreakdown({clubId: currentClub.id, lastOnly: true})
-      .then(data => setLastSession(data.sessions[0] ?? null))
-      .catch(err => {
-        setLastSessionError(err?.message ?? String(err));
-        setLastSession(null);
-      })
-      .finally(() => setLastSessionLoading(false));
-  }, [currentClub]);
-
-  // Silent refresh — no spinner, keeps expanded state (used by auto-refresh)
-  const silentRefreshLastSession = useCallback(() => {
-    if (!currentClub) return;
-    getSessionsBreakdown({clubId: currentClub.id, lastOnly: true})
-      .then(data => setLastSession(data.sessions[0] ?? null))
-      .catch(() => {});
-  }, [currentClub]);
 
   // ── Date-range report ─────────────────────────────────────────────────────
   const [startDate, setStartDate] = useState(
@@ -108,22 +74,11 @@ export default function ReportsScreen({navigation}: Props) {
     null,
   );
   const [rangeError, setRangeError] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  // Restore expandedSessions state for session expand/collapse
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
     new Set(),
   );
-  const [exportingPdf, setExportingPdf] = useState(false);
-
-  // Initial load
-  useEffect(() => {
-    loadLastSession();
-  }, [loadLastSession]);
-
-  // Auto-refresh every 30s while the session is live
-  useEffect(() => {
-    if (!isSessionLive(lastSession)) return;
-    const timer = setInterval(silentRefreshLastSession, 30000);
-    return () => clearInterval(timer);
-  }, [lastSession, silentRefreshLastSession]);
 
   const applyPreset = (days: number) => {
     setStartDate(toYMD(new Date(Date.now() - days * 24 * 60 * 60 * 1000)));
@@ -137,7 +92,6 @@ export default function ReportsScreen({navigation}: Props) {
     setRangeLoading(true);
     setRangeError(null);
     setRangeData(null);
-    setExpandedSessions(new Set());
     try {
       const result = await getSessionsBreakdown({
         clubId: currentClub.id,
@@ -245,9 +199,6 @@ export default function ReportsScreen({navigation}: Props) {
     );
   };
 
-  const role = currentMembership?.role ?? '';
-  const canViewMemberHistory = ['host', 'owner'].includes(role);
-
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <KeyboardAwareScrollView
@@ -255,102 +206,20 @@ export default function ReportsScreen({navigation}: Props) {
         keyboardShouldPersistTaps="handled"
         extraScrollHeight={24}
         contentContainerStyle={styles.scroll}>
-        {/* Quick links */}
-        {canViewMemberHistory && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Quick Links</Text>
-            <TouchableOpacity
-              style={styles.linkRow}
-              onPress={() => {
-                if (currentMembership) {
-                  navigation.navigate('MemberHistory', {
-                    membershipId: currentMembership.id,
-                    title: 'My Attendance',
-                  });
-                }
-              }}>
-              <Text style={styles.linkText}>My Attendance History</Text>
-              <Text style={styles.chevronLg}>›</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ── Current / Last Session ───────────────────────────────────────── */}
+        <Text
+          style={{
+            fontSize: 22,
+            fontWeight: '700',
+            color: colors.text,
+            marginBottom: 18,
+            marginTop: 2,
+          }}>
+          Reports
+        </Text>
         <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.sectionTitleRow}>
-              <Text style={[styles.sectionTitle, {marginBottom: 0}]}>
-                {isSessionLive(lastSession)
-                  ? 'Current Session'
-                  : 'Last Session'}
-              </Text>
-              {isSessionLive(lastSession) && (
-                <View style={styles.liveBadge}>
-                  <Text style={styles.liveBadgeText}>LIVE</Text>
-                </View>
-              )}
-            </View>
-            <TouchableOpacity
-              onPress={loadLastSession}
-              disabled={lastSessionLoading}>
-              <Text style={styles.refreshBtn}>↻ Refresh</Text>
-            </TouchableOpacity>
-          </View>
-          {lastSessionLoading ? (
-            <ActivityIndicator color="#007AFF" style={styles.centerPad} />
-          ) : lastSessionError ? (
-            <Text style={styles.errorText}>{lastSessionError}</Text>
-          ) : !lastSession ? (
-            <Text style={styles.emptyText}>No sessions found.</Text>
-          ) : (
-            <>
-              <View style={styles.lastSessionRow}>
-                <View style={{flex: 1}}>
-                  <Text style={styles.lastSessionTitle}>
-                    {lastSession.title ?? lastSession.locationName ?? 'Session'}
-                  </Text>
-                  {lastSession.locationName && lastSession.title && (
-                    <Text style={styles.lastSessionMeta}>
-                      {lastSession.locationName}
-                    </Text>
-                  )}
-                  <Text style={styles.lastSessionMeta}>
-                    {formatDate(lastSession.startsAt)}
-                  </Text>
-                </View>
-                <View style={styles.lastSessionBadge}>
-                  <Text style={styles.lastSessionBadgeNum}>
-                    {lastSession.totalCheckIns}
-                  </Text>
-                  <Text style={styles.lastSessionBadgeLbl}>check-ins</Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={styles.expandBtn}
-                onPress={() => setLastSessionExpanded(v => !v)}>
-                <Text style={styles.expandBtnText}>
-                  {lastSessionExpanded ? 'Hide attendees' : 'Show attendees'}
-                </Text>
-                <Text style={styles.chevron}>
-                  {lastSessionExpanded ? '▲' : '▼'}
-                </Text>
-              </TouchableOpacity>
-              {lastSessionExpanded && (
-                <View style={styles.attendeeList}>
-                  {lastSession.attendees.length === 0 ? (
-                    <Text style={styles.emptyText}>No check-ins recorded.</Text>
-                  ) : (
-                    lastSession.attendees.map(renderAttendeeRow)
-                  )}
-                </View>
-              )}
-            </>
-          )}
-        </View>
-
-        {/* ── Sessions by Date Range ───────────────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sessions by Date Range</Text>
+          <Text style={[styles.sectionTitle, {marginBottom: 12}]}>
+            Date Range
+          </Text>
           <View style={styles.presetRow}>
             {PRESETS.map(p => (
               <TouchableOpacity
@@ -364,48 +233,114 @@ export default function ReportsScreen({navigation}: Props) {
           <View style={styles.dateRow}>
             <View style={styles.dateField}>
               <Text style={styles.dateLabel}>From</Text>
-              <TextInput
+              <TouchableOpacity
                 style={styles.dateInput}
-                value={startDate}
-                onChangeText={setStartDate}
-                placeholder="YYYY-MM-DD"
-                maxLength={10}
-                keyboardType="numbers-and-punctuation"
-              />
+                onPress={() => setShowStartPicker(true)}
+                activeOpacity={0.7}>
+                <Text
+                  style={{color: startDate ? colors.text : colors.placeholder}}>
+                  {startDate || 'YYYY-MM-DD'}
+                </Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.dateDivider} />
             <View style={styles.dateField}>
               <Text style={styles.dateLabel}>To</Text>
-              <TextInput
+              <TouchableOpacity
                 style={styles.dateInput}
-                value={endDate}
-                onChangeText={setEndDate}
-                placeholder="YYYY-MM-DD"
-                maxLength={10}
-                keyboardType="numbers-and-punctuation"
-              />
+                onPress={() => setShowEndPicker(true)}
+                activeOpacity={0.7}>
+                <Text
+                  style={{color: endDate ? colors.text : colors.placeholder}}>
+                  {endDate || 'YYYY-MM-DD'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
+          {showStartPicker && (
+            <DateTimePicker
+              mode="date"
+              value={startDate ? new Date(startDate) : new Date()}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(e: DateTimePickerEvent, d?: Date) => {
+                setShowStartPicker(Platform.OS === 'ios');
+                if (e.type === 'set' && d) {
+                  const sy = d.getFullYear();
+                  const sm = String(d.getMonth() + 1).padStart(2, '0');
+                  const sd = String(d.getDate()).padStart(2, '0');
+                  setStartDate(`${sy}-${sm}-${sd}`);
+                } else if (Platform.OS !== 'ios') {
+                  setShowStartPicker(false);
+                }
+              }}
+            />
+          )}
+          {showEndPicker && (
+            <DateTimePicker
+              mode="date"
+              value={endDate ? new Date(endDate) : new Date()}
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(e: DateTimePickerEvent, d?: Date) => {
+                setShowEndPicker(Platform.OS === 'ios');
+                if (e.type === 'set' && d) {
+                  const ey = d.getFullYear();
+                  const em = String(d.getMonth() + 1).padStart(2, '0');
+                  const ed = String(d.getDate()).padStart(2, '0');
+                  setEndDate(`${ey}-${em}-${ed}`);
+                } else if (Platform.OS !== 'ios') {
+                  setShowEndPicker(false);
+                }
+              }}
+            />
+          )}
           <TouchableOpacity
-            style={[styles.runBtn, rangeLoading && styles.runBtnDisabled]}
+            style={[
+              styles.runBtn,
+              rangeLoading && styles.runBtnDisabled,
+              {marginTop: 10, marginBottom: 6},
+            ]}
             onPress={runRangeReport}
             disabled={rangeLoading}>
             {rangeLoading ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.runBtnText}>Run Report</Text>
+              <Text style={[styles.runBtnText, {fontSize: 17}]}>
+                Generate Report
+              </Text>
             )}
           </TouchableOpacity>
+          <Text
+            style={{
+              fontSize: 12,
+              color: '#9CA3AF',
+              textAlign: 'center',
+              marginTop: 2,
+            }}>
+            Generate attendance summaries and insights for your club
+          </Text>
         </View>
-
         {rangeError && (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{rangeError}</Text>
           </View>
         )}
-
         {rangeData && (
           <>
+            {/* Export PDF */}
+            <TouchableOpacity
+              style={[
+                styles.exportPdfBtn,
+                exportingPdf && styles.exportPdfBtnDisabled,
+              ]}
+              onPress={handleExportSummaryPdf}
+              disabled={exportingPdf}>
+              {exportingPdf ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.exportPdfBtnText}>⬇ Export PDF</Text>
+              )}
+            </TouchableOpacity>
+
             {/* Summary cards */}
             <View style={styles.summaryGrid}>
               <View style={styles.summaryCard}>
@@ -437,21 +372,6 @@ export default function ReportsScreen({navigation}: Props) {
                 <Text style={styles.summaryLabel}>Total Check-ins</Text>
               </View>
             </View>
-
-            {/* Export PDF */}
-            <TouchableOpacity
-              style={[
-                styles.exportPdfBtn,
-                exportingPdf && styles.exportPdfBtnDisabled,
-              ]}
-              onPress={handleExportSummaryPdf}
-              disabled={exportingPdf}>
-              {exportingPdf ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.exportPdfBtnText}>⬇ Export PDF</Text>
-              )}
-            </TouchableOpacity>
 
             {/* Per-session breakdown */}
             <View style={styles.section}>

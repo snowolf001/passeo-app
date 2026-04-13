@@ -2,7 +2,7 @@
 // Generates a production-grade Audit Log Report PDF.
 // Isolated from existing session/summary PDF code.
 
-import {PDFDocument} from 'pdf-lib';
+import {PDFDocument, rgb} from 'pdf-lib';
 import {Buffer} from 'buffer';
 import {Alert, Platform} from 'react-native';
 import RNFS from 'react-native-fs';
@@ -237,12 +237,20 @@ function drawMainHeader(
   },
   summary: AuditSummary,
 ) {
-  const rightEdge = b.width - PAGE_MARGIN;
-  const headerStartY = b.y;
+  // ── Single-column: brand + club name + report title ───────────────────────
+  // Brand (small, gray)
+  b.drawTextSafe('Passeo', {
+    x: PAGE_MARGIN,
+    y: b.y,
+    size: 10,
+    color: COLOR_LIGHT_GRAY,
+    fontType: 'regular',
+    kind: 'body',
+  });
+  b.moveDown(14);
 
-  // ── Left column: club name, report title, filters ─────────────────────────
-
-  b.drawTextSafe(clubName.toUpperCase(), {
+  // Club name (bold)
+  b.drawTextSafe(clubName, {
     x: PAGE_MARGIN,
     y: b.y,
     size: T_CLUB,
@@ -250,161 +258,144 @@ function drawMainHeader(
     fontType: 'bold',
     kind: 'title',
   });
-  b.moveDown(LH_CLUB);
+  b.moveDown(LH_CLUB - 4);
 
+  // Main title
   b.drawTextSafe('Audit Log Report', {
     x: PAGE_MARGIN,
     y: b.y,
-    size: T_REPORT,
+    size: 21,
+    color: COLOR_BLACK,
+    fontType: 'bold',
+    kind: 'title',
+  });
+  b.moveDown(22);
+
+  // Right: generated date + summary counts
+  const genText = `Generated on ${todayLabel()}`;
+  const genW = b.fontAscii.widthOfTextAtSize(genText, T_SMALL);
+  b.drawTextSafe(genText, {
+    x: b.width - PAGE_MARGIN - genW,
+    y: b.y,
+    size: T_SMALL,
     color: COLOR_DARK_GRAY,
     fontType: 'regular',
     kind: 'body',
   });
-  b.moveDown(LH_REPORT);
+  b.moveDown(LH_SMALL + 2);
 
-  b.drawTextSafe('Filters', {
-    x: PAGE_MARGIN,
-    y: b.y,
-    size: T_SMALL,
-    color: COLOR_GRAY,
-    fontType: 'bold',
-    kind: 'body',
-  });
-  b.moveDown(LH_SMALL);
-
-  const memberLabel = filters.memberName ?? 'All Members';
-  b.drawTextSafe(`Member: ${memberLabel}`, {
-    x: PAGE_MARGIN + 8,
-    y: b.y,
-    size: T_SMALL,
-    color: COLOR_GRAY,
-    fontType: 'regular',
-    kind: 'body',
-  });
-  b.moveDown(LH_SMALL);
-
-  const eventLabel =
-    filters.eventTypeLabel && filters.eventTypeLabel !== 'All Events'
-      ? filters.eventTypeLabel
-      : 'All Events';
-  b.drawTextSafe(`Event Type: ${eventLabel}`, {
-    x: PAGE_MARGIN + 8,
-    y: b.y,
-    size: T_SMALL,
-    color: COLOR_GRAY,
-    fontType: 'regular',
-    kind: 'body',
-  });
-  b.moveDown(LH_SMALL);
-
-  const dateRange =
-    filters.startDate || filters.endDate
-      ? [filters.startDate, filters.endDate].filter(Boolean).join(' to ')
-      : 'Any';
-  b.drawTextSafe(`Date Range: ${dateRange}`, {
-    x: PAGE_MARGIN + 8,
-    y: b.y,
-    size: T_SMALL,
-    color: COLOR_GRAY,
-    fontType: 'regular',
-    kind: 'body',
-  });
-  b.moveDown(LH_SMALL);
-
-  const leftBottomY = b.y;
-
-  // ── Right column: export date + mini summary ───────────────────────────────
-  b.y = headerStartY;
-
-  // Exported: date (single line)
-  drawRightAligned(
-    b,
-    `Exported: ${todayLabel()}`,
-    b.y,
-    T_SMALL,
-    COLOR_DARK_GRAY,
-    'regular',
-  );
-  b.moveDown(LH_SMALL + 6);
-
-  // Mini summary: 3 key stats, each label+value on one line
+  // Summary counts (right-aligned, smaller)
   const miniStats: [string, string][] = [
     ['Entries', String(summary.totalEntries)],
     ['Check-ins', String(summary.totalCheckIns)],
     ['Members', String(summary.uniqueMembers)],
   ];
   for (const [statLabel, statValue] of miniStats) {
-    drawRightAligned(
-      b,
-      `${statLabel}: ${statValue}`,
-      b.y,
-      T_SMALL,
-      COLOR_DARK_GRAY,
-      'bold',
-    );
-    b.moveDown(LH_SMALL + 1);
+    const statText = `${statLabel}: ${statValue}`;
+    const statW = b.fontAscii.widthOfTextAtSize(statText, T_SMALL);
+    b.drawTextSafe(statText, {
+      x: b.width - PAGE_MARGIN - statW,
+      y: b.y,
+      size: T_SMALL,
+      color: COLOR_DARK_GRAY,
+      fontType: 'bold',
+      kind: 'body',
+    });
+    b.moveDown(LH_SMALL - 2);
   }
 
-  const rightBottomY = b.y;
+  // Filters (smaller, muted, dot bullets)
+  b.moveDown(2);
+  const filterColor = rgb(0.42, 0.44, 0.5); // #6B7280
+  const memberLabel = filters.memberName ?? 'All Members';
+  const eventLabel =
+    filters.eventTypeLabel && filters.eventTypeLabel !== 'All Events'
+      ? filters.eventTypeLabel
+      : 'All Events';
+  const dateLabel =
+    filters.startDate || filters.endDate
+      ? [filters.startDate, filters.endDate].filter(Boolean).join(' to ')
+      : 'Any';
+  const filterLines = [
+    `• Member: ${memberLabel}`,
+    `• Event: ${eventLabel}`,
+    `• Date: ${dateLabel}`,
+  ];
+  filterLines.forEach(line => {
+    b.drawTextSafe(line, {
+      x: PAGE_MARGIN,
+      y: b.y,
+      size: T_SMALL - 1,
+      color: filterColor,
+      fontType: 'regular',
+      kind: 'body',
+    });
+    b.moveDown(LH_SMALL - 4);
+  });
 
-  // Cursor at bottom of whichever column is taller
-  b.y = Math.min(leftBottomY, rightBottomY);
-  b.moveDown(12);
-
-  // Strong divider under header
-  b.drawDivider(b.y, 1, COLOR_DARK_GRAY);
-  b.moveDown(16);
+  b.moveDown(10);
+  b.drawDivider(b.y, 0.5, COLOR_BORDER);
+  b.moveDown(14);
 }
 
 // ─── Drawing: summary section ─────────────────────────────────────────────────
 
 function drawSummarySection(b: PdfBuilder, summary: AuditSummary) {
+  // ONE primary metric: Total Credits Added (large)
   const contentWidth = b.width - PAGE_MARGIN * 2;
   const rightEdge = b.width - PAGE_MARGIN;
-
-  b.drawTextSafe('Summary', {
+  const mainValue = String(summary.totalCreditsAdded);
+  const mainLabel = 'Total Credits Added';
+  const mainFont = b.pickFontForText(mainValue, 'bold');
+  const mainW = mainFont.widthOfTextAtSize(mainValue, 30);
+  b.drawTextSafe(mainValue, {
     x: PAGE_MARGIN,
     y: b.y,
-    size: T_SECTION,
+    size: 30,
     color: COLOR_BLACK,
     fontType: 'bold',
     kind: 'body',
   });
-  b.moveDown(LH_SECTION);
+  b.drawTextSafe(mainLabel, {
+    x: PAGE_MARGIN + mainW + 12,
+    y: b.y + 6,
+    size: 15,
+    color: COLOR_DARK_GRAY,
+    fontType: 'regular',
+    kind: 'body',
+  });
+  b.moveDown(32);
 
+  // Other metrics (smaller)
   const rows: [string, string][] = [
     ['Total entries', String(summary.totalEntries)],
-    ['Total credits added', String(summary.totalCreditsAdded)],
-    ['Total credits deducted', String(summary.totalCreditsDeducted)],
-    ['Total check-ins', String(summary.totalCheckIns)],
-    ['Unique members affected', String(summary.uniqueMembers)],
+    ['Check-ins', String(summary.totalCheckIns)],
+    ['Unique members', String(summary.uniqueMembers)],
   ];
-
-  for (const [label, value] of rows) {
+  rows.forEach(([label, value]) => {
     b.drawTextSafe(label, {
       x: PAGE_MARGIN,
       y: b.y,
-      size: T_BODY,
+      size: 14,
       color: COLOR_DARK_GRAY,
       fontType: 'regular',
       kind: 'body',
     });
     const valFont = b.pickFontForText(value, 'bold');
-    const valWidth = valFont.widthOfTextAtSize(value, T_BODY);
+    const valWidth = valFont.widthOfTextAtSize(value, 14);
     b.drawTextSafe(value, {
       x: rightEdge - valWidth,
       y: b.y,
-      size: T_BODY,
+      size: 14,
       color: COLOR_BLACK,
       fontType: 'bold',
       kind: 'body',
     });
-    b.moveDown(SUMMARY_ROW_H);
-  }
-
+    b.moveDown(16);
+  });
   b.moveDown(8);
   b.drawDivider(b.y, 0.5, COLOR_BORDER);
-  b.moveDown(20);
+  b.moveDown(18);
 }
 
 // ─── Drawing: continuation page header ───────────────────────────────────────
@@ -443,11 +434,8 @@ function estimateEntryHeight(log: AuditLogItem): number {
   const key = resolveActionKey(log.action, checkInType);
 
   let leftLines = 1; // label
-  if (log.actorName) {
-    leftLines += 1;
-  }
-  if (log.targetUserName) {
-    leftLines += 1;
+  if (log.actorName || log.targetUserName) {
+    leftLines += 1; // combined activity line
   }
   const sessionTitle = meta.sessionTitle as string | undefined;
   const locationName = meta.locationName as string | undefined;
@@ -500,6 +488,34 @@ function drawRightAligned(
   });
 }
 
+// ─── Drawing: activity line helper ───────────────────────────────────────────
+
+function buildActivityLine(
+  key: string,
+  actor?: string | null,
+  target?: string | null,
+): string | null {
+  if (!actor && !target) return null;
+  // Sentence-style event text
+  const verbMap: Record<string, string> = {
+    credits_added: 'added credits to',
+    credits_deducted: 'deducted credits from',
+    check_in_manual: 'checked in',
+    check_in_self: 'checked in',
+    check_in_backfill: 'checked in (backfill)',
+    role_changed: 'changed role of',
+    session_created: 'created session',
+    session_updated: 'updated session',
+    session_deleted: 'deleted session',
+    member_joined: 'joined',
+    member_left: 'left',
+  };
+  const verb = verbMap[key] ?? 'acted on';
+  if (actor && target && actor !== target) return `${actor} ${verb} ${target}`;
+  if (actor) return `${actor} ${verb}`;
+  return target ?? null;
+}
+
 // ─── Drawing: single audit log entry ─────────────────────────────────────────
 
 function drawEntry(b: PdfBuilder, log: AuditLogItem): void {
@@ -512,7 +528,17 @@ function drawEntry(b: PdfBuilder, log: AuditLogItem): void {
   const leftStartY = b.y;
 
   // ── Left column ───────────────────────────────────────────────────────────
-  b.drawTextSafe(label, {
+  // Event type simplification
+  let eventTitle = label;
+  if (label === 'Credits added') eventTitle = 'Credits added';
+  else if (
+    label === 'Manual check-in' ||
+    label === 'Self check-in' ||
+    label === 'Backfill check-in'
+  )
+    eventTitle = 'Check-in';
+  else if (label === 'Member left') eventTitle = 'Member left';
+  b.drawTextSafe(eventTitle, {
     x: PAGE_MARGIN,
     y: b.y,
     size: T_BODY,
@@ -522,20 +548,13 @@ function drawEntry(b: PdfBuilder, log: AuditLogItem): void {
   });
   b.moveDown(LH_BODY);
 
-  if (log.actorName) {
-    b.drawTextSafe(`By: ${log.actorName}`, {
-      x: PAGE_MARGIN,
-      y: b.y,
-      size: T_SMALL,
-      color: COLOR_GRAY,
-      fontType: 'regular',
-      kind: 'body',
-    });
-    b.moveDown(LH_SMALL);
-  }
-
-  if (log.targetUserName) {
-    b.drawTextSafe(`Member: ${log.targetUserName}`, {
+  const activityLine = buildActivityLine(
+    key,
+    log.actorName,
+    log.targetUserName,
+  );
+  if (activityLine) {
+    b.drawTextSafe(activityLine, {
       x: PAGE_MARGIN,
       y: b.y,
       size: T_SMALL,
@@ -575,7 +594,7 @@ function drawEntry(b: PdfBuilder, log: AuditLogItem): void {
     const newCredits = meta.newCredits as number | undefined;
     if (amount != null) {
       const sign = key === 'credits_added' ? '+' : '-';
-      const deltaStr = `${sign}${Math.abs(amount)} credits`;
+      const deltaStr = `${sign}${Math.abs(amount)}`;
       // Primary: bold, slightly larger, black
       drawRightAligned(b, deltaStr, b.y, T_BODY + 1, COLOR_BLACK, 'bold');
       b.moveDown(LH_BODY + 1);
@@ -588,7 +607,7 @@ function drawEntry(b: PdfBuilder, log: AuditLogItem): void {
   } else if (key.startsWith('check_in_')) {
     const remaining = meta.remainingCredits as number | undefined;
     if (remaining != null) {
-      const remStr = `${remaining} credits left`;
+      const remStr = `Balance: ${remaining}`;
       drawRightAligned(b, remStr, b.y, T_SMALL, COLOR_GRAY, 'regular');
       b.moveDown(LH_SMALL);
     }

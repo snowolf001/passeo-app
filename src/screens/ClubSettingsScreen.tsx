@@ -237,7 +237,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
         <Text style={styles.locationName}>{item.name}</Text>
         <Text style={styles.locationAddress}>{item.address}</Text>
       </View>
-      {isHostOrOwner && (
+      {isOwner && (
         <TouchableOpacity
           style={styles.locationDeleteBtn}
           onPress={() => handleDeleteLocation(item)}>
@@ -293,7 +293,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
                 <ActivityIndicator color="#007AFF" />
               ) : locations.length === 0 ? (
                 <Text style={styles.emptyText}>
-                  {isHostOrOwner
+                  {isOwner
                     ? 'No locations yet. Add one below.'
                     : 'No locations have been added yet.'}
                 </Text>
@@ -305,14 +305,14 @@ export default function ClubSettingsScreen({navigation}: Props) {
                   scrollEnabled={false}
                 />
               )}
-              {!isHostOrOwner && (
+              {!isOwner && (
                 <Text style={styles.hostNote}>
                   Only owners can add or edit locations.
                 </Text>
               )}
             </View>
 
-            {isHostOrOwner && (
+            {isOwner && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Add Location</Text>
                 <TextInput
