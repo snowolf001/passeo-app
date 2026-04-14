@@ -229,7 +229,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
   const isOwner = currentMembership.role === 'owner';
   const isHostOrOwner = ['host', 'owner'].includes(currentMembership.role);
   const canSeeJoinCode = ['owner', 'host'].includes(currentMembership.role);
-  const canRegenerateJoinCode = ['owner'].includes(currentMembership.role);
+  const canEditCheckInPolicy = isOwner;
 
   const renderLocation = ({item}: {item: ApiClubLocation}) => (
     <View style={styles.locationCard}>
@@ -255,9 +255,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView
-            enableOnAndroid
             keyboardShouldPersistTaps="handled"
-            extraScrollHeight={24}
             contentContainerStyle={styles.scroll}>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Club Info</Text>
@@ -347,7 +345,11 @@ export default function ClubSettingsScreen({navigation}: Props) {
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Check-In Policy</Text>
 
-                <View style={styles.settingRow}>
+                <View
+                  style={[
+                    styles.settingRow,
+                    !canEditCheckInPolicy && styles.readOnlyBlock,
+                  ]}>
                   <View style={styles.settingLabelWrap}>
                     <Text style={styles.settingLabel}>
                       Allow Member Self Backfill
@@ -358,13 +360,23 @@ export default function ClubSettingsScreen({navigation}: Props) {
                   </View>
                   <Switch
                     value={localSettings.allowMemberBackfill}
-                    onValueChange={val =>
-                      handleSettingChange('allowMemberBackfill', val)
-                    }
+                    disabled={!canEditCheckInPolicy}
+                    onValueChange={val => {
+                      if (!canEditCheckInPolicy) {
+                        return;
+                      }
+                      handleSettingChange('allowMemberBackfill', val);
+                    }}
                     trackColor={{false: '#E5E5EA', true: '#34C759'}}
                     thumbColor="#FFF"
                   />
                 </View>
+
+                {!canEditCheckInPolicy && (
+                  <Text style={styles.hostNote}>
+                    Only owners can change check-in policy.
+                  </Text>
+                )}
 
                 {localSettings.allowMemberBackfill && (
                   <>
@@ -372,27 +384,43 @@ export default function ClubSettingsScreen({navigation}: Props) {
                       Member Backfill Window
                     </Text>
                     <View style={styles.optionRow}>
-                      {[12, 24, 48].map(h => (
-                        <TouchableOpacity
-                          key={h}
-                          style={[
-                            styles.optionPill,
-                            localSettings.memberBackfillHours === h &&
-                              styles.optionPillActive,
-                          ]}
-                          onPress={() =>
-                            handleSettingChange('memberBackfillHours', h)
-                          }>
-                          <Text
+                      {[12, 24, 48].map(h => {
+                        const isActive =
+                          localSettings.memberBackfillHours === h;
+                        const isReadOnly = !canEditCheckInPolicy;
+                        return (
+                          <TouchableOpacity
+                            key={h}
+                            disabled={isReadOnly}
+                            activeOpacity={canEditCheckInPolicy ? 0.7 : 1}
                             style={[
-                              styles.optionPillText,
-                              localSettings.memberBackfillHours === h &&
-                                styles.optionPillTextActive,
-                            ]}>
-                            {h}h
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                              styles.optionPill,
+                              isReadOnly && styles.optionPillReadOnly,
+                              isActive && styles.optionPillActive,
+                              isReadOnly &&
+                                isActive &&
+                                styles.optionPillActiveReadOnly,
+                            ]}
+                            onPress={() => {
+                              if (!canEditCheckInPolicy) {
+                                return;
+                              }
+                              handleSettingChange('memberBackfillHours', h);
+                            }}>
+                            <Text
+                              style={[
+                                styles.optionPillText,
+                                isReadOnly && styles.optionPillTextReadOnly,
+                                isActive && styles.optionPillTextActive,
+                                isReadOnly &&
+                                  isActive &&
+                                  styles.optionPillTextActiveReadOnly,
+                              ]}>
+                              {h}h
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   </>
                 )}
@@ -401,27 +429,42 @@ export default function ClubSettingsScreen({navigation}: Props) {
                   Host Backfill Window
                 </Text>
                 <View style={styles.optionRow}>
-                  {([24, 48, 72, 168] as const).map(h => (
-                    <TouchableOpacity
-                      key={h}
-                      style={[
-                        styles.optionPill,
-                        localSettings.hostBackfillHours === h &&
-                          styles.optionPillActive,
-                      ]}
-                      onPress={() =>
-                        handleSettingChange('hostBackfillHours', h)
-                      }>
-                      <Text
+                  {([24, 48, 72, 168] as const).map(h => {
+                    const isActive = localSettings.hostBackfillHours === h;
+                    const isReadOnly = !canEditCheckInPolicy;
+                    return (
+                      <TouchableOpacity
+                        key={h}
+                        disabled={isReadOnly}
+                        activeOpacity={canEditCheckInPolicy ? 0.7 : 1}
                         style={[
-                          styles.optionPillText,
-                          localSettings.hostBackfillHours === h &&
-                            styles.optionPillTextActive,
-                        ]}>
-                        {h === 168 ? '7d' : `${h}h`}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                          styles.optionPill,
+                          isReadOnly && styles.optionPillReadOnly,
+                          isActive && styles.optionPillActive,
+                          isReadOnly &&
+                            isActive &&
+                            styles.optionPillActiveReadOnly,
+                        ]}
+                        onPress={() => {
+                          if (!canEditCheckInPolicy) {
+                            return;
+                          }
+                          handleSettingChange('hostBackfillHours', h);
+                        }}>
+                        <Text
+                          style={[
+                            styles.optionPillText,
+                            isReadOnly && styles.optionPillTextReadOnly,
+                            isActive && styles.optionPillTextActive,
+                            isReadOnly &&
+                              isActive &&
+                              styles.optionPillTextActiveReadOnly,
+                          ]}>
+                          {h === 168 ? '7d' : `${h}h`}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
             )}
@@ -441,6 +484,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+
       {snackVisible && (
         <View pointerEvents="none" style={styles.snackbar}>
           <Text style={styles.snackbarText}>{snackMsg}</Text>
@@ -454,6 +498,7 @@ function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: {flex: 1, backgroundColor: c.background},
     scroll: {padding: 20, paddingBottom: 40},
+
     section: {
       backgroundColor: c.card,
       borderRadius: 14,
@@ -465,6 +510,7 @@ function createStyles(c: ThemeColors) {
       shadowRadius: 3,
       elevation: 1,
     },
+
     sectionTitle: {
       fontSize: 13,
       fontWeight: '700',
@@ -472,6 +518,7 @@ function createStyles(c: ThemeColors) {
       textTransform: 'uppercase',
       marginBottom: 12,
     },
+
     infoRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -479,8 +526,10 @@ function createStyles(c: ThemeColors) {
       borderBottomWidth: 1,
       borderBottomColor: c.border,
     },
+
     infoLabel: {fontSize: 14, color: c.textMuted},
     infoValue: {fontSize: 14, fontWeight: '600', color: c.text},
+
     joinCodeRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -489,23 +538,28 @@ function createStyles(c: ThemeColors) {
       borderBottomWidth: 1,
       borderBottomColor: c.border,
     },
+
     joinCodeActions: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
     },
+
     joinCodeValue: {
       fontSize: 14,
       fontWeight: '600',
       color: c.primary,
     },
+
     joinCodeBtn: {
       paddingHorizontal: 10,
       paddingVertical: 4,
       backgroundColor: c.surfaceRaised,
       borderRadius: 6,
     },
+
     joinCodeBtnText: {fontSize: 12, fontWeight: '600', color: c.primary},
+
     snackbar: {
       position: 'absolute',
       left: 16,
@@ -522,11 +576,13 @@ function createStyles(c: ThemeColors) {
       shadowOpacity: 0.25,
       shadowRadius: 8,
     },
+
     snackbarText: {
       color: '#FFFFFF',
       fontSize: 14,
       fontWeight: '600',
     },
+
     locationCard: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -534,11 +590,14 @@ function createStyles(c: ThemeColors) {
       borderBottomWidth: 1,
       borderBottomColor: c.border,
     },
+
     locationInfo: {
       flex: 1,
     },
+
     locationName: {fontSize: 15, fontWeight: '600', color: c.text},
     locationAddress: {fontSize: 13, color: c.textMuted, marginTop: 2},
+
     locationDeleteBtn: {
       marginLeft: 10,
       paddingHorizontal: 10,
@@ -547,18 +606,22 @@ function createStyles(c: ThemeColors) {
       borderWidth: 1.5,
       borderColor: c.danger,
     },
+
     locationDeleteBtnText: {
       fontSize: 13,
       fontWeight: '600',
       color: c.danger,
     },
+
     emptyText: {fontSize: 14, color: c.textMuted, fontStyle: 'italic'},
+
     hostNote: {
       fontSize: 13,
       color: c.textMuted,
       fontStyle: 'italic',
       marginTop: 8,
     },
+
     input: {
       backgroundColor: c.surfaceRaised,
       borderRadius: 10,
@@ -568,15 +631,20 @@ function createStyles(c: ThemeColors) {
       color: c.text,
       marginBottom: 10,
     },
+
     inputMulti: {minHeight: 72, textAlignVertical: 'top'},
+
     addButton: {
       backgroundColor: c.primary,
       borderRadius: 12,
       paddingVertical: 13,
       alignItems: 'center',
     },
+
     addButtonText: {color: '#FFF', fontSize: 15, fontWeight: '700'},
+
     dangerZone: {borderWidth: 1, borderColor: '#FFE2E2'},
+
     dangerButton: {
       borderRadius: 12,
       paddingVertical: 13,
@@ -584,7 +652,9 @@ function createStyles(c: ThemeColors) {
       borderWidth: 1.5,
       borderColor: c.danger,
     },
+
     dangerButtonText: {color: c.danger, fontSize: 15, fontWeight: '700'},
+
     settingRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -594,9 +664,11 @@ function createStyles(c: ThemeColors) {
       borderBottomColor: c.border,
       marginBottom: 4,
     },
+
     settingLabelWrap: {flex: 1, paddingRight: 12},
     settingLabel: {fontSize: 15, fontWeight: '500', color: c.text},
     settingHint: {fontSize: 12, color: c.textMuted, marginTop: 2},
+
     settingGroupLabel: {
       fontSize: 12,
       fontWeight: '600',
@@ -605,10 +677,12 @@ function createStyles(c: ThemeColors) {
       marginTop: 14,
       marginBottom: 8,
     },
+
     optionRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
     },
+
     optionPill: {
       paddingHorizontal: 16,
       paddingVertical: 8,
@@ -618,12 +692,53 @@ function createStyles(c: ThemeColors) {
       borderColor: 'transparent',
       marginRight: 8,
       marginBottom: 8,
+      minWidth: 56,
+      alignItems: 'center',
     },
+
+    optionPillReadOnly: {
+      borderColor: c.border,
+    },
+
     optionPillActive: {
-      backgroundColor: '#EAF3FF',
+      backgroundColor: c.primary + '22',
       borderColor: c.primary,
+      borderWidth: 2,
     },
-    optionPillText: {fontSize: 14, fontWeight: '600', color: c.text},
-    optionPillTextActive: {color: c.primary},
+
+    optionPillActiveReadOnly: {
+      backgroundColor: c.primary + '18',
+      borderColor: c.primary,
+      borderWidth: 2,
+      shadowColor: c.primary,
+      shadowOffset: {width: 0, height: 0},
+      shadowOpacity: 0.18,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+
+    optionPillText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.text,
+    },
+
+    optionPillTextReadOnly: {
+      color: c.text,
+    },
+
+    optionPillTextActive: {
+      color: c.primary,
+      fontWeight: '700',
+    },
+
+    optionPillTextActiveReadOnly: {
+      color: c.primary,
+      fontWeight: '700',
+    },
+
+    readOnlyBlock: {
+      opacity: 1,
+    },
   });
 }
