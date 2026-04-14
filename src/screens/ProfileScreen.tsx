@@ -18,6 +18,7 @@ import {
   canAccessAuditLogs,
 } from '../config/entitlementConfig';
 import UpgradeModal from '../components/UpgradeModal';
+import ClubProSection from '../components/ClubProSection';
 import type {ThemeColors} from '../theme/colors';
 
 type Props = {navigation: any};
@@ -323,6 +324,9 @@ export default function ProfileScreen({navigation}: Props) {
           )}
         </View>
 
+        {/* ===== CLUB PRO SUBSCRIPTION ===== */}
+        <ClubProSection />
+
         {/* ===== DEV ONLY: Subscription Debug ===== */}
         {__DEV__ && (
           <View style={[styles.card, styles.devCard]}>
@@ -354,6 +358,10 @@ export default function ProfileScreen({navigation}: Props) {
       <UpgradeModal
         visible={upgradeVisible}
         onClose={() => setUpgradeVisible(false)}
+        onUpgrade={() => {
+          // Close the modal — ClubProSection is visible on this same screen.
+          setUpgradeVisible(false);
+        }}
       />
       {snackVisible && (
         <View pointerEvents="none" style={styles.snackbar}>

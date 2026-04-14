@@ -12,9 +12,11 @@ import {useAppTheme} from '../theme/useAppTheme';
 type Props = {
   visible: boolean;
   onClose: () => void;
+  /** Called when the user taps "Upgrade". Defaults to onClose if not provided. */
+  onUpgrade?: () => void;
 };
 
-export default function UpgradeModal({visible, onClose}: Props) {
+export default function UpgradeModal({visible, onClose, onUpgrade}: Props) {
   const {colors} = useAppTheme();
 
   return (
@@ -36,7 +38,7 @@ export default function UpgradeModal({visible, onClose}: Props) {
           </Text>
           <TouchableOpacity
             style={[styles.upgradeBtn, {backgroundColor: colors.primary}]}
-            onPress={onClose}>
+            onPress={onUpgrade ?? onClose}>
             <Text style={styles.upgradeBtnText}>Upgrade</Text>
           </TouchableOpacity>
           <TouchableOpacity
