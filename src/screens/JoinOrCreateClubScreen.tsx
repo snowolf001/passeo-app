@@ -16,59 +16,61 @@ export default function JoinOrCreateClubScreen({navigation}: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.inner}>
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.appName}>{BRANDING.appDisplayName}</Text>
-          <View style={styles.helperWrap}>
-            <Text style={styles.helperRow}>
-              <Text style={styles.helperBold}>First time? </Text>
-              <Text style={styles.helperMuted}>Join or create a club.</Text>
-            </Text>
-            <Text style={styles.helperRow}>
-              <Text style={styles.helperBold}>Coming back? </Text>
-              <Text style={styles.helperMuted}>Restore your membership.</Text>
-            </Text>
-          </View>
+          <Text style={styles.title}>Join or restore your club access</Text>
+          <Text style={styles.subtitle}>
+            Join an existing club to get started, or restore your membership if
+            you&apos;re returning.
+          </Text>
         </View>
 
-        {/* Action cards */}
         <View style={styles.actions}>
           <TouchableOpacity
-            style={styles.card}
+            style={styles.primaryCard}
             onPress={() => navigation.navigate('JoinClub')}
-            activeOpacity={0.7}>
-            <Text style={styles.cardIcon}>🏃</Text>
+            activeOpacity={0.85}>
+            <View style={styles.iconWrapPrimary}>
+              <Text style={styles.cardIcon}>🏃</Text>
+            </View>
+
             <View style={styles.cardBody}>
-              <Text style={styles.cardTitle}>Join a Club</Text>
-              <Text style={styles.cardDesc}>
+              <Text style={styles.primaryCardTitle}>Join a Club</Text>
+              <Text style={styles.primaryCardDesc}>
                 Join an existing club with a code
               </Text>
             </View>
+
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('CreateClub')}
-            activeOpacity={0.7}>
-            <Text style={styles.cardIcon}>✨</Text>
-            <View style={styles.cardBody}>
-              <Text style={styles.cardTitle}>Create a Club</Text>
-              <Text style={styles.cardDesc}>Start your own club</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.card, styles.cardOutline]}
+            style={styles.secondaryCard}
             onPress={() => navigation.navigate('RestoreMembership')}
-            activeOpacity={0.7}>
-            <Text style={styles.cardIcon}>🔑</Text>
-            <View style={styles.cardBody}>
-              <Text style={styles.cardTitle}>Restore Membership</Text>
-              <Text style={styles.cardDesc}>Use your recovery code</Text>
+            activeOpacity={0.85}>
+            <View style={styles.iconWrapSecondary}>
+              <Text style={styles.cardIcon}>🔑</Text>
             </View>
+
+            <View style={styles.cardBody}>
+              <Text style={styles.secondaryCardTitle}>Restore Membership</Text>
+              <Text style={styles.secondaryCardDesc}>
+                Use your recovery code
+              </Text>
+            </View>
+
             <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerHint}>Starting a new club?</Text>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('CreateClub')}
+            activeOpacity={0.7}
+            style={styles.createLinkButton}>
+            <Text style={styles.createLinkText}>Create your own club →</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -78,58 +80,165 @@ export default function JoinOrCreateClubScreen({navigation}: Props) {
 
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
-    container: {flex: 1, backgroundColor: c.background},
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+
     inner: {
       flex: 1,
       paddingHorizontal: 24,
-      paddingVertical: 24,
+      paddingTop: 24,
+      paddingBottom: 24,
       justifyContent: 'center',
     },
+
     header: {
       alignItems: 'center',
-      marginBottom: 48,
+      marginBottom: 30,
     },
+
     appName: {
-      fontSize: 36,
-      fontWeight: 'bold',
+      fontSize: 34,
+      fontWeight: '800',
       color: c.text,
-      marginBottom: 16,
+      marginBottom: 14,
       letterSpacing: -0.5,
+      textAlign: 'center',
     },
-    helperWrap: {gap: 4, alignItems: 'center'},
-    helperRow: {fontSize: 15, textAlign: 'center'},
-    helperBold: {fontWeight: '600', color: c.text},
-    helperMuted: {color: c.textMuted},
-    actions: {gap: 14},
-    card: {
+
+    title: {
+      fontSize: 22,
+      lineHeight: 28,
+      fontWeight: '800',
+      color: c.text,
+      textAlign: 'center',
+      marginBottom: 10,
+      paddingHorizontal: 12,
+    },
+
+    subtitle: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: c.textMuted,
+      textAlign: 'center',
+      paddingHorizontal: 8,
+    },
+
+    actions: {
+      marginTop: 4,
+    },
+
+    primaryCard: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: c.card,
-      borderRadius: 16,
-      padding: 20,
-      gap: 16,
+      borderRadius: 20,
+      paddingHorizontal: 20,
+      paddingVertical: 18,
+      marginBottom: 14,
       shadowColor: '#000',
-      shadowOffset: {width: 0, height: 2},
-      shadowOpacity: 0.06,
-      shadowRadius: 6,
+      shadowOffset: {width: 0, height: 3},
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
       elevation: 2,
     },
-    cardOutline: {
-      backgroundColor: 'transparent',
-      borderWidth: 1.5,
+
+    secondaryCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.surfaceRaised,
+      borderRadius: 18,
+      paddingHorizontal: 20,
+      paddingVertical: 15,
+      marginBottom: 8,
+      borderWidth: 1,
       borderColor: c.border,
-      shadowOpacity: 0,
-      elevation: 0,
     },
-    cardIcon: {fontSize: 26},
-    cardBody: {flex: 1},
-    cardTitle: {
+
+    iconWrapPrimary: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,255,255,0.08)',
+      marginRight: 16,
+    },
+
+    iconWrapSecondary: {
+      width: 46,
+      height: 46,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,255,255,0.04)',
+      marginRight: 16,
+    },
+
+    cardIcon: {
+      fontSize: 24,
+    },
+
+    cardBody: {
+      flex: 1,
+      paddingRight: 12,
+    },
+
+    primaryCardTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: c.text,
+      marginBottom: 4,
+    },
+
+    primaryCardDesc: {
+      fontSize: 13,
+      lineHeight: 18,
+      color: c.textMuted,
+    },
+
+    secondaryCardTitle: {
       fontSize: 16,
-      fontWeight: '700',
+      fontWeight: '800',
       color: c.text,
       marginBottom: 2,
     },
-    cardDesc: {fontSize: 13, color: c.textMuted},
-    chevron: {fontSize: 22, color: c.textMuted, fontWeight: '300'},
+
+    secondaryCardDesc: {
+      fontSize: 13,
+      lineHeight: 18,
+      color: c.textMuted,
+    },
+
+    chevron: {
+      fontSize: 24,
+      color: c.textMuted,
+      fontWeight: '300',
+    },
+
+    footer: {
+      alignItems: 'center',
+      marginTop: 22,
+    },
+
+    footerHint: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginBottom: 6,
+      textAlign: 'center',
+    },
+
+    createLinkButton: {
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+    },
+
+    createLinkText: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: c.primary,
+      textAlign: 'center',
+    },
   });
 }

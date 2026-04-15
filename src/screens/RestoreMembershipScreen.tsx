@@ -23,6 +23,31 @@ import {trackEvent} from '../analytics/trackEvent';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RestoreMembership'>;
 
+function normalizeRecoveryCode(input: string): string {
+  return input
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase()
+    .slice(0, 12);
+}
+
+function formatRecoveryCode(input: string): string {
+  const raw = normalizeRecoveryCode(input);
+
+  if (raw.length <= 4) {
+    return raw;
+  }
+
+  if (raw.length <= 8) {
+    return `${raw.slice(0, 4)}-${raw.slice(4)}`;
+  }
+
+  return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8)}`;
+}
+
+function isValidRecoveryCode(code: string): boolean {
+  return /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code);
+}
+
 export default function RestoreMembershipScreen(_: Props) {
   const {setActiveMembershipSession} = useApp();
   const {colors} = useAppTheme();
@@ -31,21 +56,32 @@ export default function RestoreMembershipScreen(_: Props) {
   const [recoveryCode, setRecoveryCode] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const canSubmit = recoveryCode.trim().length > 0;
+  const trimmedCode = recoveryCode.trim();
+  const canSubmit = isValidRecoveryCode(trimmedCode) && !loading;
+
+  const handleRecoveryCodeChange = (text: string) => {
+    setRecoveryCode(formatRecoveryCode(text));
+  };
 
   const handleRestore = async () => {
+    if (!canSubmit) return;
+
     setLoading(true);
+
     trackEvent({
       eventName: 'recovery_attempt',
       sourceScreen: 'RestoreMembership',
     });
+
     try {
-      const result = await recoverMembership(recoveryCode.trim());
+      const result = await recoverMembership(trimmedCode);
+
       trackEvent({
         eventName: 'recovery_success',
         sourceScreen: 'RestoreMembership',
         clubId: result.membership.clubId,
       });
+
       await setActiveMembershipSession({
         membershipId: result.membership.membershipId,
         clubId: result.membership.clubId,
@@ -57,6 +93,7 @@ export default function RestoreMembershipScreen(_: Props) {
         sourceScreen: 'RestoreMembership',
         errorCode: err?.code ?? 'UNKNOWN',
       });
+
       Alert.alert(
         'Not Found',
         err?.message || 'No membership found. Check your recovery code.',
@@ -76,7 +113,11 @@ export default function RestoreMembershipScreen(_: Props) {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scroll}>
             <Text style={styles.hint}>
-              Use a code from a previous install or device.
+              Use a recovery code from a previous install or device.
+            </Text>
+
+            <Text style={styles.subHint}>
+              Your membership will be restored immediately if the code is valid.
             </Text>
 
             <TextInput
@@ -84,7 +125,7 @@ export default function RestoreMembershipScreen(_: Props) {
               placeholder="Recovery code (e.g. XXXX-XXXX-XXXX)"
               placeholderTextColor={colors.textMuted}
               value={recoveryCode}
-              onChangeText={setRecoveryCode}
+              onChangeText={handleRecoveryCodeChange}
               autoCapitalize="characters"
               autoCorrect={false}
               returnKeyType="done"
@@ -94,7 +135,7 @@ export default function RestoreMembershipScreen(_: Props) {
             <TouchableOpacity
               style={[styles.button, !canSubmit && styles.buttonDisabled]}
               onPress={handleRestore}
-              disabled={loading || !canSubmit}>
+              disabled={!canSubmit}>
               {loading ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
@@ -113,7 +154,16 @@ function createStyles(c: ThemeColors) {
     container: {flex: 1, backgroundColor: c.background},
     flex: {flex: 1},
     scroll: {padding: 24, paddingBottom: 40},
-    hint: {fontSize: 14, color: c.textMuted, marginBottom: 24},
+    hint: {
+      fontSize: 14,
+      color: c.textMuted,
+      marginBottom: 8,
+    },
+    subHint: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginBottom: 20,
+    },
     input: {
       backgroundColor: c.surfaceRaised,
       borderRadius: 10,
@@ -130,7 +180,13 @@ function createStyles(c: ThemeColors) {
       alignItems: 'center',
       marginTop: 8,
     },
-    buttonDisabled: {backgroundColor: '#B0C4DE'},
-    buttonText: {color: '#FFF', fontSize: 16, fontWeight: '700'},
+    buttonDisabled: {
+      backgroundColor: '#8FA7BF',
+    },
+    buttonText: {
+      color: '#FFF',
+      fontSize: 16,
+      fontWeight: '700',
+    },
   });
 }

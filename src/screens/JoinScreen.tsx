@@ -24,6 +24,14 @@ import {trackEvent} from '../analytics/trackEvent';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JoinClub'>;
 
+function formatJoinCode(input: string): string {
+  return input.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+}
+
+function isValidJoinCode(code: string): boolean {
+  return code.length >= 6;
+}
+
 export default function JoinScreen({navigation}: Props) {
   const {setActiveMembershipSession} = useApp();
   const {colors} = useAppTheme();
@@ -35,26 +43,41 @@ export default function JoinScreen({navigation}: Props) {
   const [loading, setLoading] = useState(false);
   const [nameConflict, setNameConflict] = useState(false);
 
+  const trimmedFirst = firstName.trim();
+  const trimmedLast = lastName.trim();
+  const trimmedCode = joinCode.trim();
+
   const canSubmit =
-    firstName.trim().length > 0 &&
-    lastName.trim().length > 0 &&
-    joinCode.trim().length > 0;
+    trimmedFirst.length > 0 &&
+    trimmedLast.length > 0 &&
+    isValidJoinCode(trimmedCode) &&
+    !loading;
+
+  const handleJoinCodeChange = (text: string) => {
+    setJoinCode(formatJoinCode(text));
+  };
 
   const handleJoin = async () => {
+    if (!canSubmit) return;
+
     setNameConflict(false);
     setLoading(true);
+
     trackEvent({eventName: 'join_club_attempt', sourceScreen: 'JoinClub'});
+
     try {
       const {membershipId, clubId, userId} = await joinClub(
-        joinCode.trim(),
-        firstName.trim(),
-        lastName.trim(),
+        trimmedCode,
+        trimmedFirst,
+        trimmedLast,
       );
+
       trackEvent({
         eventName: 'join_club_success',
         sourceScreen: 'JoinClub',
         clubId,
       });
+
       await setActiveMembershipSession({membershipId, clubId, userId});
     } catch (err: any) {
       if (
@@ -65,6 +88,7 @@ export default function JoinScreen({navigation}: Props) {
       } else {
         Alert.alert('Error', err?.message || 'Failed to join club.');
       }
+
       trackEvent({
         eventName: 'join_club_failed',
         sourceScreen: 'JoinClub',
@@ -85,7 +109,11 @@ export default function JoinScreen({navigation}: Props) {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scroll}>
             <Text style={styles.hint}>
-              Ask your club owner for the join code.
+              Enter your name and the join code from your club owner.
+            </Text>
+
+            <Text style={styles.subHint}>
+              You&apos;ll join instantly if the code is valid.
             </Text>
 
             <TextInput
@@ -98,6 +126,7 @@ export default function JoinScreen({navigation}: Props) {
               autoCorrect={false}
               returnKeyType="next"
             />
+
             <TextInput
               style={styles.input}
               placeholder="Last name"
@@ -108,12 +137,13 @@ export default function JoinScreen({navigation}: Props) {
               autoCorrect={false}
               returnKeyType="next"
             />
+
             <TextInput
               style={styles.input}
               placeholder="Join code (e.g. IRON2024)"
               placeholderTextColor={colors.textMuted}
               value={joinCode}
-              onChangeText={setJoinCode}
+              onChangeText={handleJoinCodeChange}
               autoCapitalize="characters"
               autoCorrect={false}
               returnKeyType="done"
@@ -126,6 +156,7 @@ export default function JoinScreen({navigation}: Props) {
                   This name already exists in this club. If you joined before,
                   use your recovery code instead.
                 </Text>
+
                 <TouchableOpacity
                   style={styles.recoveryLink}
                   onPress={() => navigation.navigate('RestoreMembership')}>
@@ -139,7 +170,7 @@ export default function JoinScreen({navigation}: Props) {
             <TouchableOpacity
               style={[styles.button, !canSubmit && styles.buttonDisabled]}
               onPress={handleJoin}
-              disabled={loading || !canSubmit}>
+              disabled={!canSubmit}>
               {loading ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
@@ -158,7 +189,19 @@ function createStyles(c: ThemeColors) {
     container: {flex: 1, backgroundColor: c.background},
     flex: {flex: 1},
     scroll: {padding: 24, paddingBottom: 40},
-    hint: {fontSize: 14, color: c.textMuted, marginBottom: 24},
+
+    hint: {
+      fontSize: 14,
+      color: c.textMuted,
+      marginBottom: 8,
+    },
+
+    subHint: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginBottom: 20,
+    },
+
     input: {
       backgroundColor: c.surfaceRaised,
       borderRadius: 10,
@@ -168,6 +211,7 @@ function createStyles(c: ThemeColors) {
       color: c.text,
       marginBottom: 12,
     },
+
     button: {
       backgroundColor: c.primary,
       borderRadius: 12,
@@ -175,8 +219,17 @@ function createStyles(c: ThemeColors) {
       alignItems: 'center',
       marginTop: 8,
     },
-    buttonDisabled: {backgroundColor: '#B0C4DE'},
-    buttonText: {color: '#FFF', fontSize: 16, fontWeight: '700'},
+
+    buttonDisabled: {
+      backgroundColor: '#8FA7BF',
+    },
+
+    buttonText: {
+      color: '#FFF',
+      fontSize: 16,
+      fontWeight: '700',
+    },
+
     conflictBox: {
       backgroundColor: '#FFF3F3',
       borderRadius: 10,
@@ -185,13 +238,22 @@ function createStyles(c: ThemeColors) {
       padding: 14,
       marginBottom: 12,
     },
+
     conflictText: {
       fontSize: 13,
       color: '#C0392B',
       lineHeight: 19,
       marginBottom: 10,
     },
-    recoveryLink: {alignSelf: 'flex-start'},
-    recoveryLinkText: {fontSize: 14, color: c.primary, fontWeight: '600'},
+
+    recoveryLink: {
+      alignSelf: 'flex-start',
+    },
+
+    recoveryLinkText: {
+      fontSize: 14,
+      color: c.primary,
+      fontWeight: '600',
+    },
   });
 }

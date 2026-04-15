@@ -21,6 +21,7 @@ export default function HomeScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [nextSession, setNextSession] = useState<ApiSession | null>(null);
   const [todaySession, setTodaySession] = useState<ApiSession | null>(null);
   const [isTodayCheckedIn, setIsTodayCheckedIn] = useState(false);
@@ -40,10 +41,12 @@ export default function HomeScreen({navigation}: Props) {
       'currentClub:',
       currentClub?.id ?? 'null',
     );
+
     if (!currentMembership) {
       console.log('[HomeScreen] loadData skipped — no currentMembership');
       return;
     }
+
     setLoading(true);
 
     const rawSessions = await getSessions(currentMembership.clubId);
@@ -51,30 +54,36 @@ export default function HomeScreen({navigation}: Props) {
       (a, b) =>
         new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
     );
+
     const now = new Date();
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
+
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
 
     const upcoming = sessions.filter(s => new Date(s.startTime) >= now);
     setNextSession(upcoming[0] ?? null);
 
-    const todaySession = sessions.find(s => {
+    const foundTodaySession = sessions.find(s => {
       const st = new Date(s.startTime);
-      if (!(st >= todayStart && st <= todayEnd)) return false;
-      // If session has ended, don't treat it as available
-      if (s.endTime && new Date(s.endTime) < now) return false;
+      if (!(st >= todayStart && st <= todayEnd)) {
+        return false;
+      }
+      if (s.endTime && new Date(s.endTime) < now) {
+        return false;
+      }
       return true;
     });
 
-    if (todaySession) {
+    if (foundTodaySession) {
       setHasTodaySession(true);
-      setTodaySession(todaySession);
+      setTodaySession(foundTodaySession);
+
       try {
         const attendance = await getMemberAttendance(currentMembership.id);
         setIsTodayCheckedIn(
-          attendance.some(a => a.sessionId === todaySession.id),
+          attendance.some(a => a.sessionId === foundTodaySession.id),
         );
       } catch {
         setIsTodayCheckedIn(false);
@@ -86,7 +95,7 @@ export default function HomeScreen({navigation}: Props) {
     }
 
     setLoading(false);
-  }, [currentMembership]);
+  }, [currentMembership, currentClub]);
 
   useEffect(() => {
     loadData();
@@ -105,134 +114,242 @@ export default function HomeScreen({navigation}: Props) {
     'loading:',
     loading,
   );
+
   if (!currentMembership || !currentClub) {
     console.log('[HomeScreen] showing spinner — waiting for AppContext data');
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator style={{marginTop: 60}} color={colors.primary} />
+        <ActivityIndicator
+          style={styles.loadingSpinner}
+          color={colors.primary}
+        />
       </SafeAreaView>
     );
   }
 
   const role = currentMembership.role;
   const canCreateSession = ['host', 'owner'].includes(role);
+  const roleLabel = ROLE_LABELS[role] ?? role;
+  const displayName = currentMembership.userName ?? 'there';
 
-  const todayStatusCard = () => {
-    if (loading) return null;
+  const todayStatus = (() => {
+    if (loading) {
+      return {
+        icon: '⏳',
+        title: 'Loading today',
+        subtitle: 'Checking your session status...',
+        toneStyle: styles.todayCardNeutral,
+        textStyle: styles.todayTitle,
+        subTextStyle: styles.todaySubtitle,
+        onPress: undefined as (() => void) | undefined,
+        cta: '',
+      };
+    }
+
     if (isTodayCheckedIn && todaySession) {
-      return (
-        <TouchableOpacity
-          style={[styles.statusCard, styles.statusCheckedIn]}
-          onPress={() =>
-            navigation.navigate('SessionDetail', {sessionId: todaySession.id})
-          }>
-          <Text style={styles.statusIcon}>✅</Text>
-          <View style={styles.statusTextWrap}>
-            <Text style={[styles.statusTitle, styles.statusTitleDark]}>
-              Checked In Today
-            </Text>
-            <Text style={[styles.statusSub, styles.statusSubDark]}>
-              You're good to go!
-            </Text>
-          </View>
-        </TouchableOpacity>
-      );
+      return {
+        icon: '✅',
+        title: 'Checked in today',
+        subtitle: "You're all set for today's session.",
+        toneStyle: styles.todayCardSuccess,
+        textStyle: styles.todayTitleDark,
+        subTextStyle: styles.todaySubtitleDark,
+        onPress: () =>
+          navigation.navigate('SessionDetail', {sessionId: todaySession.id}),
+        cta: 'Open session',
+      };
     }
+
     if (hasTodaySession && todaySession) {
-      return (
-        <TouchableOpacity
-          style={[styles.statusCard, styles.statusAvailable]}
-          onPress={() =>
-            navigation.navigate('SessionDetail', {sessionId: todaySession.id})
-          }>
-          <Text style={styles.statusIcon}>🏃</Text>
-          <View style={styles.statusTextWrap}>
-            <Text style={[styles.statusTitle, styles.statusTitleDark]}>
-              Session Available
-            </Text>
-            <Text style={[styles.statusSub, styles.statusSubDark]}>
-              You haven't checked in yet.
-            </Text>
-          </View>
-        </TouchableOpacity>
-      );
+      return {
+        icon: '🏃',
+        title: 'Session available today',
+        subtitle: "You haven't checked in yet.",
+        toneStyle: styles.todayCardInfo,
+        textStyle: styles.todayTitleDark,
+        subTextStyle: styles.todaySubtitleDark,
+        onPress: () =>
+          navigation.navigate('SessionDetail', {sessionId: todaySession.id}),
+        cta: 'Check details',
+      };
     }
-    return (
-      <View style={[styles.statusCard, styles.statusNone]}>
-        <Text style={styles.statusIcon}>📆</Text>
-        <View style={styles.statusTextWrap}>
-          <Text style={styles.statusTitle}>No Session Today</Text>
-          <Text style={styles.statusSub}>
-            Check the schedule for upcoming sessions.
-          </Text>
-        </View>
-      </View>
-    );
-  };
+
+    return {
+      icon: '📆',
+      title: 'No active session today',
+      subtitle: 'Check the schedule for upcoming sessions.',
+      toneStyle: styles.todayCardNeutral,
+      textStyle: styles.todayTitle,
+      subTextStyle: styles.todaySubtitle,
+      onPress: () => navigation.navigate('Schedule' as any),
+      cta: 'View schedule',
+    };
+  })();
+
+  const TodayCardWrapper = todayStatus.onPress ? TouchableOpacity : View;
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.clubName}>{currentClub.name}</Text>
-          <Text style={styles.greeting}>
-            Welcome back, {currentMembership.userName ?? 'there'}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.overline}>Club dashboard</Text>
+            <Text style={styles.clubName}>{currentClub.name}</Text>
+            <Text style={styles.greeting}>Welcome back, {displayName}</Text>
+          </View>
+        </View>
+
+        <View style={styles.heroCard}>
+          <View style={styles.heroTopRow}>
+            <View style={styles.heroBadge}>
+              <Text style={styles.heroBadgeText}>{roleLabel}</Text>
+            </View>
+            <Text style={styles.heroHint}>Your home base</Text>
+          </View>
+
+          <Text style={styles.heroTitle}>Ready for your next check-in?</Text>
+          <Text style={styles.heroSubtitle}>
+            See today&apos;s status, your next session, and common actions in
+            one place.
           </Text>
+
+          <View style={styles.heroStatsRow}>
+            <View style={styles.heroStatCard}>
+              <Text style={styles.heroStatValue}>
+                {currentMembership.credits}
+              </Text>
+              <Text style={styles.heroStatLabel}>Credits</Text>
+            </View>
+
+            <View style={styles.heroStatCard}>
+              <Text style={styles.heroStatValue}>{roleLabel}</Text>
+              <Text style={styles.heroStatLabel}>Role</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Stats row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{currentMembership.credits}</Text>
-            <Text style={styles.statLabel}>Credits</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{ROLE_LABELS[role] ?? role}</Text>
-            <Text style={styles.statLabel}>Role</Text>
-          </View>
-        </View>
+        <Text style={styles.sectionTitle}>Today</Text>
 
-        {/* Today status */}
-        {todayStatusCard()}
+        <TodayCardWrapper
+          style={[styles.todayCard, todayStatus.toneStyle]}
+          {...(todayStatus.onPress ? {onPress: todayStatus.onPress} : {})}>
+          <View style={styles.todayIconWrap}>
+            <Text style={styles.todayIcon}>{todayStatus.icon}</Text>
+          </View>
 
-        {/* Next session */}
-        {nextSession && (
+          <View style={styles.todayContent}>
+            <Text style={[styles.todayTitle, todayStatus.textStyle]}>
+              {todayStatus.title}
+            </Text>
+            <Text style={[styles.todaySubtitle, todayStatus.subTextStyle]}>
+              {todayStatus.subtitle}
+            </Text>
+
+            {!!todayStatus.cta && (
+              <Text
+                style={[
+                  styles.todayCta,
+                  todayStatus.textStyle === styles.todayTitleDark
+                    ? styles.todayCtaDark
+                    : styles.todayCtaDefault,
+                ]}>
+                {todayStatus.cta} →
+              </Text>
+            )}
+          </View>
+        </TodayCardWrapper>
+
+        <Text style={styles.sectionTitle}>Up next</Text>
+
+        {nextSession ? (
           <TouchableOpacity
             style={styles.nextSessionCard}
             onPress={() =>
               navigation.navigate('SessionDetail', {sessionId: nextSession.id})
             }>
-            <Text style={styles.nextSessionLabel}>Next Session</Text>
+            <Text style={styles.nextSessionLabel}>Next session</Text>
             <Text style={styles.nextSessionTitle}>{nextSession.title}</Text>
             <Text style={styles.nextSessionDetail}>
               ⏱ {formatDate(nextSession.startTime)}
             </Text>
           </TouchableOpacity>
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No upcoming session</Text>
+            <Text style={styles.emptySubtitle}>
+              Nothing is scheduled yet. Check the schedule again later.
+            </Text>
+          </View>
         )}
 
-        {/* Quick actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsRow}>
+        <Text style={styles.sectionTitle}>Quick actions</Text>
+
+        <View style={styles.quickGrid}>
           <TouchableOpacity
-            style={styles.actionButton}
+            style={styles.quickCard}
             onPress={() => navigation.navigate('Schedule' as any)}>
-            <Text style={styles.actionIcon}>📅</Text>
-            <Text style={styles.actionLabel}>View Schedule</Text>
+            <Text style={styles.quickIcon}>📅</Text>
+            <Text style={styles.quickTitle}>View Schedule</Text>
+            <Text style={styles.quickSubtitle}>See upcoming sessions</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={styles.actionButton}
+            style={styles.quickCard}
             onPress={() => navigation.navigate('Profile' as any)}>
-            <Text style={styles.actionIcon}>👤</Text>
-            <Text style={styles.actionLabel}>My Profile</Text>
+            <Text style={styles.quickIcon}>👤</Text>
+            <Text style={styles.quickTitle}>My Profile</Text>
+            <Text style={styles.quickSubtitle}>Membership and details</Text>
           </TouchableOpacity>
+
           {canCreateSession && (
             <TouchableOpacity
-              style={styles.actionButton}
+              style={styles.quickCard}
               onPress={() => navigation.navigate('CreateSession')}>
-              <Text style={styles.actionIcon}>➕</Text>
-              <Text style={styles.actionLabel}>New Session</Text>
+              <Text style={styles.quickIcon}>➕</Text>
+              <Text style={styles.quickTitle}>New Session</Text>
+              <Text style={styles.quickSubtitle}>Create a session</Text>
             </TouchableOpacity>
+          )}
+        </View>
+
+        <Text style={styles.sectionTitle}>Club snapshot</Text>
+
+        <View style={styles.snapshotCard}>
+          <View style={styles.snapshotRow}>
+            <Text style={styles.snapshotLabel}>Club</Text>
+            <Text style={styles.snapshotValue} numberOfLines={1}>
+              {currentClub.name}
+            </Text>
+          </View>
+
+          <View style={styles.snapshotDivider} />
+
+          <View style={styles.snapshotRow}>
+            <Text style={styles.snapshotLabel}>Role</Text>
+            <Text style={styles.snapshotValue}>{roleLabel}</Text>
+          </View>
+
+          <View style={styles.snapshotDivider} />
+
+          <View style={styles.snapshotRow}>
+            <Text style={styles.snapshotLabel}>Credits</Text>
+            <Text style={styles.snapshotValue}>
+              {currentMembership.credits}
+            </Text>
+          </View>
+
+          {todaySession && (
+            <>
+              <View style={styles.snapshotDivider} />
+              <View style={styles.snapshotRow}>
+                <Text style={styles.snapshotLabel}>Today&apos;s session</Text>
+                <Text style={styles.snapshotValue} numberOfLines={1}>
+                  {todaySession.title}
+                </Text>
+              </View>
+            </>
           )}
         </View>
       </ScrollView>
@@ -242,94 +359,332 @@ export default function HomeScreen({navigation}: Props) {
 
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
-    container: {flex: 1, backgroundColor: c.background},
-    scroll: {padding: 20, paddingBottom: 40},
-    header: {marginBottom: 24},
-    clubName: {fontSize: 28, fontWeight: 'bold', color: c.text},
-    greeting: {fontSize: 15, color: c.textMuted, marginTop: 4},
-    statsRow: {flexDirection: 'row', gap: 12, marginBottom: 20},
-    statCard: {
+    container: {
       flex: 1,
+      backgroundColor: c.background,
+    },
+
+    loadingSpinner: {
+      marginTop: 60,
+    },
+
+    scroll: {
+      padding: 20,
+      paddingBottom: 40,
+    },
+
+    headerRow: {
+      marginBottom: 16,
+    },
+
+    headerTextWrap: {
+      flex: 1,
+    },
+
+    overline: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: c.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+      marginBottom: 6,
+    },
+
+    clubName: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: c.text,
+    },
+
+    greeting: {
+      fontSize: 15,
+      color: c.textMuted,
+      marginTop: 6,
+    },
+
+    heroCard: {
       backgroundColor: c.card,
-      borderRadius: 14,
-      padding: 16,
-      alignItems: 'center',
+      borderRadius: 20,
+      padding: 18,
+      marginBottom: 24,
       shadowColor: '#000',
-      shadowOffset: {width: 0, height: 2},
-      shadowOpacity: 0.05,
-      shadowRadius: 4,
+      shadowOffset: {width: 0, height: 3},
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
       elevation: 2,
     },
-    statValue: {fontSize: 26, fontWeight: 'bold', color: c.text},
-    statLabel: {fontSize: 13, color: c.textMuted, marginTop: 4},
-    statusCard: {
+
+    heroTopRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
       gap: 12,
-      borderRadius: 14,
-      padding: 16,
-      marginBottom: 20,
     },
-    statusCheckedIn: {backgroundColor: '#D1FAE5'},
-    statusAvailable: {backgroundColor: '#DBEAFE'},
-    statusNone: {backgroundColor: c.surfaceRaised},
-    statusIcon: {fontSize: 28},
-    statusTextWrap: {flex: 1, flexShrink: 1},
-    statusTitle: {fontSize: 15, fontWeight: '700', color: c.text},
-    statusTitleDark: {color: '#1C1C1E'},
-    statusSub: {fontSize: 13, color: c.textMuted, marginTop: 2},
-    statusSubDark: {color: '#3C3C43'},
+
+    heroBadge: {
+      backgroundColor: c.surfaceRaised,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 999,
+      alignSelf: 'flex-start',
+    },
+
+    heroBadgeText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: c.text,
+    },
+
+    heroHint: {
+      fontSize: 12,
+      color: c.textMuted,
+      fontWeight: '600',
+    },
+
+    heroTitle: {
+      fontSize: 22,
+      lineHeight: 28,
+      fontWeight: '800',
+      color: c.text,
+      marginBottom: 8,
+    },
+
+    heroSubtitle: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: c.textMuted,
+      marginBottom: 16,
+    },
+
+    heroStatsRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+
+    heroStatCard: {
+      flex: 1,
+      backgroundColor: c.background,
+      borderRadius: 16,
+      paddingVertical: 16,
+      paddingHorizontal: 12,
+      alignItems: 'center',
+    },
+
+    heroStatValue: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: c.text,
+      textAlign: 'center',
+    },
+
+    heroStatLabel: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginTop: 4,
+      fontWeight: '600',
+    },
+
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: c.text,
+      marginBottom: 12,
+      marginTop: 2,
+    },
+
+    todayCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 18,
+      padding: 16,
+      marginBottom: 24,
+      gap: 14,
+    },
+
+    todayCardSuccess: {
+      backgroundColor: '#D1FAE5',
+    },
+
+    todayCardInfo: {
+      backgroundColor: '#DBEAFE',
+    },
+
+    todayCardNeutral: {
+      backgroundColor: c.surfaceRaised,
+    },
+
+    todayIconWrap: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,255,255,0.35)',
+    },
+
+    todayIcon: {
+      fontSize: 24,
+    },
+
+    todayContent: {
+      flex: 1,
+    },
+
+    todayTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: c.text,
+    },
+
+    todayTitleDark: {
+      color: '#1C1C1E',
+    },
+
+    todaySubtitle: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 4,
+      lineHeight: 18,
+    },
+
+    todaySubtitleDark: {
+      color: '#3C3C43',
+    },
+
+    todayCta: {
+      marginTop: 10,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+
+    todayCtaDark: {
+      color: '#1C1C1E',
+    },
+
+    todayCtaDefault: {
+      color: c.primary,
+    },
+
     nextSessionCard: {
       backgroundColor: c.primary,
-      borderRadius: 16,
+      borderRadius: 18,
       padding: 20,
       marginBottom: 24,
     },
+
     nextSessionLabel: {
       fontSize: 12,
-      color: 'rgba(255,255,255,0.75)',
-      marginBottom: 4,
-      fontWeight: '600',
+      color: 'rgba(255,255,255,0.78)',
+      marginBottom: 6,
+      fontWeight: '700',
       textTransform: 'uppercase',
+      letterSpacing: 0.5,
     },
+
     nextSessionTitle: {
       fontSize: 20,
-      fontWeight: 'bold',
+      fontWeight: '800',
       color: '#FFFFFF',
       marginBottom: 8,
     },
+
     nextSessionDetail: {
       fontSize: 14,
-      color: 'rgba(255,255,255,0.85)',
-      marginTop: 2,
+      color: 'rgba(255,255,255,0.9)',
+      lineHeight: 20,
     },
-    sectionTitle: {
-      fontSize: 17,
+
+    emptyCard: {
+      backgroundColor: c.card,
+      borderRadius: 18,
+      padding: 18,
+      marginBottom: 24,
+    },
+
+    emptyTitle: {
+      fontSize: 16,
       fontWeight: '700',
       color: c.text,
-      marginBottom: 14,
+      marginBottom: 6,
     },
-    actionsRow: {flexDirection: 'row', gap: 12, flexWrap: 'wrap'},
-    actionButton: {
+
+    emptySubtitle: {
+      fontSize: 14,
+      color: c.textMuted,
+      lineHeight: 20,
+    },
+
+    quickGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+      marginBottom: 24,
+    },
+
+    quickCard: {
+      width: '48%',
       backgroundColor: c.card,
-      borderRadius: 14,
-      paddingVertical: 16,
-      paddingHorizontal: 8,
-      alignItems: 'center',
-      minWidth: 100,
-      flex: 1,
+      borderRadius: 18,
+      padding: 16,
       shadowColor: '#000',
       shadowOffset: {width: 0, height: 1},
       shadowOpacity: 0.05,
       shadowRadius: 3,
       elevation: 1,
     },
-    actionIcon: {fontSize: 26, marginBottom: 6},
-    actionLabel: {
-      fontSize: 11,
-      fontWeight: '600',
+
+    quickIcon: {
+      fontSize: 24,
+      marginBottom: 10,
+    },
+
+    quickTitle: {
+      fontSize: 15,
+      fontWeight: '700',
       color: c.text,
-      textAlign: 'center',
+      marginBottom: 4,
+    },
+
+    quickSubtitle: {
+      fontSize: 12,
+      lineHeight: 17,
+      color: c.textMuted,
+    },
+
+    snapshotCard: {
+      backgroundColor: c.card,
+      borderRadius: 18,
+      padding: 16,
+    },
+
+    snapshotRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      minHeight: 26,
+    },
+
+    snapshotLabel: {
+      flex: 1,
+      fontSize: 13,
+      color: c.textMuted,
+      fontWeight: '600',
+    },
+
+    snapshotValue: {
+      flex: 1,
+      textAlign: 'right',
+      fontSize: 14,
+      color: c.text,
+      fontWeight: '700',
+    },
+
+    snapshotDivider: {
+      height: 1,
+      backgroundColor: c.border,
+      marginVertical: 12,
     },
   });
 }

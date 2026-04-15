@@ -33,24 +33,34 @@ export default function CreateClubScreen(_: Props) {
   const [clubName, setClubName] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const trimmedFirstName = firstName.trim();
+  const trimmedLastName = lastName.trim();
+  const trimmedClubName = clubName.trim();
+
   const canSubmit =
-    firstName.trim().length > 0 &&
-    lastName.trim().length > 0 &&
-    clubName.trim().length > 0;
+    trimmedFirstName.length > 0 &&
+    trimmedLastName.length > 0 &&
+    trimmedClubName.length > 0 &&
+    !loading;
 
   const handleCreate = async () => {
+    if (!canSubmit) return;
+
     setLoading(true);
+
     try {
       const {membershipId, clubId, userId} = await createClub(
-        clubName.trim(),
-        firstName.trim(),
-        lastName.trim(),
+        trimmedClubName,
+        trimmedFirstName,
+        trimmedLastName,
       );
+
       trackEvent({
         eventName: 'club_created',
         sourceScreen: 'CreateClub',
         clubId,
       });
+
       await setActiveMembershipSession({membershipId, clubId, userId});
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to create club.');
@@ -69,7 +79,11 @@ export default function CreateClubScreen(_: Props) {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scroll}>
             <Text style={styles.hint}>
-              You will become the owner. Members can join using your club code.
+              Create your club and invite members with a join code.
+            </Text>
+
+            <Text style={styles.subHint}>
+              You will become the owner of this club.
             </Text>
 
             <TextInput
@@ -82,6 +96,7 @@ export default function CreateClubScreen(_: Props) {
               autoCorrect={false}
               returnKeyType="next"
             />
+
             <TextInput
               style={styles.input}
               placeholder="Last name"
@@ -92,6 +107,7 @@ export default function CreateClubScreen(_: Props) {
               autoCorrect={false}
               returnKeyType="next"
             />
+
             <TextInput
               style={styles.input}
               placeholder="Club name"
@@ -106,7 +122,7 @@ export default function CreateClubScreen(_: Props) {
             <TouchableOpacity
               style={[styles.button, !canSubmit && styles.buttonDisabled]}
               onPress={handleCreate}
-              disabled={loading || !canSubmit}>
+              disabled={!canSubmit}>
               {loading ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
@@ -125,7 +141,16 @@ function createStyles(c: ThemeColors) {
     container: {flex: 1, backgroundColor: c.background},
     flex: {flex: 1},
     scroll: {padding: 24, paddingBottom: 40},
-    hint: {fontSize: 14, color: c.textMuted, marginBottom: 24},
+    hint: {
+      fontSize: 14,
+      color: c.textMuted,
+      marginBottom: 8,
+    },
+    subHint: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginBottom: 20,
+    },
     input: {
       backgroundColor: c.surfaceRaised,
       borderRadius: 10,
@@ -142,7 +167,13 @@ function createStyles(c: ThemeColors) {
       alignItems: 'center',
       marginTop: 8,
     },
-    buttonDisabled: {backgroundColor: '#B0C4DE'},
-    buttonText: {color: '#FFF', fontSize: 16, fontWeight: '700'},
+    buttonDisabled: {
+      backgroundColor: '#8FA7BF',
+    },
+    buttonText: {
+      color: '#FFF',
+      fontSize: 16,
+      fontWeight: '700',
+    },
   });
 }
