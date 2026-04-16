@@ -17,7 +17,7 @@ import {
   canAccessSummaryReports,
   canAccessAuditLogs,
 } from '../config/entitlementConfig';
-import UpgradeModal from '../components/UpgradeModal';
+import UpgradeProModal from '../components/UpgradeProModal';
 import ClubProSection from '../components/ClubProSection';
 import type {ThemeColors} from '../theme/colors';
 
@@ -355,13 +355,10 @@ export default function ProfileScreen({navigation}: Props) {
         )}
       </ScrollView>
 
-      <UpgradeModal
+      <UpgradeProModal
         visible={upgradeVisible}
+        clubId={currentClub.id}
         onClose={() => setUpgradeVisible(false)}
-        onUpgrade={() => {
-          // Close the modal — ClubProSection is visible on this same screen.
-          setUpgradeVisible(false);
-        }}
       />
       {snackVisible && (
         <View pointerEvents="none" style={styles.snackbar}>

@@ -1,6 +1,6 @@
 // src/hooks/useClubProPurchase.ts
 
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Platform} from 'react-native';
 import {
   useIAP,
@@ -22,8 +22,6 @@ import {verifyClubPurchase} from '../services/api/subscriptionApi';
 import {normalizeForVerify} from '../services/clubSubscriptionService';
 import {setIsPro} from '../services/entitlement';
 import {ClubSubscriptionStatus} from '../types/subscription';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type StoreProduct = {
   productId: string;
@@ -52,15 +50,13 @@ export type UseClubProPurchaseResult = {
   restore: (clubId: string) => Promise<RestoreResult>;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function extractLocalizedPrice(sub: any): string {
-  if (typeof sub.localizedPrice === 'string' && sub.localizedPrice) {
+  if (typeof sub?.localizedPrice === 'string' && sub.localizedPrice) {
     return sub.localizedPrice;
   }
 
   const phase =
-    sub.subscriptionOfferDetails?.[0]?.pricingPhases?.pricingPhaseList?.[0];
+    sub?.subscriptionOfferDetails?.[0]?.pricingPhases?.pricingPhaseList?.[0];
 
   if (phase?.formattedPrice) {
     return phase.formattedPrice;
@@ -77,9 +73,21 @@ function buildSubscriptionRequest(
     const offerToken =
       (androidSub as any)?.subscriptionOfferDetails?.[0]?.offerToken ?? '';
 
+    if (__DEV__) {
+      console.log('[IAP] buildSubscriptionRequest(android)', {
+        productId,
+        hasAndroidSub: !!androidSub,
+        offerTokenPresent: !!offerToken,
+      });
+    }
+
     return {
       subscriptionOffers: [{sku: productId, offerToken}],
     } as RequestSubscriptionAndroid;
+  }
+
+  if (__DEV__) {
+    console.log('[IAP] buildSubscriptionRequest(ios)', {productId});
   }
 
   return {
@@ -87,8 +95,6 @@ function buildSubscriptionRequest(
     andDangerouslyFinishTransactionAutomaticallyIOS: false,
   } as RequestSubscriptionIOS;
 }
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useClubProPurchase(): UseClubProPurchaseResult {
   const {
@@ -103,8 +109,13 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
     connected,
   } = useIAP();
 
+  const safeSubscriptions = useMemo(
+    () => (Array.isArray(subscriptions) ? subscriptions : []),
+    [subscriptions],
+  );
+
   const [products, setProducts] = useState<StoreProduct[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,41 +129,102 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
     reject: (e: Error) => void;
   } | null>(null);
 
-  // ── Load products (WAIT for connected) ──────────────────────────────────────
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('[IAP] connected changed:', connected);
+    }
+  }, [connected]);
 
   useEffect(() => {
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     if (!connected) {
-      return;
+      if (__DEV__) {
+        console.log('[IAP] store not connected; stop loading spinner');
+      }
+      setLoadingProducts(false);
+      setProducts([]);
+      setError('Store not connected.');
+      return () => {
+        cancelled = true;
+      };
     }
 
-    let cancelled = false;
     setLoadingProducts(true);
+    setError(null);
+
+    if (__DEV__) {
+      console.log('[IAP] loading subscriptions', {
+        skus: ALL_SUBSCRIPTION_SKUS,
+      });
+    }
+
+    timeoutId = setTimeout(() => {
+      if (!cancelled) {
+        if (__DEV__) {
+          console.warn('[IAP] loading subscriptions timed out');
+        }
+        setLoadingProducts(false);
+        setError('Loading plans timed out. Please try again.');
+      }
+    }, 8000);
 
     getSubscriptions({skus: ALL_SUBSCRIPTION_SKUS})
+      .then(result => {
+        const safeResult = Array.isArray(result) ? result : [];
+
+        if (__DEV__) {
+          console.log('[IAP] getSubscriptions success', {
+            count: safeResult.length,
+            productIds: safeResult.map((item: any) => item?.productId),
+          });
+        }
+
+        if (!cancelled && safeResult.length === 0) {
+          setError('No subscription plans were returned from the store.');
+        }
+      })
       .catch(e => {
-        if (!cancelled && __DEV__) {
+        if (!cancelled) {
+          setError(e?.message ?? 'Failed to load subscription plans.');
+        }
+
+        if (__DEV__) {
           console.warn('[IAP] getSubscriptions error:', e);
         }
       })
       .finally(() => {
         if (!cancelled) {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+          }
+          if (__DEV__) {
+            console.log('[IAP] loading subscriptions finished');
+          }
           setLoadingProducts(false);
         }
       });
 
     return () => {
       cancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, [connected, getSubscriptions]);
 
-  // ── Map products ────────────────────────────────────────────────────────────
-
   useEffect(() => {
-    const mapped: StoreProduct[] = subscriptions
+    const mapped: StoreProduct[] = safeSubscriptions
       .map(s => {
         const planCycle = getPlanCycleFromProductId(s.productId);
 
         if (!planCycle) {
+          if (__DEV__) {
+            console.log('[IAP] ignoring unknown subscription productId', {
+              productId: s.productId,
+            });
+          }
           return null;
         }
 
@@ -165,10 +237,16 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
       })
       .filter((s): s is StoreProduct => s !== null);
 
-    setProducts(mapped);
-  }, [subscriptions]);
+    if (__DEV__) {
+      console.log('[IAP] mapped store products', {
+        rawCount: safeSubscriptions.length,
+        mappedCount: mapped.length,
+        mapped,
+      });
+    }
 
-  // ── Handle purchase success ────────────────────────────────────────────────
+    setProducts(mapped);
+  }, [safeSubscriptions]);
 
   useEffect(() => {
     if (!currentPurchase || !purchaseResolverRef.current) {
@@ -184,11 +262,15 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
       return;
     }
 
+    if (__DEV__) {
+      console.log('[IAP] currentPurchase matched resolver', {
+        productId: currentPurchase.productId,
+      });
+    }
+
     purchaseResolverRef.current = null;
     resolver.resolve(currentPurchase);
   }, [currentPurchase]);
-
-  // ── Handle purchase error ──────────────────────────────────────────────────
 
   useEffect(() => {
     if (!currentPurchaseError || !purchaseResolverRef.current) {
@@ -196,6 +278,10 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
     }
 
     const resolver = purchaseResolverRef.current;
+
+    if (__DEV__) {
+      console.warn('[IAP] currentPurchaseError', currentPurchaseError);
+    }
 
     purchaseResolverRef.current = null;
     clearCurrentPurchaseError();
@@ -207,8 +293,6 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
 
     resolver.reject(err);
   }, [currentPurchaseError, clearCurrentPurchaseError]);
-
-  // ── purchase() ─────────────────────────────────────────────────────────────
 
   const purchase = useCallback(
     async (
@@ -230,6 +314,15 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
       requestIdRef.current = requestId;
 
       try {
+        if (__DEV__) {
+          console.log('[IAP] purchase start', {
+            productId,
+            clubId,
+            connected,
+            subscriptionCount: safeSubscriptions.length,
+          });
+        }
+
         clearCurrentPurchase();
         clearCurrentPurchaseError();
 
@@ -242,15 +335,35 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
           };
         });
 
-        const androidSub = subscriptions.find(
+        const androidSub = safeSubscriptions.find(
           s => s.productId === productId,
         ) as SubscriptionAndroid | undefined;
 
         const request = buildSubscriptionRequest(productId, androidSub);
 
+        if (__DEV__) {
+          console.log('[IAP] requestSubscription payload ready', {
+            platform: Platform.OS,
+            productId,
+          });
+        }
+
         await requestSubscription(request as any);
 
+        if (__DEV__) {
+          console.log(
+            '[IAP] requestSubscription returned; waiting for purchase event',
+          );
+        }
+
         const storePurchase = await storePromise;
+
+        if (__DEV__) {
+          console.log('[IAP] store purchase received', {
+            productId: storePurchase.productId,
+            transactionId: storePurchase.transactionId,
+          });
+        }
 
         const payload = normalizeForVerify(storePurchase, clubId);
         const status = await verifyClubPurchase(payload);
@@ -294,15 +407,13 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
       purchasing,
       restoring,
       connected,
-      subscriptions,
+      safeSubscriptions,
       requestSubscription,
       finishTransaction,
       clearCurrentPurchase,
       clearCurrentPurchaseError,
     ],
   );
-
-  // ── restore() ─────────────────────────────────────────────────────────────
 
   const restore = useCallback(
     async (clubId: string): Promise<RestoreResult> => {
@@ -318,11 +429,25 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
       setError(null);
 
       try {
-        const allPurchases = await iapGetAvailablePurchases();
+        if (__DEV__) {
+          console.log('[IAP] restore start', {clubId});
+        }
+
+        const purchasesResult = await iapGetAvailablePurchases();
+        const allPurchases = Array.isArray(purchasesResult)
+          ? purchasesResult
+          : [];
 
         const subPurchases = allPurchases.filter(p =>
           ALL_SUBSCRIPTION_SKUS.includes(p.productId),
         );
+
+        if (__DEV__) {
+          console.log('[IAP] restore purchases found', {
+            allCount: allPurchases.length,
+            subCount: subPurchases.length,
+          });
+        }
 
         if (subPurchases.length === 0) {
           return {
@@ -332,7 +457,6 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
           };
         }
 
-        // Only verify the latest matching subscription purchase.
         const latest = subPurchases.sort(
           (a, b) =>
             Number(b.transactionDate ?? 0) - Number(a.transactionDate ?? 0),

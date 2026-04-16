@@ -28,12 +28,6 @@ export default function HomeScreen({navigation}: Props) {
   const [hasTodaySession, setHasTodaySession] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const ROLE_LABELS: Record<string, string> = {
-    member: 'Member',
-    host: 'Host',
-    owner: 'Owner',
-  };
-
   const loadData = useCallback(async () => {
     console.log(
       '[HomeScreen] loadData — currentMembership:',
@@ -49,52 +43,54 @@ export default function HomeScreen({navigation}: Props) {
 
     setLoading(true);
 
-    const rawSessions = await getSessions(currentMembership.clubId);
-    const sessions = rawSessions.sort(
-      (a, b) =>
-        new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
-    );
+    try {
+      const rawSessions = await getSessions(currentMembership.clubId);
+      const sessions = rawSessions.sort(
+        (a, b) =>
+          new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+      );
 
-    const now = new Date();
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
 
-    const todayEnd = new Date(now);
-    todayEnd.setHours(23, 59, 59, 999);
+      const todayEnd = new Date(now);
+      todayEnd.setHours(23, 59, 59, 999);
 
-    const upcoming = sessions.filter(s => new Date(s.startTime) >= now);
-    setNextSession(upcoming[0] ?? null);
+      const upcoming = sessions.filter(s => new Date(s.startTime) >= now);
+      setNextSession(upcoming[0] ?? null);
 
-    const foundTodaySession = sessions.find(s => {
-      const st = new Date(s.startTime);
-      if (!(st >= todayStart && st <= todayEnd)) {
-        return false;
-      }
-      if (s.endTime && new Date(s.endTime) < now) {
-        return false;
-      }
-      return true;
-    });
+      const foundTodaySession = sessions.find(s => {
+        const st = new Date(s.startTime);
+        if (!(st >= todayStart && st <= todayEnd)) {
+          return false;
+        }
+        if (s.endTime && new Date(s.endTime) < now) {
+          return false;
+        }
+        return true;
+      });
 
-    if (foundTodaySession) {
-      setHasTodaySession(true);
-      setTodaySession(foundTodaySession);
+      if (foundTodaySession) {
+        setHasTodaySession(true);
+        setTodaySession(foundTodaySession);
 
-      try {
-        const attendance = await getMemberAttendance(currentMembership.id);
-        setIsTodayCheckedIn(
-          attendance.some(a => a.sessionId === foundTodaySession.id),
-        );
-      } catch {
+        try {
+          const attendance = await getMemberAttendance(currentMembership.id);
+          setIsTodayCheckedIn(
+            attendance.some(a => a.sessionId === foundTodaySession.id),
+          );
+        } catch {
+          setIsTodayCheckedIn(false);
+        }
+      } else {
+        setHasTodaySession(false);
+        setTodaySession(null);
         setIsTodayCheckedIn(false);
       }
-    } else {
-      setHasTodaySession(false);
-      setTodaySession(null);
-      setIsTodayCheckedIn(false);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }, [currentMembership, currentClub]);
 
   useEffect(() => {
@@ -129,7 +125,6 @@ export default function HomeScreen({navigation}: Props) {
 
   const role = currentMembership.role;
   const canCreateSession = ['host', 'owner'].includes(role);
-  const roleLabel = ROLE_LABELS[role] ?? role;
   const displayName = currentMembership.userName ?? 'there';
 
   const todayStatus = (() => {
@@ -163,7 +158,7 @@ export default function HomeScreen({navigation}: Props) {
     if (hasTodaySession && todaySession) {
       return {
         icon: '🏃',
-        title: 'Session available today',
+        title: 'Active session today',
         subtitle: "You haven't checked in yet.",
         toneStyle: styles.todayCardInfo,
         textStyle: styles.todayTitleDark,
@@ -194,40 +189,9 @@ export default function HomeScreen({navigation}: Props) {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <View style={styles.headerTextWrap}>
-            <Text style={styles.overline}>Club dashboard</Text>
-            <Text style={styles.clubName}>{currentClub.name}</Text>
-            <Text style={styles.greeting}>Welcome back, {displayName}</Text>
-          </View>
-        </View>
-
-        <View style={styles.heroCard}>
-          <View style={styles.heroTopRow}>
-            <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeText}>{roleLabel}</Text>
-            </View>
-            <Text style={styles.heroHint}>Your home base</Text>
-          </View>
-
-          <Text style={styles.heroTitle}>Ready for your next check-in?</Text>
-          <Text style={styles.heroSubtitle}>
-            See today&apos;s status, your next session, and common actions in
-            one place.
-          </Text>
-
-          <View style={styles.heroStatsRow}>
-            <View style={styles.heroStatCard}>
-              <Text style={styles.heroStatValue}>
-                {currentMembership.credits}
-              </Text>
-              <Text style={styles.heroStatLabel}>Credits</Text>
-            </View>
-
-            <View style={styles.heroStatCard}>
-              <Text style={styles.heroStatValue}>{roleLabel}</Text>
-              <Text style={styles.heroStatLabel}>Role</Text>
-            </View>
-          </View>
+          <Text style={styles.overline}>Club home</Text>
+          <Text style={styles.clubName}>{currentClub.name}</Text>
+          <Text style={styles.greeting}>Welcome back, {displayName}</Text>
         </View>
 
         <Text style={styles.sectionTitle}>Today</Text>
@@ -270,7 +234,12 @@ export default function HomeScreen({navigation}: Props) {
               navigation.navigate('SessionDetail', {sessionId: nextSession.id})
             }>
             <Text style={styles.nextSessionLabel}>Next session</Text>
-            <Text style={styles.nextSessionTitle}>{nextSession.title}</Text>
+            <Text
+              style={styles.nextSessionTitle}
+              numberOfLines={1}
+              ellipsizeMode="tail">
+              {nextSession.title}
+            </Text>
             <Text style={styles.nextSessionDetail}>
               ⏱ {formatDate(nextSession.startTime)}
             </Text>
@@ -283,6 +252,22 @@ export default function HomeScreen({navigation}: Props) {
             </Text>
           </View>
         )}
+
+        <View style={styles.summaryStrip}>
+          <View style={styles.summaryPill}>
+            <Text style={styles.summaryPillValue}>
+              {currentMembership.credits}
+            </Text>
+            <Text style={styles.summaryPillLabel}>Credits</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.summaryPill}
+            onPress={() => navigation.navigate('Profile' as any)}>
+            <Text style={styles.summaryPillValue}>Profile</Text>
+            <Text style={styles.summaryPillLabel}>Membership details</Text>
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.sectionTitle}>Quick actions</Text>
 
@@ -319,16 +304,12 @@ export default function HomeScreen({navigation}: Props) {
         <View style={styles.snapshotCard}>
           <View style={styles.snapshotRow}>
             <Text style={styles.snapshotLabel}>Club</Text>
-            <Text style={styles.snapshotValue} numberOfLines={1}>
+            <Text
+              style={styles.snapshotValue}
+              numberOfLines={1}
+              ellipsizeMode="tail">
               {currentClub.name}
             </Text>
-          </View>
-
-          <View style={styles.snapshotDivider} />
-
-          <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>Role</Text>
-            <Text style={styles.snapshotValue}>{roleLabel}</Text>
           </View>
 
           <View style={styles.snapshotDivider} />
@@ -345,8 +326,26 @@ export default function HomeScreen({navigation}: Props) {
               <View style={styles.snapshotDivider} />
               <View style={styles.snapshotRow}>
                 <Text style={styles.snapshotLabel}>Today&apos;s session</Text>
-                <Text style={styles.snapshotValue} numberOfLines={1}>
+                <Text
+                  style={styles.snapshotValue}
+                  numberOfLines={1}
+                  ellipsizeMode="tail">
                   {todaySession.title}
+                </Text>
+              </View>
+            </>
+          )}
+
+          {nextSession && (
+            <>
+              <View style={styles.snapshotDivider} />
+              <View style={styles.snapshotRow}>
+                <Text style={styles.snapshotLabel}>Next session</Text>
+                <Text
+                  style={styles.snapshotValue}
+                  numberOfLines={1}
+                  ellipsizeMode="tail">
+                  {nextSession.title}
                 </Text>
               </View>
             </>
@@ -374,11 +373,7 @@ function createStyles(c: ThemeColors) {
     },
 
     headerRow: {
-      marginBottom: 16,
-    },
-
-    headerTextWrap: {
-      flex: 1,
+      marginBottom: 20,
     },
 
     overline: {
@@ -400,89 +395,6 @@ function createStyles(c: ThemeColors) {
       fontSize: 15,
       color: c.textMuted,
       marginTop: 6,
-    },
-
-    heroCard: {
-      backgroundColor: c.card,
-      borderRadius: 20,
-      padding: 18,
-      marginBottom: 24,
-      shadowColor: '#000',
-      shadowOffset: {width: 0, height: 3},
-      shadowOpacity: 0.06,
-      shadowRadius: 8,
-      elevation: 2,
-    },
-
-    heroTopRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 14,
-      gap: 12,
-    },
-
-    heroBadge: {
-      backgroundColor: c.surfaceRaised,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 999,
-      alignSelf: 'flex-start',
-    },
-
-    heroBadgeText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: c.text,
-    },
-
-    heroHint: {
-      fontSize: 12,
-      color: c.textMuted,
-      fontWeight: '600',
-    },
-
-    heroTitle: {
-      fontSize: 22,
-      lineHeight: 28,
-      fontWeight: '800',
-      color: c.text,
-      marginBottom: 8,
-    },
-
-    heroSubtitle: {
-      fontSize: 14,
-      lineHeight: 20,
-      color: c.textMuted,
-      marginBottom: 16,
-    },
-
-    heroStatsRow: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-
-    heroStatCard: {
-      flex: 1,
-      backgroundColor: c.background,
-      borderRadius: 16,
-      paddingVertical: 16,
-      paddingHorizontal: 12,
-      alignItems: 'center',
-    },
-
-    heroStatValue: {
-      fontSize: 22,
-      fontWeight: '800',
-      color: c.text,
-      textAlign: 'center',
-    },
-
-    heroStatLabel: {
-      fontSize: 12,
-      color: c.textMuted,
-      marginTop: 4,
-      fontWeight: '600',
     },
 
     sectionTitle: {
@@ -511,7 +423,7 @@ function createStyles(c: ThemeColors) {
     },
 
     todayCardNeutral: {
-      backgroundColor: c.surfaceRaised,
+      backgroundColor: c.card,
     },
 
     todayIconWrap: {
@@ -529,6 +441,7 @@ function createStyles(c: ThemeColors) {
 
     todayContent: {
       flex: 1,
+      minWidth: 0,
     },
 
     todayTitle: {
@@ -570,7 +483,7 @@ function createStyles(c: ThemeColors) {
       backgroundColor: c.primary,
       borderRadius: 18,
       padding: 20,
-      marginBottom: 24,
+      marginBottom: 20,
     },
 
     nextSessionLabel: {
@@ -599,7 +512,7 @@ function createStyles(c: ThemeColors) {
       backgroundColor: c.card,
       borderRadius: 18,
       padding: 18,
-      marginBottom: 24,
+      marginBottom: 20,
     },
 
     emptyTitle: {
@@ -613,6 +526,38 @@ function createStyles(c: ThemeColors) {
       fontSize: 14,
       color: c.textMuted,
       lineHeight: 20,
+    },
+
+    summaryStrip: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 24,
+    },
+
+    summaryPill: {
+      flex: 1,
+      backgroundColor: c.card,
+      borderRadius: 16,
+      paddingVertical: 16,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 74,
+    },
+
+    summaryPillValue: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: c.text,
+      textAlign: 'center',
+    },
+
+    summaryPillLabel: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginTop: 4,
+      fontWeight: '600',
+      textAlign: 'center',
     },
 
     quickGrid: {
@@ -661,20 +606,22 @@ function createStyles(c: ThemeColors) {
     snapshotRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
       gap: 12,
       minHeight: 26,
     },
 
     snapshotLabel: {
-      flex: 1,
+      flexShrink: 0,
       fontSize: 13,
       color: c.textMuted,
       fontWeight: '600',
+      maxWidth: '42%',
     },
 
     snapshotValue: {
       flex: 1,
+      minWidth: 0,
+      flexShrink: 1,
       textAlign: 'right',
       fontSize: 14,
       color: c.text,

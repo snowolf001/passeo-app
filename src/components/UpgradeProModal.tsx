@@ -70,8 +70,13 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
 
   const {status, refresh} = useClubSubscription(clubId);
 
+  const purchaseState = useClubProPurchase();
+
+  const products = Array.isArray(purchaseState.products)
+    ? purchaseState.products
+    : [];
+
   const {
-    products,
     loadingProducts,
     purchasing,
     restoring,
@@ -79,7 +84,7 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
     clearError,
     purchase,
     restore,
-  } = useClubProPurchase();
+  } = purchaseState;
 
   const [pendingProductId, setPendingProductId] = useState<string | null>(null);
 
