@@ -148,22 +148,6 @@ export default function SessionsScreen({navigation}: Props) {
     return null;
   }, [sessions, sections]);
 
-  const getRoleLabel = () => {
-    const role = currentMembership?.role;
-
-    switch (role) {
-      case 'owner':
-        return 'Owner';
-      case 'host':
-        return 'Host';
-      case 'host':
-        return 'Host';
-      case 'member':
-      default:
-        return 'Member';
-    }
-  };
-
   const getStatusBadge = (session: ApiSession) => {
     const now = Date.now();
     const start = new Date(session.startTime).getTime();
@@ -295,22 +279,6 @@ export default function SessionsScreen({navigation}: Props) {
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <>
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Credits</Text>
-                <Text style={styles.summaryValue}>
-                  {currentMembership?.credits ?? 0}
-                </Text>
-              </View>
-
-              <View style={styles.summaryDivider} />
-
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Role</Text>
-                <Text style={styles.summaryValue}>{getRoleLabel()}</Text>
-              </View>
-            </View>
-
             {highlightedSession && (
               <TouchableOpacity
                 style={[
@@ -405,34 +373,6 @@ function createStyles(c: ThemeColors) {
       padding: 16,
       paddingTop: 8,
       paddingBottom: 40,
-    },
-    summaryCard: {
-      backgroundColor: c.card,
-      borderRadius: 14,
-      paddingVertical: 16,
-      paddingHorizontal: 18,
-      marginBottom: 12,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    summaryItem: {
-      flex: 1,
-    },
-    summaryLabel: {
-      fontSize: 12,
-      color: c.textMuted,
-      marginBottom: 4,
-    },
-    summaryValue: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: c.text,
-    },
-    summaryDivider: {
-      width: 1,
-      alignSelf: 'stretch',
-      backgroundColor: c.border,
-      marginHorizontal: 12,
     },
     highlightCard: {
       backgroundColor: c.card,

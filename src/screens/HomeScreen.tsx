@@ -312,15 +312,6 @@ export default function HomeScreen({navigation}: Props) {
             </Text>
           </View>
 
-          <View style={styles.snapshotDivider} />
-
-          <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>Credits</Text>
-            <Text style={styles.snapshotValue}>
-              {currentMembership.credits}
-            </Text>
-          </View>
-
           {todaySession && (
             <>
               <View style={styles.snapshotDivider} />
