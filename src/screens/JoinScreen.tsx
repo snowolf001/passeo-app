@@ -21,6 +21,7 @@ import {RootStackParamList} from '../navigation/types';
 import {useAppTheme} from '../theme/useAppTheme';
 import type {ThemeColors} from '../theme/colors';
 import {trackEvent} from '../analytics/trackEvent';
+import AppScreenHeader from '../components/AppScreenHeader';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JoinClub'>;
 
@@ -100,7 +101,11 @@ export default function JoinScreen({navigation}: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <AppScreenHeader
+        title="Join a Club"
+        onBackPress={() => navigation.goBack()}
+      />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>

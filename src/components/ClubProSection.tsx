@@ -57,7 +57,7 @@ export default function ClubProSection() {
     loading: statusLoading,
     error: statusError,
     refresh,
-  } = useClubSubscription();
+  } = useClubSubscription(currentClub?.id);
 
   const [products, setProducts] = useState<StoreSubscriptionProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
@@ -86,7 +86,7 @@ export default function ClubProSection() {
 
   useEffect(() => {
     void loadProducts();
-  }, [loadProducts]);
+  }, [loadProducts, currentClub?.id]);
 
   // ── Purchase handler ────────────────────────────────────────────────────────
   const handlePurchase = useCallback(
@@ -95,6 +95,7 @@ export default function ClubProSection() {
         Alert.alert('Error', 'No club loaded. Please try again.');
         return;
       }
+
       const product = products.find(p => p.planCycle === plan);
       if (!product) {
         Alert.alert('Unavailable', 'This plan is currently unavailable.');
@@ -102,11 +103,13 @@ export default function ClubProSection() {
       }
 
       setPurchasingPlan(plan);
+
       try {
         const result = await purchaseClubSubscription(
           product.productId,
           currentClub.id,
         );
+
         await refresh();
 
         if (result.isPro) {
@@ -123,9 +126,9 @@ export default function ClubProSection() {
         }
       } catch (e: any) {
         if (e?.message === 'USER_CANCELLED') {
-          // User dismissed — no alert needed.
           return;
         }
+
         Alert.alert(
           'Purchase failed',
           e?.message || 'Unable to complete purchase. Please try again.',
@@ -143,7 +146,9 @@ export default function ClubProSection() {
       Alert.alert('Error', 'No club loaded. Please try again.');
       return;
     }
+
     setRestoring(true);
+
     try {
       const result = await restoreClubSubscriptions(currentClub.id);
       await refresh();
@@ -203,6 +208,7 @@ export default function ClubProSection() {
   // ── Render: Pro active ──────────────────────────────────────────────────────
   if (status?.isPro && status.activeSubscription) {
     const active = status.activeSubscription;
+
     return (
       <View style={styles.card}>
         <View style={styles.proBadgeRow}>
@@ -213,6 +219,7 @@ export default function ClubProSection() {
             {active.planCycle === 'monthly' ? 'Monthly Plan' : 'Yearly Plan'}
           </Text>
         </View>
+
         <Text style={[styles.proMeta, {color: colors.textMuted}]}>
           Active until {formatDateShort(active.expiresAt)}
         </Text>
@@ -243,17 +250,21 @@ export default function ClubProSection() {
   // ── Render: scheduled only (no active Pro) ─────────────────────────────────
   if (!status?.isPro && status?.scheduledSubscription) {
     const sched = status.scheduledSubscription;
+
     return (
       <View style={styles.card}>
         <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>
           SUBSCRIPTION
         </Text>
+
         <Text style={[styles.proTitle, {color: colors.text}]}>
           Next plan scheduled
         </Text>
+
         <Text style={[styles.proMeta, {color: colors.textMuted}]}>
           Starts on {formatDateShort(sched.startsAt)}
         </Text>
+
         <Text style={[styles.proMeta, {color: colors.textMuted}]}>
           Ends on {formatDateShort(sched.expiresAt)}
         </Text>
@@ -283,9 +294,11 @@ export default function ClubProSection() {
       <Text style={[styles.sectionLabel, {color: colors.textMuted}]}>
         CLUB PRO
       </Text>
+
       <Text style={[styles.upgradeTitle, {color: colors.text}]}>
         Upgrade to Pro
       </Text>
+
       <Text style={[styles.upgradeDesc, {color: colors.textMuted}]}>
         Unlock advanced reports and management tools for your club.
       </Text>
@@ -319,9 +332,11 @@ export default function ClubProSection() {
                   Billed monthly
                 </Text>
               </View>
+
               <Text style={[styles.planPrice, {color: colors.text}]}>
                 {monthly.localizedPrice}
               </Text>
+
               <TouchableOpacity
                 style={[styles.buyBtn, {backgroundColor: colors.primary}]}
                 onPress={() => handlePurchase('monthly')}
@@ -345,9 +360,11 @@ export default function ClubProSection() {
                   Best value
                 </Text>
               </View>
+
               <Text style={[styles.planPrice, {color: colors.text}]}>
                 {yearly.localizedPrice}
               </Text>
+
               <TouchableOpacity
                 style={[styles.buyBtn, {backgroundColor: colors.primary}]}
                 onPress={() => handlePurchase('yearly')}

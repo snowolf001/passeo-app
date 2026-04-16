@@ -15,6 +15,25 @@ export const SUBSCRIPTION_PRODUCT_IDS = {
 
 export type SubscriptionPlanCycle = 'monthly' | 'yearly';
 
+/** Shorter alias — preferred in new code. */
+export type PlanCycle = SubscriptionPlanCycle;
+
+/**
+ * Platform-keyed product IDs.
+ * Currently identical for iOS and Android; kept separate so they can diverge
+ * if App Store / Play Console product IDs ever need to differ.
+ */
+export const IAP_PRODUCTS = {
+  ios: {
+    monthly: SUBSCRIPTION_PRODUCT_IDS.monthly as string,
+    yearly: SUBSCRIPTION_PRODUCT_IDS.yearly as string,
+  },
+  android: {
+    monthly: SUBSCRIPTION_PRODUCT_IDS.monthly as string,
+    yearly: SUBSCRIPTION_PRODUCT_IDS.yearly as string,
+  },
+} as const;
+
 /** All subscription SKUs as a plain array (for getSubscriptions calls). */
 export const ALL_SUBSCRIPTION_SKUS: string[] = [
   SUBSCRIPTION_PRODUCT_IDS.monthly,

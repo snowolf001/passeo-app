@@ -4,6 +4,7 @@ import {ActivityIndicator, Text, TouchableOpacity, View} from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
+import {withIAPContext} from 'react-native-iap';
 
 import RootNavigator from './src/navigation/RootNavigator';
 import {AppProvider} from './src/context/AppContext';
@@ -61,7 +62,7 @@ const toastConfig = {
   ),
 };
 
-export default function App() {
+export default withIAPContext(function App() {
   const {navTheme, colors} = useAppTheme();
   const [isEntitlementReady, setIsEntitlementReady] = useState(false);
 
@@ -130,4 +131,4 @@ export default function App() {
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
-}
+});

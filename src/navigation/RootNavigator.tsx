@@ -59,17 +59,17 @@ export default function RootNavigator() {
       <Stack.Screen
         name="JoinClub"
         component={JoinScreen}
-        options={{headerShown: true, title: 'Join a Club'}}
+        options={{headerShown: false}}
       />
       <Stack.Screen
         name="CreateClub"
         component={CreateClubScreen}
-        options={{headerShown: true, title: 'Create a Club'}}
+        options={{headerShown: false}}
       />
       <Stack.Screen
         name="RestoreMembership"
         component={RestoreMembershipScreen}
-        options={{headerShown: true, title: 'Restore Membership'}}
+        options={{headerShown: false}}
       />
 
       <Stack.Screen name="MainTabs" component={MainTabNavigator} />

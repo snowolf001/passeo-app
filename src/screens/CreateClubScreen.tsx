@@ -20,10 +20,11 @@ import {RootStackParamList} from '../navigation/types';
 import {useAppTheme} from '../theme/useAppTheme';
 import type {ThemeColors} from '../theme/colors';
 import {trackEvent} from '../analytics/trackEvent';
+import AppScreenHeader from '../components/AppScreenHeader';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateClub'>;
 
-export default function CreateClubScreen(_: Props) {
+export default function CreateClubScreen({navigation}: Props) {
   const {setActiveMembershipSession} = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -70,7 +71,12 @@ export default function CreateClubScreen(_: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <AppScreenHeader
+        title="Create a Club"
+        onBackPress={() => navigation.goBack()}
+      />
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -140,7 +146,7 @@ function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: {flex: 1, backgroundColor: c.background},
     flex: {flex: 1},
-    scroll: {padding: 24, paddingBottom: 40},
+    scroll: {paddingHorizontal: 24, paddingBottom: 40},
     hint: {
       fontSize: 14,
       color: c.textMuted,

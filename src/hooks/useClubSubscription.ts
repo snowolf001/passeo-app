@@ -4,7 +4,7 @@
 // All Pro-gated UI should read from this hook — never derive isPro locally.
 //
 // Usage:
-//   const {status, loading, error, refresh} = useClubSubscription();
+//   const {status, loading, error, refresh} = useClubSubscription(clubId);
 
 import {useState, useCallback, useEffect} from 'react';
 import {useApp} from '../context/AppContext';
@@ -20,34 +20,49 @@ export type UseClubSubscriptionResult = {
   refresh: () => Promise<void>;
 };
 
-export function useClubSubscription(): UseClubSubscriptionResult {
+export function useClubSubscription(
+  clubId?: string,
+): UseClubSubscriptionResult {
   const {currentClub} = useApp();
+
+  const effectiveClubId = clubId ?? currentClub?.id ?? null;
 
   const [status, setStatus] = useState<ClubSubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!currentClub?.id) {
-      setError('No club loaded');
+    if (!effectiveClubId) {
+      setStatus(null);
+      setError(null);
+      setLoading(false);
       return;
     }
+
     setLoading(true);
     setError(null);
+
     try {
-      const result = await getClubSubscriptionStatus(currentClub.id);
+      const result = await getClubSubscriptionStatus(effectiveClubId);
       setStatus(result);
     } catch (e: any) {
       setError(e?.message || 'Unable to load subscription status');
     } finally {
       setLoading(false);
     }
-  }, [currentClub?.id]);
+  }, [effectiveClubId]);
 
-  // Load once on mount / when the club changes.
   useEffect(() => {
+    setStatus(null);
+    setError(null);
+
+    if (!effectiveClubId) {
+      setLoading(false);
+      return;
+    }
+
     void refresh();
-  }, [refresh]);
+  }, [effectiveClubId, refresh]);
 
   return {status, loading, error, refresh};
 }
