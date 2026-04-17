@@ -9,7 +9,7 @@
 //   • isPro       — current plan summary + optional scheduled note
 //   • free        — plan cards with Buy and Restore buttons
 
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
 import {
   View,
   Text,
@@ -20,12 +20,7 @@ import {
 } from 'react-native';
 import {useApp} from '../context/AppContext';
 import {useClubSubscription} from '../hooks/useClubSubscription';
-import {
-  fetchSubscriptionProducts,
-  purchaseClubSubscription,
-  restoreClubSubscriptions,
-  StoreSubscriptionProduct,
-} from '../services/clubSubscriptionService';
+import {useClubProPurchase} from '../hooks/useClubProPurchase';
 import {SubscriptionPlanCycle} from '../config/iap';
 import {useAppTheme} from '../theme/useAppTheme';
 import type {ThemeColors} from '../theme/colors';
@@ -59,34 +54,19 @@ export default function ClubProSection() {
     refresh,
   } = useClubSubscription(currentClub?.id);
 
-  const [products, setProducts] = useState<StoreSubscriptionProduct[]>([]);
-  const [productsLoading, setProductsLoading] = useState(false);
-  const [productsError, setProductsError] = useState<string | null>(null);
+  const purchaseState = useClubProPurchase();
+  const {
+    products,
+    loadingProducts,
+    purchasing,
+    restoring,
+    error: purchaseError,
+    purchase,
+    restore,
+  } = purchaseState;
 
   const [purchasingPlan, setPurchasingPlan] =
     useState<SubscriptionPlanCycle | null>(null);
-  const [restoring, setRestoring] = useState(false);
-
-  // Load store products once (only needed for free users, but harmless to load always).
-  const loadProducts = useCallback(async () => {
-    setProductsLoading(true);
-    setProductsError(null);
-    try {
-      const list = await fetchSubscriptionProducts();
-      setProducts(list);
-      if (list.length === 0) {
-        setProductsError('Plans unavailable');
-      }
-    } catch {
-      setProductsError('Unable to load plans');
-    } finally {
-      setProductsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadProducts();
-  }, [loadProducts, currentClub?.id]);
 
   // ── Purchase handler ────────────────────────────────────────────────────────
   const handlePurchase = useCallback(
@@ -105,10 +85,7 @@ export default function ClubProSection() {
       setPurchasingPlan(plan);
 
       try {
-        const result = await purchaseClubSubscription(
-          product.productId,
-          currentClub.id,
-        );
+        const result = await purchase(product.productId, currentClub.id);
 
         await refresh();
 
@@ -137,7 +114,7 @@ export default function ClubProSection() {
         setPurchasingPlan(null);
       }
     },
-    [currentClub?.id, products, refresh],
+    [currentClub?.id, products, refresh, purchase],
   );
 
   // ── Restore handler ─────────────────────────────────────────────────────────
@@ -147,10 +124,8 @@ export default function ClubProSection() {
       return;
     }
 
-    setRestoring(true);
-
     try {
-      const result = await restoreClubSubscriptions(currentClub.id);
+      const result = await restore(currentClub.id);
       await refresh();
 
       if (result.verifiedCount > 0 && result.status) {
@@ -175,10 +150,8 @@ export default function ClubProSection() {
         'Unable to restore purchases',
         e?.message || 'Please try again.',
       );
-    } finally {
-      setRestoring(false);
     }
-  }, [currentClub?.id, refresh]);
+  }, [currentClub?.id, refresh, restore]);
 
   // ── Render: loading ─────────────────────────────────────────────────────────
   if (statusLoading) {
@@ -303,17 +276,17 @@ export default function ClubProSection() {
         Unlock advanced reports and management tools for your club.
       </Text>
 
-      {productsLoading ? (
+      {loadingProducts ? (
         <ActivityIndicator
           color={colors.primary}
           style={styles.productsLoader}
         />
-      ) : productsError ? (
+      ) : purchaseError ? (
         <View style={styles.plansErrorRow}>
           <Text style={[styles.errorText, {color: colors.danger}]}>
-            {productsError}
+            {purchaseError}
           </Text>
-          <TouchableOpacity onPress={loadProducts}>
+          <TouchableOpacity onPress={purchaseState.clearError}>
             <Text style={[styles.retryBtnText, {color: colors.primary}]}>
               {' '}
               Retry

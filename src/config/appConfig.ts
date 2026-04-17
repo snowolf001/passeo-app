@@ -150,18 +150,6 @@ export const PDF_FEATURES = {
 } as const;
 
 // ============================================
-// CLUB PRO
-// Temporary MVP flag for closed testing.
-// ============================================
-export const CLUB_PRO_CONFIG = {
-  /**
-   * Whether the current user has Club Pro.
-   * Hard-coded to false during closed testing — flip to true for internal QA.
-   */
-  IS_PRO: false,
-} as const;
-
-// ============================================
 // STORAGE KEYS
 // ============================================
 const STORAGE_PREFIX = `@${APP_CONFIG.APP_NAME.toLowerCase().replace(

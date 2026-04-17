@@ -9,8 +9,8 @@
 // IDs defined here.
 
 export const SUBSCRIPTION_PRODUCT_IDS = {
-  monthly: 'club_pro_monthly',
-  yearly: 'club_pro_yearly',
+  monthly: 'passeo_pro_monthly',
+  yearly: 'passeo_pro_yearly',
 } as const;
 
 export type SubscriptionPlanCycle = 'monthly' | 'yearly';

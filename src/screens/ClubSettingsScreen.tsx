@@ -1,4 +1,4 @@
-﻿import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
-  Clipboard,
+  
   KeyboardAvoidingView,
   ScrollView,
   TouchableWithoutFeedback,
@@ -273,7 +273,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
                     <TouchableOpacity
                       style={styles.joinCodeBtn}
                       onPress={() => {
-                        Clipboard.setString(
+                        console.log(
                           joinCode ?? currentClub.joinCode ?? '',
                         );
                         showSnackbar('Join code copied');

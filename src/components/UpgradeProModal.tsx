@@ -70,7 +70,7 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
 
   const {status, refresh} = useClubSubscription(clubId);
 
-  const purchaseState = useClubProPurchase();
+  const purchaseState = useClubProPurchase({skip: !visible});
 
   const products = Array.isArray(purchaseState.products)
     ? purchaseState.products
@@ -202,11 +202,7 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={s.safeArea}>
         {/* Header row */}
         <View style={s.header}>

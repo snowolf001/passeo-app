@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Clipboard,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
@@ -171,7 +170,7 @@ export default function ProfileScreen({navigation}: Props) {
                 <TouchableOpacity
                   style={styles.copyBtn}
                   onPress={() => {
-                    Clipboard.setString(currentClub.joinCode ?? '');
+                    console.log(currentClub.joinCode ?? '');
                     showSnackbar('Join code copied');
                   }}>
                   <Text style={styles.copyBtnText}>Copy</Text>
@@ -301,7 +300,7 @@ export default function ProfileScreen({navigation}: Props) {
               <TouchableOpacity
                 style={styles.copyBtn}
                 onPress={() => {
-                  Clipboard.setString(currentMembership.recoveryCode ?? '');
+                  console.log(currentMembership.recoveryCode ?? '');
                   showSnackbar('Recovery code copied');
                 }}>
                 <Text style={styles.copyBtnText}>Copy</Text>
@@ -325,7 +324,7 @@ export default function ProfileScreen({navigation}: Props) {
         </View>
 
         {/* ===== CLUB PRO SUBSCRIPTION ===== */}
-        <ClubProSection />
+        {/* <ClubProSection /> */}
 
         {/* ===== DEV ONLY: Subscription Debug ===== */}
         {__DEV__ && (
@@ -355,11 +354,13 @@ export default function ProfileScreen({navigation}: Props) {
         )}
       </ScrollView>
 
-      <UpgradeProModal
-        visible={upgradeVisible}
-        clubId={currentClub.id}
-        onClose={() => setUpgradeVisible(false)}
-      />
+      {upgradeVisible && (
+        <UpgradeProModal
+          visible={upgradeVisible}
+          clubId={currentClub.id}
+          onClose={() => setUpgradeVisible(false)}
+        />
+      )}
       {snackVisible && (
         <View pointerEvents="none" style={styles.snackbar}>
           <Text style={styles.snackbarText}>{snackMsg}</Text>

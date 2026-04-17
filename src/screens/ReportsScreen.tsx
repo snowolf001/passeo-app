@@ -238,7 +238,7 @@ export default function ReportsScreen({navigation}: Props) {
                 onPress={() => setShowStartPicker(true)}
                 activeOpacity={0.7}>
                 <Text
-                  style={{color: startDate ? colors.text : colors.placeholder}}>
+                  style={{color: startDate ? colors.text : colors.textMuted}}>
                   {startDate || 'YYYY-MM-DD'}
                 </Text>
               </TouchableOpacity>
@@ -251,7 +251,7 @@ export default function ReportsScreen({navigation}: Props) {
                 onPress={() => setShowEndPicker(true)}
                 activeOpacity={0.7}>
                 <Text
-                  style={{color: endDate ? colors.text : colors.placeholder}}>
+                  style={{color: endDate ? colors.text : colors.textMuted}}>
                   {endDate || 'YYYY-MM-DD'}
                 </Text>
               </TouchableOpacity>

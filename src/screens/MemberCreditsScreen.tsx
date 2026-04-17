@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Platform,
-  Clipboard,
+  
   ScrollView,
   TouchableWithoutFeedback,
 } from 'react-native';
@@ -392,7 +392,7 @@ export default function MemberCreditsScreen({navigation}: Props) {
                           <TouchableOpacity
                             style={styles.copyBtn}
                             onPress={() => {
-                              Clipboard.setString(recoveryCode);
+                              console.log(recoveryCode);
                               showSnackbar(
                                 'Recovery code copied to clipboard.',
                               );

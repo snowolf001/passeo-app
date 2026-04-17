@@ -106,7 +106,11 @@ function buildSubscriptionRequest(
   } as RequestSubscriptionIOS;
 }
 
-export function useClubProPurchase(): UseClubProPurchaseResult {
+export function useClubProPurchase(options?: {
+  skip?: boolean;
+}): UseClubProPurchaseResult {
+  const skip = options?.skip ?? false;
+
   const {
     subscriptions,
     currentPurchase,
@@ -167,6 +171,8 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
   // Do NOT add `getSubscriptions` here — useIAP can recreate it on store state
   // changes, which would restart this effect and create a spinner loop.
   useEffect(() => {
+    if (skip) return;
+
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -260,10 +266,12 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
         clearTimeout(timeoutId);
       }
     };
-  }, [connected, initConnectionError]);
+  }, [connected, initConnectionError, skip]);
 
   // Map context subscriptions → StoreProduct[] whenever the list changes.
   useEffect(() => {
+    if (skip) return;
+
     const mapped: StoreProduct[] = safeSubscriptions
       .map(s => {
         const planCycle = getPlanCycleFromProductId(s.productId);
@@ -295,10 +303,12 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
     }
 
     setProducts(mapped);
-  }, [safeSubscriptions]);
+  }, [safeSubscriptions, skip]);
 
   // Surface "no plans" only after loading has actually finished.
   useEffect(() => {
+    if (skip) return;
+
     if (loadingProducts) {
       return;
     }
@@ -320,9 +330,11 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
 
       setError('No subscription plans are available right now.');
     }
-  }, [loadingProducts, connected, error, safeSubscriptions]);
+  }, [loadingProducts, connected, error, safeSubscriptions, skip]);
 
   useEffect(() => {
+    if (skip) return;
+
     if (!currentPurchase || !purchaseResolverRef.current) {
       return;
     }
@@ -344,9 +356,11 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
 
     purchaseResolverRef.current = null;
     resolver.resolve(currentPurchase);
-  }, [currentPurchase]);
+  }, [currentPurchase, skip]);
 
   useEffect(() => {
+    if (skip) return;
+
     if (!currentPurchaseError || !purchaseResolverRef.current) {
       return;
     }
@@ -366,7 +380,7 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
         : new Error(currentPurchaseError.message ?? 'Purchase failed');
 
     resolver.reject(err);
-  }, [currentPurchaseError, clearCurrentPurchaseError]);
+  }, [currentPurchaseError, clearCurrentPurchaseError, skip]);
 
   const purchase = useCallback(
     async (
