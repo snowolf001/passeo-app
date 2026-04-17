@@ -30,19 +30,20 @@ export const APP_CONFIG = {
 // ============================================
 export const IAP_CONFIG = {
   /**
-   * Product IDs for In-App Purchases
+   * Product IDs for subscriptions
    * Must match products configured in App Store Connect / Google Play Console
    */
   PRODUCT_IDS: Platform.select({
-    ios: ['passeo_pro'],
-    android: ['passeo_pro'],
+    ios: ['passeo_pro_monthly', 'passeo_pro_yearly'],
+    android: ['passeo_pro_monthly', 'passeo_pro_yearly'],
     default: [],
   })!,
 
   /**
-   * Pro lifetime product SKU
+   * Club Pro subscription SKUs
    */
-  PRO_LIFETIME_SKU: 'passeo_pro',
+  PRO_MONTHLY_SKU: 'passeo_pro_monthly',
+  PRO_YEARLY_SKU: 'passeo_pro_yearly',
 
   /**
    * Mock IAP for testing (only works in __DEV__)
@@ -51,9 +52,10 @@ export const IAP_CONFIG = {
   MOCK_IAP_IN_DEV: false,
 
   /**
-   * Display price (fallback if store price fails to load)
+   * Display prices (fallback if store price fails to load)
    */
-  PRO_PRICE_DISPLAY: '$7.99',
+  PRO_MONTHLY_PRICE_DISPLAY: '$4.99',
+  PRO_YEARLY_PRICE_DISPLAY: '$39.99',
 } as const;
 
 // ============================================
@@ -150,7 +152,6 @@ export const PDF_FEATURES = {
 // ============================================
 // CLUB PRO
 // Temporary MVP flag for closed testing.
-// Set IS_PRO to true when IAP / billing is ready.
 // ============================================
 export const CLUB_PRO_CONFIG = {
   /**

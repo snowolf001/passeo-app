@@ -78,10 +78,20 @@ function buildSubscriptionRequest(
         productId,
         hasAndroidSub: !!androidSub,
         offerTokenPresent: !!offerToken,
+        offerCount: (androidSub as any)?.subscriptionOfferDetails?.length ?? 0,
+        subscriptionOfferDetails:
+          (androidSub as any)?.subscriptionOfferDetails ?? [],
       });
     }
 
+    if (!offerToken) {
+      throw new Error(
+        'Android subscription offerToken is missing. Check Play Console base plan / offer setup.',
+      );
+    }
+
     return {
+      sku: productId,
       subscriptionOffers: [{sku: productId, offerToken}],
     } as RequestSubscriptionAndroid;
   }
@@ -107,7 +117,18 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
     clearCurrentPurchase,
     clearCurrentPurchaseError,
     connected,
+    initConnectionError,
   } = useIAP();
+
+  // Hold the latest getSubscriptions in a ref so we can call it from an
+  // effect without listing it as a dependency. useIAP can recreate
+  // getSubscriptions when the subscriptions array changes, so putting it in
+  // deps can restart the loading effect and keep the spinner alive forever.
+  const getSubscriptionsRef = useRef(getSubscriptions);
+
+  useEffect(() => {
+    getSubscriptionsRef.current = getSubscriptions;
+  }, [getSubscriptions]);
 
   const safeSubscriptions = useMemo(
     () => (Array.isArray(subscriptions) ? subscriptions : []),
@@ -132,20 +153,50 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
   useEffect(() => {
     if (__DEV__) {
       console.log('[IAP] connected changed:', connected);
+      console.log(
+        '[DIAG] connected:',
+        connected,
+        'initConnectionError:',
+        initConnectionError?.message ?? null,
+      );
     }
-  }, [connected]);
+  }, [connected, initConnectionError]);
 
+  // ── Load products when the billing connection is ready ─────────────────────
+  // IMPORTANT: only depend on `connected` and `initConnectionError`.
+  // Do NOT add `getSubscriptions` here — useIAP can recreate it on store state
+  // changes, which would restart this effect and create a spinner loop.
   useEffect(() => {
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    if (!connected) {
+    if (__DEV__) {
+      console.log('[IAP] load effect entered', {
+        connected,
+        initConnectionError: initConnectionError?.message ?? null,
+        skus: ALL_SUBSCRIPTION_SKUS,
+      });
+    }
+
+    // Billing client failed to connect entirely.
+    if (initConnectionError) {
       if (__DEV__) {
-        console.log('[IAP] store not connected; stop loading spinner');
+        console.warn('[IAP] initConnectionError:', initConnectionError);
       }
       setLoadingProducts(false);
       setProducts([]);
-      setError('Store not connected.');
+      setError('Could not connect to the store. Please try again.');
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // Connection not yet established — wait for it.
+    if (!connected) {
+      if (__DEV__) {
+        console.log('[IAP] waiting for store connection...');
+      }
+      setLoadingProducts(true);
       return () => {
         cancelled = true;
       };
@@ -155,43 +206,35 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
     setError(null);
 
     if (__DEV__) {
-      console.log('[IAP] loading subscriptions', {
-        skus: ALL_SUBSCRIPTION_SKUS,
-      });
+      console.log('[IAP] loading subscriptions', {skus: ALL_SUBSCRIPTION_SKUS});
     }
 
+    // 10-second safety timeout so the spinner never stays forever.
     timeoutId = setTimeout(() => {
       if (!cancelled) {
         if (__DEV__) {
-          console.warn('[IAP] loading subscriptions timed out');
+          console.warn('[IAP] loading subscriptions timed out after 10s');
         }
         setLoadingProducts(false);
         setError('Loading plans timed out. Please try again.');
       }
-    }, 8000);
+    }, 10_000);
 
-    getSubscriptions({skus: ALL_SUBSCRIPTION_SKUS})
-      .then(result => {
-        const safeResult = Array.isArray(result) ? result : [];
-
+    // getSubscriptions() populates the context subscriptions state.
+    getSubscriptionsRef
+      .current({skus: ALL_SUBSCRIPTION_SKUS})
+      .then(() => {
         if (__DEV__) {
-          console.log('[IAP] getSubscriptions success', {
-            count: safeResult.length,
-            productIds: safeResult.map((item: any) => item?.productId),
-          });
-        }
-
-        if (!cancelled && safeResult.length === 0) {
-          setError('No subscription plans were returned from the store.');
+          console.log('[IAP] getSubscriptions resolved');
         }
       })
       .catch(e => {
         if (!cancelled) {
-          setError(e?.message ?? 'Failed to load subscription plans.');
-        }
-
-        if (__DEV__) {
-          console.warn('[IAP] getSubscriptions error:', e);
+          const msg = e?.message ?? 'Failed to load subscription plans.';
+          if (__DEV__) {
+            console.warn('[IAP] getSubscriptions error:', msg, e);
+          }
+          setError(msg);
         }
       })
       .finally(() => {
@@ -200,7 +243,12 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
             clearTimeout(timeoutId);
           }
           if (__DEV__) {
-            console.log('[IAP] loading subscriptions finished');
+            console.log('[IAP] getSubscriptions call finished');
+            console.log(
+              '[DIAG] subscriptions in context after load:',
+              safeSubscriptions.length,
+              safeSubscriptions.map(s => s.productId),
+            );
           }
           setLoadingProducts(false);
         }
@@ -212,8 +260,9 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
         clearTimeout(timeoutId);
       }
     };
-  }, [connected, getSubscriptions]);
+  }, [connected, initConnectionError]);
 
+  // Map context subscriptions → StoreProduct[] whenever the list changes.
   useEffect(() => {
     const mapped: StoreProduct[] = safeSubscriptions
       .map(s => {
@@ -247,6 +296,31 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
 
     setProducts(mapped);
   }, [safeSubscriptions]);
+
+  // Surface "no plans" only after loading has actually finished.
+  useEffect(() => {
+    if (loadingProducts) {
+      return;
+    }
+
+    if (!connected) {
+      return;
+    }
+
+    if (error) {
+      return;
+    }
+
+    if (safeSubscriptions.length === 0) {
+      if (__DEV__) {
+        console.warn(
+          '[IAP] no subscription plans returned from store after loading finished',
+        );
+      }
+
+      setError('No subscription plans are available right now.');
+    }
+  }, [loadingProducts, connected, error, safeSubscriptions]);
 
   useEffect(() => {
     if (!currentPurchase || !purchaseResolverRef.current) {
@@ -320,6 +394,12 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
             clubId,
             connected,
             subscriptionCount: safeSubscriptions.length,
+            subscriptions: safeSubscriptions.map(s => ({
+              productId: s.productId,
+              title: (s as any).title,
+              subscriptionOfferDetails:
+                (s as any).subscriptionOfferDetails ?? [],
+            })),
           });
         }
 
@@ -345,6 +425,7 @@ export function useClubProPurchase(): UseClubProPurchaseResult {
           console.log('[IAP] requestSubscription payload ready', {
             platform: Platform.OS,
             productId,
+            request,
           });
         }
 
