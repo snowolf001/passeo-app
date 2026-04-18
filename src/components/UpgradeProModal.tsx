@@ -1,594 +1,555 @@
 // src/components/UpgradeProModal.tsx
-//
-// Full-screen modal for upgrading a club to Pro.
 
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
-  SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-
-import {useClubProPurchase} from '../hooks/useClubProPurchase';
-import {useClubSubscription} from '../hooks/useClubSubscription';
 import {useAppTheme} from '../theme/useAppTheme';
-import type {ThemeColors} from '../theme/colors';
+import {StoreProduct, useClubProPurchase} from '../hooks/useClubProPurchase';
 
 type Props = {
   visible: boolean;
   clubId: string;
   onClose: () => void;
+  onPurchased?: () => void | Promise<void>;
 };
 
-const PRO_FEATURES = [
-  '✓  Unlimited members',
-  '✓  Advanced attendance reports',
-  '✓  Audit log & export to PDF',
-  '✓  Custom check-in policies',
-  '✓  Priority support',
-] as const;
-
-function fmt(iso: string | null | undefined): string {
-  if (!iso) return '—';
-
-  try {
-    return new Date(iso).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function capitalize(s?: string | null): string {
-  if (!s) return '';
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function getPlanLabel(product: {
-  productId: string;
-  planCycle?: string | null;
-}): string {
-  if (product.planCycle) {
-    return capitalize(product.planCycle);
-  }
-
-  const normalized = product.productId.toLowerCase();
-
-  if (normalized.includes('monthly') || normalized.includes('month')) {
-    return 'Monthly';
-  }
-
-  if (normalized.includes('yearly') || normalized.includes('annual')) {
-    return 'Yearly';
-  }
-
-  return 'Plan';
-}
-
-export default function UpgradeProModal({visible, clubId, onClose}: Props) {
+export default function UpgradeProModal({
+  visible,
+  clubId,
+  onClose,
+  onPurchased,
+}: Props) {
   const {colors} = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const {refresh} = useClubSubscription(clubId);
   const {
     products,
     loadingProducts,
     purchasing,
     restoring,
-    error: purchaseError,
+    error,
     clearError,
     purchase,
     restore,
   } = useClubProPurchase({skip: !visible});
 
-  const [pendingProductId, setPendingProductId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    null,
+  );
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const busy = purchasing || restoring;
-
-  const hasMonthlyPlan = useMemo(
-    () => products.some(product => product?.planCycle === 'monthly'),
+  const monthlyProduct = useMemo(
+    () => products.find(p => p.planCycle === 'monthly') ?? null,
     [products],
   );
 
-  const hasYearlyPlan = useMemo(
-    () => products.some(product => product?.planCycle === 'yearly'),
+  const yearlyProduct = useMemo(
+    () => products.find(p => p.planCycle === 'yearly') ?? null,
     [products],
   );
 
   useEffect(() => {
     if (!visible) {
-      setPendingProductId(null);
+      setSelectedProductId(null);
+      setActionError(null);
       clearError();
+      return;
     }
+
+    setActionError(null);
   }, [visible, clearError]);
 
-  const handlePurchase = useCallback(
-    async (productId: string) => {
-      if (busy) return;
+  useEffect(() => {
+    if (!visible) return;
 
-      if (!clubId) {
-        Alert.alert('Error', 'Club not ready. Please try again.');
-        return;
-      }
+    const currentExists = !!products.find(
+      p => p.productId === selectedProductId,
+    );
 
-      try {
-        setPendingProductId(productId);
+    if (currentExists) {
+      return;
+    }
 
-        const result = await purchase(productId, clubId);
+    if (yearlyProduct) {
+      setSelectedProductId(yearlyProduct.productId);
+      return;
+    }
 
-        try {
-          await refresh();
-        } catch (refreshError) {
-          if (__DEV__) {
-            console.warn(
-              '[UpgradeProModal] purchase succeeded but refresh failed:',
-              refreshError,
-            );
-          }
-        }
+    if (monthlyProduct) {
+      setSelectedProductId(monthlyProduct.productId);
+      return;
+    }
 
-        if (result.isPro) {
-          Alert.alert('Pro activated', 'Your club now has Pro access.', [
-            {text: 'Done', onPress: onClose},
-          ]);
-        } else if (result.scheduledSubscription) {
-          Alert.alert(
-            'Purchase verified',
-            `Your Pro plan starts on ${fmt(
-              result.scheduledSubscription.startsAt,
-            )}.`,
-            [{text: 'Done', onPress: onClose}],
-          );
-        } else {
-          Alert.alert('Purchase verified', 'Your subscription was recorded.', [
-            {text: 'Done', onPress: onClose},
-          ]);
-        }
-      } catch (e: any) {
-        if (e?.message === 'USER_CANCELLED') {
-          return;
-        }
+    setSelectedProductId(null);
+  }, [visible, products, selectedProductId, monthlyProduct, yearlyProduct]);
 
-        Alert.alert('Purchase failed', e?.message ?? 'Please try again.');
-      } finally {
-        setPendingProductId(null);
-      }
-    },
-    [busy, clubId, onClose, purchase, refresh],
-  );
+  const busy = purchasing || restoring;
+  const displayError = actionError ?? error;
 
-  const handleRestore = useCallback(async () => {
+  const canPurchase =
+    visible &&
+    !loadingProducts &&
+    !busy &&
+    !!selectedProductId &&
+    products.length > 0 &&
+    !!clubId;
+
+  const handleSelect = (product: StoreProduct) => {
     if (busy) return;
+    setSelectedProductId(product.productId);
+    setActionError(null);
+    clearError();
+  };
 
-    if (!clubId) {
-      Alert.alert('Error', 'Club not ready. Please try again.');
+  const handlePurchase = async () => {
+    if (!selectedProductId || !clubId || busy) {
       return;
     }
 
     try {
+      setActionError(null);
+      clearError();
+
+      await purchase(selectedProductId, clubId);
+
+      if (onPurchased) {
+        await onPurchased();
+      }
+
+      onClose();
+    } catch (e: any) {
+      if (e?.message === 'USER_CANCELLED') {
+        return;
+      }
+
+      setActionError(e?.message ?? 'Purchase failed.');
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!clubId || busy) {
+      return;
+    }
+
+    try {
+      setActionError(null);
+      clearError();
+
       const result = await restore(clubId);
 
-      try {
-        await refresh();
-      } catch (refreshError) {
-        if (__DEV__) {
-          console.warn(
-            '[UpgradeProModal] restore succeeded but refresh failed:',
-            refreshError,
-          );
+      if (result.status?.isPro) {
+        if (onPurchased) {
+          await onPurchased();
         }
+        onClose();
+        return;
       }
 
-      if (result.verifiedCount > 0) {
-        Alert.alert(
-          'Restore successful',
-          result.status?.isPro
-            ? 'Pro access has been restored.'
-            : `${result.verifiedCount} purchase(s) restored.`,
-          [{text: 'Done', onPress: result.status?.isPro ? onClose : undefined}],
+      if (result.verifiedCount === 0) {
+        setActionError(
+          'No previous subscription purchase was found to restore.',
         );
-      } else if (result.verifyFailed) {
-        Alert.alert(
-          'Restore failed',
-          'Found purchase(s) but could not verify with server. Please try again.',
-        );
-      } else {
-        Alert.alert(
-          'Nothing to restore',
-          'No previous Pro purchases were found for this account.',
-        );
+        return;
       }
+
+      if (result.verifyFailed) {
+        setActionError('Restore found a purchase, but verification failed.');
+        return;
+      }
+
+      setActionError('Restore did not activate Club Pro.');
     } catch (e: any) {
-      Alert.alert('Restore failed', e?.message ?? 'Please try again.');
+      setActionError(e?.message ?? 'Restore failed.');
     }
-  }, [busy, clubId, onClose, refresh, restore]);
+  };
 
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Upgrade to Pro</Text>
+  const renderPlanCard = (
+    product: StoreProduct,
+    subtitle: string,
+    bestValue?: boolean,
+  ) => {
+    const selected = selectedProductId === product.productId;
 
-          <Pressable
-            onPress={onClose}
-            hitSlop={12}
-            style={({pressed}) => [
-              styles.closeBtn,
-              pressed && styles.closeBtnPressed,
+    return (
+      <TouchableOpacity
+        key={product.productId}
+        activeOpacity={0.9}
+        onPress={() => handleSelect(product)}
+        disabled={busy}
+        style={[
+          styles.planCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: selected ? colors.primary : colors.border,
+            opacity: busy ? 0.7 : 1,
+          },
+        ]}>
+        {bestValue ? (
+          <View style={styles.planBadge}>
+            <Text style={styles.planBadgeText}>Best value</Text>
+          </View>
+        ) : null}
+        <View style={styles.planHeader}>
+          <Text style={[styles.planTitle, {color: colors.text}]}>
+            {product.planCycle === 'yearly' ? 'Yearly' : 'Monthly'}
+          </Text>
+          <View
+            style={[
+              styles.radioOuter,
+              {
+                borderColor: selected ? colors.primary : colors.border,
+              },
             ]}>
-            <Text style={styles.closeBtnText}>✕</Text>
-          </Pressable>
+            {selected ? (
+              <View
+                style={[
+                  styles.radioInner,
+                  {
+                    backgroundColor: colors.primary,
+                  },
+                ]}
+              />
+            ) : null}
+          </View>
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled">
-          <Text style={styles.tagline}>
-            Unlock the full potential of your club
-          </Text>
+        <Text style={[styles.planPrice, {color: colors.text}]}>
+          {product.localizedPrice || 'See store price'}
+        </Text>
 
-          <View style={styles.featuresCard}>
-            {PRO_FEATURES.map(feature => (
-              <Text key={feature} style={styles.featureItem}>
-                {feature}
+        <Text style={[styles.planSubtitle, {color: colors.textMuted}]}>
+          {subtitle}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <Pressable
+          style={styles.backdrop}
+          onPress={busy ? undefined : onClose}
+        />
+
+        <View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+            },
+          ]}>
+          <View style={styles.headerRow}>
+            <Text style={[styles.title, {color: colors.text}]}>
+              Get Club Pro
+            </Text>
+
+            <TouchableOpacity
+              onPress={onClose}
+              disabled={busy}
+              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+              <Text
+                style={[
+                  styles.closeText,
+                  {color: busy ? colors.textMuted : colors.text},
+                ]}>
+                ✕
               </Text>
-            ))}
+            </TouchableOpacity>
           </View>
 
-          {!!purchaseError && (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText} numberOfLines={2}>
-                {purchaseError}
+          <Text style={[styles.subtitle, {color: colors.textMuted}]}>
+            Unlock reports, audit tools, and other Pro features for your club.
+          </Text>
+
+          <View style={styles.features}>
+            <Text style={[styles.featureText, {color: colors.text}]}>
+              • Reports and analytics
+            </Text>
+            <Text style={[styles.featureText, {color: colors.text}]}>
+              • Audit log access
+            </Text>
+            <Text style={[styles.featureText, {color: colors.text}]}>
+              • Club-level Pro for all members
+            </Text>
+          </View>
+
+          <Text style={[styles.sectionTitle, {color: colors.text}]}>
+            Choose a plan
+          </Text>
+
+          {loadingProducts ? (
+            <View style={styles.centerState}>
+              <ActivityIndicator />
+              <Text style={[styles.stateText, {color: colors.textMuted}]}>
+                Loading subscription plans...
               </Text>
-              <Pressable onPress={clearError} hitSlop={8}>
-                <Text style={styles.errorBannerDismiss}>✕</Text>
-              </Pressable>
+            </View>
+          ) : products.length > 0 ? (
+            <View style={styles.planList}>
+              {yearlyProduct
+                ? renderPlanCard(
+                    yearlyProduct,
+                    'Best value for ongoing clubs',
+                    !!monthlyProduct,
+                  )
+                : null}
+              {monthlyProduct
+                ? renderPlanCard(
+                    monthlyProduct,
+                    'Flexible month-to-month billing',
+                  )
+                : null}
+            </View>
+          ) : (
+            <View
+              style={[
+                styles.emptyState,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}>
+              <Text style={[styles.emptyTitle, {color: colors.text}]}>
+                No plans available
+              </Text>
+              <Text style={[styles.emptyText, {color: colors.textMuted}]}>
+                Subscription plans could not be loaded from the store right now.
+              </Text>
             </View>
           )}
 
-          {/* Plans are always shown — this modal is paywall-only */}
-          <View style={styles.plansSection}>
-            <Text style={styles.plansLabel}>Choose a plan</Text>
-
-            {loadingProducts ? (
-              <ActivityIndicator
-                style={styles.loadingIndicator}
-                color={colors.primary}
-              />
-            ) : products.length > 0 ? (
-              products.map(product => {
-                if (!product || !product.productId) {
-                  return null;
-                }
-
-                const isThisPending =
-                  purchasing && pendingProductId === product.productId;
-
-                const isBestValue =
-                  product.planCycle === 'yearly' &&
-                  hasMonthlyPlan &&
-                  hasYearlyPlan;
-
-                return (
-                  <TouchableOpacity
-                    key={product.productId}
-                    style={[
-                      styles.planBtn,
-                      isBestValue && styles.planBtnHighlighted,
-                      busy && styles.planBtnDisabled,
-                    ]}
-                    disabled={busy}
-                    activeOpacity={0.8}
-                    onPress={() => handlePurchase(product.productId)}>
-                    {isBestValue && (
-                      <View style={styles.planBadge}>
-                        <Text style={styles.planBadgeText}>Best value</Text>
-                      </View>
-                    )}
-
-                    {isThisPending ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={isBestValue ? '#fff' : colors.primary}
-                      />
-                    ) : (
-                      <View style={styles.planBtnInner}>
-                        <Text
-                          style={[
-                            styles.planBtnCycle,
-                            isBestValue && styles.planBtnCycleHighlighted,
-                          ]}>
-                          {getPlanLabel(product)}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.planBtnPrice,
-                            isBestValue && styles.planBtnPriceHighlighted,
-                          ]}>
-                          {product.localizedPrice || '—'}
-                        </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })
-            ) : (
-              <View style={styles.emptyProducts}>
-                <Text style={styles.emptyProductsText}>
-                  Plans are temporarily unavailable.
-                </Text>
-                <Text style={styles.emptyProductsSub}>
-                  Please try again later or restore an existing purchase.
-                </Text>
-              </View>
-            )}
-          </View>
+          {displayError ? (
+            <View
+              style={[
+                styles.errorBox,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}>
+              <Text style={[styles.errorText, {color: colors.text}]}>
+                {displayError}
+              </Text>
+            </View>
+          ) : null}
 
           <TouchableOpacity
-            style={[styles.restoreBtn, busy && styles.planBtnDisabled]}
-            disabled={busy}
-            onPress={handleRestore}>
-            {restoring ? (
-              <ActivityIndicator size="small" color={colors.primary} />
+            activeOpacity={0.9}
+            onPress={handlePurchase}
+            disabled={!canPurchase}
+            style={[
+              styles.primaryButton,
+              {
+                backgroundColor: canPurchase ? colors.primary : colors.border,
+              },
+            ]}>
+            {purchasing ? (
+              <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.restoreBtnText}>
-                Restore previous purchase
+              <Text style={styles.primaryButtonText}>Get Club Pro</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleRestore}
+            disabled={busy || loadingProducts || !clubId}
+            style={styles.restoreButton}>
+            {restoring ? (
+              <ActivityIndicator />
+            ) : (
+              <Text style={[styles.restoreText, {color: colors.primary}]}>
+                Restore purchase
               </Text>
             )}
           </TouchableOpacity>
 
-          <Text style={styles.legalNote}>
-            Subscriptions auto-renew unless cancelled at least 24 hours before
-            the end of the current period. Manage in your device&apos;s account
-            settings.
+          <Text style={[styles.footerText, {color: colors.textMuted}]}>
+            Subscription applies to the whole club. Payment and renewal are
+            handled by the App Store or Google Play.
           </Text>
-        </ScrollView>
-      </SafeAreaView>
+        </View>
+      </View>
     </Modal>
   );
 }
 
-function createStyles(c: ThemeColors) {
-  return StyleSheet.create({
-    safeArea: {
-      flex: 1,
-      backgroundColor: c.background,
-    },
-
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 20,
-      paddingVertical: 14,
-      borderBottomWidth: 1,
-      borderBottomColor: c.border,
-    },
-    headerTitle: {
-      color: c.text,
-      fontSize: 18,
-      fontWeight: '700',
-    },
-    closeBtn: {
-      padding: 4,
-      borderRadius: 20,
-    },
-    closeBtnPressed: {
-      opacity: 0.5,
-    },
-    closeBtnText: {
-      color: c.textMuted,
-      fontSize: 17,
-      fontWeight: '600',
-      lineHeight: 20,
-    },
-
-    content: {
-      paddingHorizontal: 20,
-      paddingTop: 24,
-      paddingBottom: 40,
-    },
-
-    tagline: {
-      color: c.text,
-      fontSize: 22,
-      fontWeight: '700',
-      textAlign: 'center',
-      marginBottom: 20,
-      lineHeight: 30,
-    },
-
-    featuresCard: {
-      backgroundColor: c.card,
-      borderRadius: 14,
-      padding: 18,
-      borderWidth: 1,
-      borderColor: c.border,
-      marginBottom: 20,
-      gap: 10,
-    },
-    featureItem: {
-      color: c.text,
-      fontSize: 15,
-      lineHeight: 22,
-    },
-
-    statusCard: {
-      backgroundColor: c.primary + '18',
-      borderRadius: 12,
-      padding: 14,
-      borderWidth: 1,
-      borderColor: c.primary + '44',
-      marginBottom: 20,
-      gap: 4,
-    },
-    statusRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      marginBottom: 4,
-    },
-    badge: {
-      backgroundColor: c.primary,
-      borderRadius: 6,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-    },
-    badgeText: {
-      color: '#fff',
-      fontWeight: '700',
-      fontSize: 11,
-      letterSpacing: 0.5,
-    },
-    statusText: {
-      color: c.text,
-      fontSize: 15,
-      fontWeight: '600',
-    },
-    statusSub: {
-      color: c.textMuted,
-      fontSize: 13,
-    },
-
-    errorBanner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: c.danger + '22',
-      borderRadius: 10,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      marginBottom: 16,
-      gap: 10,
-    },
-    errorBannerText: {
-      color: c.danger,
-      fontSize: 13,
-      flex: 1,
-      lineHeight: 19,
-    },
-    errorBannerDismiss: {
-      color: c.danger,
-      fontSize: 15,
-      fontWeight: '700',
-    },
-
-    plansSection: {
-      marginBottom: 6,
-    },
-    plansLabel: {
-      color: c.textMuted,
-      fontSize: 12,
-      fontWeight: '600',
-      textTransform: 'uppercase',
-      letterSpacing: 0.8,
-      marginBottom: 12,
-    },
-    planBtn: {
-      backgroundColor: c.card,
-      borderRadius: 12,
-      borderWidth: 1.5,
-      borderColor: c.border,
-      paddingVertical: 16,
-      paddingHorizontal: 18,
-      marginBottom: 10,
-      alignItems: 'center',
-      minHeight: 64,
-      justifyContent: 'center',
-    },
-    planBtnHighlighted: {
-      backgroundColor: c.primary,
-      borderColor: c.primary,
-    },
-    planBtnDisabled: {
-      opacity: 0.45,
-    },
-    planBtnInner: {
-      alignItems: 'center',
-      gap: 2,
-    },
-    planBtnCycle: {
-      color: c.text,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    planBtnCycleHighlighted: {
-      color: '#fff',
-    },
-    planBtnPrice: {
-      color: c.textMuted,
-      fontSize: 14,
-    },
-    planBtnPriceHighlighted: {
-      color: 'rgba(255,255,255,0.85)',
-    },
-    planBadge: {
-      position: 'absolute',
-      top: -10,
-      right: 14,
-      backgroundColor: c.warning,
-      borderRadius: 6,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-    },
-    planBadgeText: {
-      color: '#000',
-      fontSize: 10,
-      fontWeight: '700',
-      letterSpacing: 0.3,
-    },
-
-    loadingIndicator: {
-      marginVertical: 20,
-    },
-
-    emptyProducts: {
-      alignItems: 'center',
-      paddingVertical: 20,
-      gap: 6,
-    },
-    emptyProductsText: {
-      color: c.textMuted,
-      fontSize: 14,
-      textAlign: 'center',
-    },
-    emptyProductsSub: {
-      color: c.textMuted,
-      fontSize: 12,
-      textAlign: 'center',
-      lineHeight: 18,
-    },
-
-    restoreBtn: {
-      alignItems: 'center',
-      paddingVertical: 14,
-      marginTop: 4,
-      minHeight: 48,
-      justifyContent: 'center',
-    },
-    restoreBtnText: {
-      color: c.primary,
-      fontSize: 14,
-      fontWeight: '500',
-    },
-
-    legalNote: {
-      color: c.textMuted,
-      fontSize: 11,
-      textAlign: 'center',
-      lineHeight: 17,
-      marginTop: 24,
-      paddingHorizontal: 8,
-    },
-  });
-}
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 28,
+    minHeight: 480,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  closeText: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  subtitle: {
+    marginTop: 10,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  features: {
+    marginTop: 18,
+    gap: 8,
+  },
+  featureText: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  sectionTitle: {
+    marginTop: 22,
+    marginBottom: 12,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  centerState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 10,
+  },
+  stateText: {
+    fontSize: 14,
+  },
+  planList: {
+    gap: 12,
+  },
+  planCard: {
+    borderWidth: 1.5,
+    borderRadius: 18,
+    padding: 16,
+  },
+  planBadge: {
+    position: 'absolute',
+    top: -10,
+    right: 14,
+    backgroundColor: '#F4B400',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    zIndex: 1,
+  },
+  planBadgeText: {
+    color: '#000000',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  planHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  planTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  planPrice: {
+    marginTop: 8,
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  planSubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  emptyState: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  emptyText: {
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  errorBox: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+  },
+  errorText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  primaryButton: {
+    marginTop: 18,
+    minHeight: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  restoreButton: {
+    marginTop: 14,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restoreText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  footerText: {
+    marginTop: 14,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+});

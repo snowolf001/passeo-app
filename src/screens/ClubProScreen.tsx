@@ -1,13 +1,6 @@
 // src/screens/ClubProScreen.tsx
-//
-// Dedicated Club Pro subscription management screen.
-// Shows a different UI based on billingState:
-//   free             → features list + upgrade CTA (opens UpgradeProModal)
-//   active_renewing  → active details, manage / cancel button
-//   active_cancelled → active details + cancelled warning, manage button
-//   expired          → expired banner + re-subscribe CTA
 
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,11 +13,14 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 
 import {useApp} from '../context/AppContext';
+import {
+  useClubProPurchase,
+  type StoreProduct,
+} from '../hooks/useClubProPurchase';
 import {useClubSubscription} from '../hooks/useClubSubscription';
 import {useAppTheme} from '../theme/useAppTheme';
-import {openManageSubscriptions} from '../utils/manageSubscription';
-import UpgradeProModal from '../components/UpgradeProModal';
 import type {ThemeColors} from '../theme/colors';
+import {openManageSubscriptions} from '../utils/manageSubscription';
 import type {BillingState} from '../types/subscription';
 
 type Props = {navigation: any};
@@ -96,9 +92,70 @@ export default function ClubProScreen({navigation}: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const clubId = currentClub?.id ?? null;
-  const {status, loading, error, refresh} = useClubSubscription(clubId);
 
-  const [upgradeVisible, setUpgradeVisible] = useState(false);
+  const {
+    status,
+    loading: statusLoading,
+    error: statusError,
+    refresh,
+  } = useClubSubscription(clubId ?? undefined);
+
+  const {
+    products,
+    loadingProducts,
+    purchasing,
+    restoring,
+    error: purchaseError,
+    clearError,
+    purchase,
+    restore,
+  } = useClubProPurchase();
+
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    null,
+  );
+
+  const billingState: BillingState = status?.billingState ?? 'free';
+  const active = status?.activeSubscription ?? null;
+  const scheduled = status?.scheduledSubscription ?? null;
+  const lastExpired = status?.lastExpiredSubscription ?? null;
+
+  const isActiveState =
+    billingState === 'active_renewing' || billingState === 'active_cancelled';
+
+  const monthlyProduct = useMemo(
+    () => products.find(p => p.planCycle === 'monthly') ?? null,
+    [products],
+  );
+
+  const yearlyProduct = useMemo(
+    () => products.find(p => p.planCycle === 'yearly') ?? null,
+    [products],
+  );
+
+  const busy = purchasing || restoring;
+
+  useEffect(() => {
+    const currentStillExists = !!products.find(
+      p => p.productId === selectedProductId,
+    );
+
+    if (currentStillExists) {
+      return;
+    }
+
+    if (yearlyProduct) {
+      setSelectedProductId(yearlyProduct.productId);
+      return;
+    }
+
+    if (monthlyProduct) {
+      setSelectedProductId(monthlyProduct.productId);
+      return;
+    }
+
+    setSelectedProductId(null);
+  }, [products, selectedProductId, yearlyProduct, monthlyProduct]);
 
   const handleManageSubscription = useCallback(async () => {
     try {
@@ -111,21 +168,163 @@ export default function ClubProScreen({navigation}: Props) {
     }
   }, []);
 
-  const handleUpgradeClose = useCallback(async () => {
-    setUpgradeVisible(false);
+  const handlePurchase = useCallback(async () => {
+    if (busy) {
+      return;
+    }
+
+    if (!clubId) {
+      Alert.alert('Error', 'Club not ready. Please try again.');
+      return;
+    }
+
+    if (!selectedProductId) {
+      Alert.alert('Choose a plan', 'Please select a subscription plan.');
+      return;
+    }
 
     try {
-      await refresh();
-    } catch {
-      // non-critical
+      clearError();
+      await purchase(selectedProductId, clubId);
+
+      try {
+        await refresh();
+      } catch (refreshError) {
+        if (__DEV__) {
+          console.warn(
+            '[ClubProScreen] purchase succeeded but refresh failed:',
+            refreshError,
+          );
+        }
+      }
+
+      Alert.alert('Success', 'Club Pro has been activated for your club.');
+    } catch (e: any) {
+      if (e?.message === 'USER_CANCELLED') {
+        return;
+      }
+
+      Alert.alert('Purchase failed', e?.message ?? 'Please try again.');
     }
-  }, [refresh]);
+  }, [busy, clearError, clubId, purchase, refresh, selectedProductId]);
+
+  const handleRestore = useCallback(async () => {
+    if (busy) {
+      return;
+    }
+
+    if (!clubId) {
+      Alert.alert('Error', 'Club not ready. Please try again.');
+      return;
+    }
+
+    try {
+      clearError();
+      const result = await restore(clubId);
+
+      try {
+        await refresh();
+      } catch (refreshError) {
+        if (__DEV__) {
+          console.warn(
+            '[ClubProScreen] restore succeeded but refresh failed:',
+            refreshError,
+          );
+        }
+      }
+
+      if (result.status?.isPro) {
+        Alert.alert('Restore successful', 'Club Pro has been restored.');
+        return;
+      }
+
+      if (result.verifyFailed) {
+        Alert.alert(
+          'Restore failed',
+          'Found a previous purchase, but verification with the server failed.',
+        );
+        return;
+      }
+
+      if (result.verifiedCount === 0) {
+        Alert.alert(
+          'Nothing to restore',
+          'No previous Club Pro purchase was found for this account.',
+        );
+        return;
+      }
+
+      Alert.alert('Restore complete', 'Restore finished.');
+    } catch (e: any) {
+      Alert.alert('Restore failed', e?.message ?? 'Please try again.');
+    }
+  }, [busy, clearError, clubId, refresh, restore]);
+
+  const renderPlanCard = useCallback(
+    (product: StoreProduct, subtitle: string, bestValue?: boolean) => {
+      const selected = selectedProductId === product.productId;
+      const pendingThisProduct =
+        purchasing && selectedProductId === product.productId;
+
+      return (
+        <TouchableOpacity
+          key={product.productId}
+          style={[
+            styles.planCard,
+            selected && styles.planCardSelected,
+            busy && styles.planCardDisabled,
+          ]}
+          activeOpacity={0.85}
+          disabled={busy}
+          onPress={() => {
+            clearError();
+            setSelectedProductId(product.productId);
+          }}>
+          {bestValue ? (
+            <View style={styles.planBadge}>
+              <Text style={styles.planBadgeText}>Best value</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.planHeaderRow}>
+            <Text style={styles.planTitle}>
+              {product.planCycle === 'yearly' ? 'Yearly' : 'Monthly'}
+            </Text>
+
+            <View
+              style={[
+                styles.radioOuter,
+                selected && styles.radioOuterSelected,
+              ]}>
+              {selected ? <View style={styles.radioInner} /> : null}
+            </View>
+          </View>
+
+          {pendingThisProduct ? (
+            <ActivityIndicator
+              style={styles.planSpinner}
+              size="small"
+              color={colors.primary}
+            />
+          ) : (
+            <>
+              <Text style={styles.planPrice}>
+                {product.localizedPrice || '—'}
+              </Text>
+              <Text style={styles.planSubtitle}>{subtitle}</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      );
+    },
+    [busy, clearError, colors.primary, purchasing, selectedProductId, styles],
+  );
 
   if (!clubId) {
     return null;
   }
 
-  if (loading && !status) {
+  if (statusLoading && !status) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centeredFill}>
@@ -135,11 +334,11 @@ export default function ClubProScreen({navigation}: Props) {
     );
   }
 
-  if (error && !status) {
+  if (statusError && !status) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centeredFill}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>{statusError}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={refresh}>
             <Text style={styles.retryBtnText}>Retry</Text>
           </TouchableOpacity>
@@ -148,21 +347,12 @@ export default function ClubProScreen({navigation}: Props) {
     );
   }
 
-  const billingState: BillingState = status?.billingState ?? 'free';
-  const active = status?.activeSubscription ?? null;
-  const scheduled = status?.scheduledSubscription ?? null;
-  const lastExpired = status?.lastExpiredSubscription ?? null;
-  const isPro = status?.isPro ?? false;
-
-  const isActiveState =
-    billingState === 'active_renewing' || billingState === 'active_cancelled';
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}>
-        {/* ── Status banner (non-free states) ─────────────────────── */}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
         {billingState !== 'free' && (
           <View
             style={[
@@ -187,12 +377,12 @@ export default function ClubProScreen({navigation}: Props) {
                 ]}>
                 <Text style={styles.proBadgeText}>PRO</Text>
               </View>
+
               <Text style={styles.statusLabel}>
                 {billingStateLabel(billingState)}
               </Text>
             </View>
 
-            {/* Active subscription details */}
             {isActiveState && active && (
               <>
                 <View style={styles.detailRow}>
@@ -234,7 +424,6 @@ export default function ClubProScreen({navigation}: Props) {
               </>
             )}
 
-            {/* Cancelled warning */}
             {billingState === 'active_cancelled' && (
               <Text style={[styles.warningNote, {color: colors.warning}]}>
                 Your Pro access will end when the current period expires.
@@ -242,7 +431,6 @@ export default function ClubProScreen({navigation}: Props) {
               </Text>
             )}
 
-            {/* Expired details */}
             {billingState === 'expired' && lastExpired && (
               <>
                 <View style={styles.detailRow}>
@@ -263,17 +451,19 @@ export default function ClubProScreen({navigation}: Props) {
           </View>
         )}
 
-        {/* ── Free state: features list ────────────────────────────── */}
-        {billingState === 'free' && (
+        {(billingState === 'free' || billingState === 'expired') && (
           <>
-            <Text style={styles.headline}>Upgrade to Club Pro</Text>
+            <Text style={styles.headline}>
+              {billingState === 'expired'
+                ? 'Re-subscribe to Club Pro'
+                : 'Upgrade to Club Pro'}
+            </Text>
             <Text style={styles.tagline}>
               Unlock the full potential of your club
             </Text>
           </>
         )}
 
-        {/* ── Features card (always visible) ──────────────────────── */}
         <View style={styles.featuresCard}>
           <Text style={styles.featuresTitle}>Pro Features</Text>
           {PRO_FEATURES.map(f => (
@@ -283,21 +473,94 @@ export default function ClubProScreen({navigation}: Props) {
           ))}
         </View>
 
-        {/* ── Free or Expired: Subscribe CTA ──────────────────────── */}
         {(billingState === 'free' || billingState === 'expired') && (
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            activeOpacity={0.85}
-            onPress={() => setUpgradeVisible(true)}>
-            <Text style={styles.primaryBtnText}>
-              {billingState === 'expired'
-                ? 'Re-subscribe to Pro'
-                : 'Get Club Pro'}
-            </Text>
-          </TouchableOpacity>
+          <>
+            {!!purchaseError && (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorBannerText}>{purchaseError}</Text>
+                <TouchableOpacity
+                  onPress={clearError}
+                  hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                  <Text style={styles.errorBannerDismiss}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <View style={styles.plansSection}>
+              <Text style={styles.plansLabel}>Choose a plan</Text>
+
+              {loadingProducts ? (
+                <View style={styles.loadingPlansWrap}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={styles.loadingPlansText}>
+                    Loading subscription plans...
+                  </Text>
+                </View>
+              ) : products.length > 0 ? (
+                <View style={styles.planList}>
+                  {yearlyProduct
+                    ? renderPlanCard(
+                        yearlyProduct,
+                        'Best value for ongoing clubs',
+                        !!monthlyProduct,
+                      )
+                    : null}
+
+                  {monthlyProduct
+                    ? renderPlanCard(
+                        monthlyProduct,
+                        'Flexible month-to-month billing',
+                      )
+                    : null}
+                </View>
+              ) : (
+                <View style={styles.emptyProducts}>
+                  <Text style={styles.emptyProductsText}>
+                    Plans are temporarily unavailable.
+                  </Text>
+                  <Text style={styles.emptyProductsSub}>
+                    Please try again later or restore an existing purchase.
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.primaryBtn,
+                (!selectedProductId || busy || loadingProducts) &&
+                  styles.primaryBtnDisabled,
+              ]}
+              activeOpacity={0.85}
+              disabled={!selectedProductId || busy || loadingProducts}
+              onPress={handlePurchase}>
+              {purchasing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primaryBtnText}>
+                  {billingState === 'expired'
+                    ? 'Re-subscribe to Pro'
+                    : 'Get Club Pro'}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryBtn, busy && styles.planCardDisabled]}
+              activeOpacity={0.8}
+              disabled={busy}
+              onPress={handleRestore}>
+              {restoring ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={styles.secondaryBtnText}>
+                  Restore previous purchase
+                </Text>
+              )}
+            </TouchableOpacity>
+          </>
         )}
 
-        {/* ── Active states: Manage subscription ──────────────────── */}
         {isActiveState && (
           <TouchableOpacity
             style={styles.manageBtn}
@@ -307,38 +570,26 @@ export default function ClubProScreen({navigation}: Props) {
           </TouchableOpacity>
         )}
 
-        {/* ── Expired state: also offer restore ───────────────────── */}
-        {billingState === 'expired' && (
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            activeOpacity={0.8}
-            onPress={() => setUpgradeVisible(true)}>
-            <Text style={styles.secondaryBtnText}>
-              Restore previous purchase
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* ── Legal note ────────────────────────────────────────────── */}
         <Text style={styles.legalNote}>
           Subscriptions auto-renew unless cancelled at least 24 hours before the
-          end of the current period. Manage in your device's account settings.
+          end of the current period. Manage in your device&apos;s account
+          settings.
         </Text>
       </ScrollView>
-
-      <UpgradeProModal
-        visible={upgradeVisible}
-        clubId={clubId}
-        onClose={handleUpgradeClose}
-      />
     </SafeAreaView>
   );
 }
 
 function createStyles(c: ThemeColors) {
   return StyleSheet.create({
-    container: {flex: 1, backgroundColor: c.background},
-    scroll: {padding: 20, paddingBottom: 48},
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    scroll: {
+      padding: 20,
+      paddingBottom: 48,
+    },
 
     centeredFill: {
       flex: 1,
@@ -380,7 +631,6 @@ function createStyles(c: ThemeColors) {
       lineHeight: 22,
     },
 
-    // ── Status banner ─────────────────────────────────────────────
     statusBanner: {
       borderRadius: 14,
       borderWidth: 1,
@@ -399,40 +649,44 @@ function createStyles(c: ThemeColors) {
       paddingVertical: 3,
     },
     proBadgeText: {
-      color: '#fff',
-      fontWeight: '700',
+      color: '#FFFFFF',
       fontSize: 11,
-      letterSpacing: 0.5,
+      fontWeight: '800',
+      letterSpacing: 0.8,
     },
     statusLabel: {
       color: c.text,
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: '700',
     },
+
     detailRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: 'flex-start',
+      gap: 16,
     },
     detailLabel: {
       color: c.textMuted,
       fontSize: 13,
+      flex: 1,
     },
     detailValue: {
       color: c.text,
       fontSize: 13,
       fontWeight: '600',
+      flex: 1,
+      textAlign: 'right',
     },
     warningNote: {
       fontSize: 13,
-      lineHeight: 19,
-      marginTop: 4,
+      lineHeight: 20,
+      marginTop: 2,
     },
 
-    // ── Features ──────────────────────────────────────────────────
     featuresCard: {
       backgroundColor: c.card,
-      borderRadius: 14,
+      borderRadius: 16,
       padding: 18,
       borderWidth: 1,
       borderColor: c.border,
@@ -440,62 +694,213 @@ function createStyles(c: ThemeColors) {
       gap: 10,
     },
     featuresTitle: {
-      color: c.textMuted,
-      fontSize: 11,
-      fontWeight: '700',
+      color: c.text,
+      fontSize: 14,
+      fontWeight: '800',
+      letterSpacing: 1,
       textTransform: 'uppercase',
-      letterSpacing: 0.8,
       marginBottom: 4,
     },
     featureItem: {
       color: c.text,
-      fontSize: 15,
-      lineHeight: 22,
+      fontSize: 16,
+      lineHeight: 24,
     },
 
-    // ── Buttons ───────────────────────────────────────────────────
-    primaryBtn: {
-      backgroundColor: c.primary,
+    errorBanner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 12,
+      backgroundColor: c.card,
       borderRadius: 14,
-      paddingVertical: 16,
-      alignItems: 'center',
-      marginBottom: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: c.border,
+      marginBottom: 16,
     },
-    primaryBtnText: {
-      color: '#fff',
+    errorBannerText: {
+      color: c.text,
+      fontSize: 14,
+      lineHeight: 20,
+      flex: 1,
+    },
+    errorBannerDismiss: {
+      color: c.textMuted,
       fontSize: 16,
       fontWeight: '700',
     },
+
+    plansSection: {
+      marginBottom: 18,
+    },
+    plansLabel: {
+      color: c.text,
+      fontSize: 14,
+      fontWeight: '800',
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      marginBottom: 12,
+    },
+    loadingPlansWrap: {
+      paddingVertical: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    loadingPlansText: {
+      color: c.textMuted,
+      fontSize: 14,
+    },
+    planList: {
+      gap: 12,
+    },
+    planCard: {
+      position: 'relative',
+      backgroundColor: c.card,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1.5,
+      borderColor: c.border,
+    },
+    planCardSelected: {
+      borderColor: c.primary,
+    },
+    planCardDisabled: {
+      opacity: 0.7,
+    },
+    planHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    planTitle: {
+      color: c.text,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    planPrice: {
+      color: c.text,
+      fontSize: 22,
+      fontWeight: '800',
+      marginBottom: 6,
+    },
+    planSubtitle: {
+      color: c.textMuted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    planSpinner: {
+      marginTop: 6,
+      alignSelf: 'flex-start',
+    },
+    planBadge: {
+      position: 'absolute',
+      top: -10,
+      right: 14,
+      backgroundColor: '#F4B400',
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      zIndex: 1,
+    },
+    planBadgeText: {
+      color: '#000000',
+      fontSize: 12,
+      fontWeight: '800',
+    },
+
+    radioOuter: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 2,
+      borderColor: c.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    radioOuterSelected: {
+      borderColor: c.primary,
+    },
+    radioInner: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: c.primary,
+    },
+
+    emptyProducts: {
+      backgroundColor: c.card,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: c.border,
+      padding: 16,
+      gap: 6,
+    },
+    emptyProductsText: {
+      color: c.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    emptyProductsSub: {
+      color: c.textMuted,
+      fontSize: 13,
+      lineHeight: 19,
+    },
+
+    primaryBtn: {
+      backgroundColor: c.primary,
+      borderRadius: 14,
+      minHeight: 54,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 14,
+      paddingHorizontal: 16,
+    },
+    primaryBtnDisabled: {
+      opacity: 0.5,
+    },
+    primaryBtnText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '800',
+    },
+
+    secondaryBtn: {
+      minHeight: 46,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 18,
+    },
+    secondaryBtnText: {
+      color: c.primary,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+
     manageBtn: {
       backgroundColor: c.card,
       borderRadius: 14,
-      paddingVertical: 14,
-      alignItems: 'center',
       borderWidth: 1,
       borderColor: c.border,
-      marginBottom: 12,
+      minHeight: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 18,
+      paddingHorizontal: 16,
     },
     manageBtnText: {
       color: c.text,
       fontSize: 15,
-      fontWeight: '600',
+      fontWeight: '700',
     },
-    secondaryBtn: {
-      paddingVertical: 12,
-      alignItems: 'center',
-      marginBottom: 4,
-    },
-    secondaryBtnText: {
-      color: c.primary,
-      fontSize: 14,
-      fontWeight: '600',
-    },
+
     legalNote: {
       color: c.textMuted,
-      fontSize: 11,
+      fontSize: 12,
+      lineHeight: 18,
       textAlign: 'center',
-      lineHeight: 16,
-      marginTop: 12,
     },
   });
 }

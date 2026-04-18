@@ -29,9 +29,6 @@ export type RootStackParamList = {
   MemberCreditHistory: {membershipId: string; memberName?: string};
   PdfPreview: {url: string; title?: string; filename?: string};
 
-  // Club Pro placeholder paywall (closed testing)
-  ClubProPreview: undefined;
-
   // Club Pro subscription management screen
   ClubPro: undefined;
 };
