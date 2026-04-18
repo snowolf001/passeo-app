@@ -21,7 +21,7 @@ export type UseClubSubscriptionResult = {
 };
 
 export function useClubSubscription(
-  clubId?: string,
+  clubId?: string | null,
 ): UseClubSubscriptionResult {
   const {currentClub} = useApp();
 
@@ -53,10 +53,9 @@ export function useClubSubscription(
   }, [effectiveClubId]);
 
   useEffect(() => {
-    setStatus(null);
-    setError(null);
-
     if (!effectiveClubId) {
+      setStatus(null);
+      setError(null);
       setLoading(false);
       return;
     }

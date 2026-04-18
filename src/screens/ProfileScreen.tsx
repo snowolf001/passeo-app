@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useMemo, useRef, useState, Component} from 'react';
 import {
   View,
   Text,
@@ -12,15 +12,53 @@ import {useApp} from '../context/AppContext';
 import {leaveClub} from '../services/api/clubApi';
 import {useAppTheme} from '../theme/useAppTheme';
 import {useProStatus} from '../hooks/useProStatus';
+import UpgradeProModal from '../components/UpgradeProModal';
 import {
   canAccessSummaryReports,
   canAccessAuditLogs,
 } from '../config/entitlementConfig';
-import UpgradeProModal from '../components/UpgradeProModal';
-import ClubProSection from '../components/ClubProSection';
 import type {ThemeColors} from '../theme/colors';
 
 type Props = {navigation: any};
+
+// ── Crash Diagnostic ErrorBoundary ───────────────────────────────────────────
+// Wraps the entire screen so that ANY JavaScript render error that would
+// normally silently kill the app in Release mode is caught here instead, and
+// an Alert is shown with the exact error message.
+class ScreenErrorBoundary extends Component<
+  {children: React.ReactNode},
+  {crashed: boolean; errorMsg: string}
+> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = {crashed: false, errorMsg: ''};
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return {crashed: true, errorMsg: error?.message ?? String(error)};
+  }
+
+  componentDidCatch(error: any, info: any) {
+    const msg = error?.message ?? String(error);
+    const stack = (info?.componentStack ?? '').slice(0, 400);
+
+    Alert.alert('[DEBUG] ProfileScreen Crash', msg + '\n\n' + stack, [
+      {text: 'OK'},
+    ]);
+  }
+
+  render() {
+    if (this.state.crashed) {
+      return (
+        <View style={stylesErrorBoundary.container}>
+          <Text style={stylesErrorBoundary.text}>{this.state.errorMsg}</Text>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 export default function ProfileScreen({navigation}: Props) {
   const {currentMembership, currentClub, clearMembershipSession} = useApp();
@@ -37,8 +75,10 @@ export default function ProfileScreen({navigation}: Props) {
     if (snackTimer.current) {
       clearTimeout(snackTimer.current);
     }
+
     setSnackMsg(message);
     setSnackVisible(true);
+
     snackTimer.current = setTimeout(() => {
       setSnackVisible(false);
       setSnackMsg('');
@@ -74,6 +114,7 @@ export default function ProfileScreen({navigation}: Props) {
       );
       return;
     }
+
     Alert.alert(
       'Leave Club',
       `Leave ${currentClub.name}? You will need to rejoin with a code.`,
@@ -92,6 +133,7 @@ export default function ProfileScreen({navigation}: Props) {
               });
             } catch (err: any) {
               const code = err?.code as string | undefined;
+
               if (code === 'OWNER_TRANSFER_REQUIRED') {
                 Alert.alert(
                   'Cannot Leave',
@@ -128,245 +170,254 @@ export default function ProfileScreen({navigation}: Props) {
       : 'Manage and perform backfill check-ins.';
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* ===== HEADER SUMMARY ===== */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.userName}>{currentMembership.userName}</Text>
-          <Text style={styles.userSub}>{currentClub.name}</Text>
+    <ScreenErrorBoundary>
+      <SafeAreaView style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}>
+          {/* ===== HEADER SUMMARY ===== */}
+          <View style={styles.summaryCard}>
+            <Text style={styles.userName}>{currentMembership.userName}</Text>
+            <Text style={styles.userSub}>{currentClub.name}</Text>
 
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Role</Text>
-              <Text style={styles.summaryValue}>
-                {ROLE_LABELS[role] ?? role}
-              </Text>
-            </View>
-
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>Credits</Text>
-              <Text style={styles.summaryValue}>
-                {currentMembership.credits}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ===== CLUB ===== */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Club</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Name</Text>
-            <Text style={styles.infoValue}>{currentClub.name}</Text>
-          </View>
-
-          {isOwnerOrHost && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Join Code</Text>
-              <View style={styles.joinCodeRow}>
-                <Text style={[styles.infoValue, styles.joinCode]}>
-                  {currentClub.joinCode}
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>Role</Text>
+                <Text style={styles.summaryValue}>
+                  {ROLE_LABELS[role] ?? role}
                 </Text>
+              </View>
+
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>Credits</Text>
+                <Text style={styles.summaryValue}>
+                  {currentMembership.credits}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* ===== CLUB ===== */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Club</Text>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Name</Text>
+              <Text style={styles.infoValue}>{currentClub.name}</Text>
+            </View>
+
+            {isOwnerOrHost && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Join Code</Text>
+
+                <View style={styles.joinCodeRow}>
+                  <Text style={[styles.infoValue, styles.joinCode]}>
+                    {currentClub.joinCode}
+                  </Text>
+
+                  <TouchableOpacity
+                    style={styles.copyBtn}
+                    onPress={() => {
+                      console.log(currentClub.joinCode ?? '');
+                      showSnackbar('Join code copied');
+                    }}>
+                    <Text style={styles.copyBtnText}>Copy</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* ===== QUICK ACTIONS ===== */}
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={() =>
+                navigation.navigate('AttendanceHistory', {
+                  membershipId: currentMembership.id,
+                  title: 'My History',
+                })
+              }>
+              <Text style={styles.actionItemText}>My History</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            <View style={styles.actionDivider} />
+
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={() => navigation.navigate('CreditHistory')}>
+              <Text style={styles.actionItemText}>Credit History</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ===== BACKFILL ===== */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Backfill</Text>
+
+            <TouchableOpacity
+              style={styles.highlightAction}
+              onPress={handleOpenBackfill}>
+              <View style={styles.highlightTextWrap}>
+                <Text style={styles.highlightTitle}>{backfillTitle}</Text>
+                <Text style={styles.highlightDesc}>{backfillDescription}</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ===== HOST / OWNER ===== */}
+          {canManageClub && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Club Management</Text>
+
+              <TouchableOpacity
+                style={styles.actionItem}
+                onPress={() => navigation.navigate('ClubSettings')}>
+                <Text style={styles.actionItemText}>
+                  Club Settings & Locations
+                </Text>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+
+              <View style={styles.actionDivider} />
+
+              <TouchableOpacity
+                style={styles.actionItem}
+                onPress={() =>
+                  canAccessSummaryReports(isPro)
+                    ? navigation.navigate('Reports')
+                    : setUpgradeVisible(true)
+                }>
+                <Text style={styles.actionItemText}>Reports</Text>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+
+              <View style={styles.actionDivider} />
+
+              <TouchableOpacity
+                style={styles.actionItem}
+                onPress={() => navigation.navigate('MemberCredits')}>
+                <Text style={styles.actionItemText}>Manage Members</Text>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+
+              <View style={styles.actionDivider} />
+
+              <TouchableOpacity
+                style={styles.actionItem}
+                onPress={() =>
+                  canAccessAuditLogs(isPro)
+                    ? navigation.navigate('AuditLog')
+                    : setUpgradeVisible(true)
+                }>
+                <Text style={styles.actionItemText}>Audit Log</Text>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ===== OWNER ===== */}
+          {role === 'owner' && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Ownership</Text>
+
+              <TouchableOpacity
+                style={styles.actionItem}
+                onPress={handleTransferOwnership}>
+                <Text style={[styles.actionItemText, styles.dangerText]}>
+                  Transfer Ownership
+                </Text>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ===== RECOVERY CODE ===== */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Recovery Code</Text>
+            <Text style={styles.metaDesc}>
+              Use this code to restore access to your membership if you lose or
+              change your device. Keep it somewhere safe.
+            </Text>
+
+            <View style={styles.recoveryCodeRow}>
+              <Text style={styles.recoveryCode}>
+                {currentMembership.recoveryCode || '—'}
+              </Text>
+
+              {!!currentMembership.recoveryCode && (
                 <TouchableOpacity
                   style={styles.copyBtn}
                   onPress={() => {
-                    console.log(currentClub.joinCode ?? '');
-                    showSnackbar('Join code copied');
+                    console.log(currentMembership.recoveryCode ?? '');
+                    showSnackbar('Recovery code copied');
                   }}>
                   <Text style={styles.copyBtnText}>Copy</Text>
                 </TouchableOpacity>
-              </View>
+              )}
             </View>
-          )}
-        </View>
-
-        {/* ===== QUICK ACTIONS ===== */}
-        <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.actionItem}
-            onPress={() =>
-              navigation.navigate('AttendanceHistory', {
-                membershipId: currentMembership.id,
-                title: 'My History',
-              })
-            }>
-            <Text style={styles.actionItemText}>My History</Text>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-
-          <View style={styles.actionDivider} />
-
-          <TouchableOpacity
-            style={styles.actionItem}
-            onPress={() => navigation.navigate('CreditHistory')}>
-            <Text style={styles.actionItemText}>Credit History</Text>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ===== BACKFILL (重点功能入口) ===== */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Backfill</Text>
-
-          <TouchableOpacity
-            style={styles.highlightAction}
-            onPress={handleOpenBackfill}>
-            <View style={{flex: 1}}>
-              <Text style={styles.highlightTitle}>{backfillTitle}</Text>
-              <Text style={styles.highlightDesc}>{backfillDescription}</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ===== HOST / OWNER ===== */}
-        {canManageClub && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Club Management</Text>
-
-            <TouchableOpacity
-              style={styles.actionItem}
-              onPress={() => navigation.navigate('ClubSettings')}>
-              <Text style={styles.actionItemText}>
-                Club Settings & Locations
-              </Text>
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
-
-            <View style={styles.actionDivider} />
-
-            <TouchableOpacity
-              style={styles.actionItem}
-              onPress={() =>
-                canAccessSummaryReports(isPro)
-                  ? navigation.navigate('Reports')
-                  : setUpgradeVisible(true)
-              }>
-              <Text style={styles.actionItemText}>Reports</Text>
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
-
-            <View style={styles.actionDivider} />
-
-            <TouchableOpacity
-              style={styles.actionItem}
-              onPress={() => navigation.navigate('MemberCredits')}>
-              <Text style={styles.actionItemText}>Manage Members</Text>
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
-
-            <View style={styles.actionDivider} />
-            <TouchableOpacity
-              style={styles.actionItem}
-              onPress={() =>
-                canAccessAuditLogs(isPro)
-                  ? navigation.navigate('AuditLog')
-                  : setUpgradeVisible(true)
-              }>
-              <Text style={styles.actionItemText}>Audit Log</Text>
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
           </View>
-        )}
 
-        {/* ===== OWNER ===== */}
-        {role === 'owner' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Ownership</Text>
-
+          {/* ===== LEAVE CLUB ===== */}
+          <View style={[styles.card, styles.leaveCard]}>
             <TouchableOpacity
-              style={styles.actionItem}
-              onPress={handleTransferOwnership}>
-              <Text style={[styles.actionItemText, styles.dangerText]}>
-                Transfer Ownership
-              </Text>
-              <Text style={styles.chevron}>›</Text>
+              style={styles.leaveButton}
+              onPress={handleLeaveClub}>
+              <Text style={styles.leaveButtonText}>Leave Club</Text>
             </TouchableOpacity>
-          </View>
-        )}
 
-        {/* ===== RECOVERY CODE ===== */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Recovery Code</Text>
-          <Text style={styles.metaDesc}>
-            Use this code to restore access to your membership if you lose or
-            change your device. Keep it somewhere safe.
-          </Text>
-          <View style={styles.recoveryCodeRow}>
-            <Text style={styles.recoveryCode}>
-              {currentMembership.recoveryCode || '—'}
-            </Text>
-            {!!currentMembership.recoveryCode && (
-              <TouchableOpacity
-                style={styles.copyBtn}
-                onPress={() => {
-                  console.log(currentMembership.recoveryCode ?? '');
-                  showSnackbar('Recovery code copied');
-                }}>
-                <Text style={styles.copyBtnText}>Copy</Text>
-              </TouchableOpacity>
+            {role === 'owner' && (
+              <Text style={styles.leaveOwnerNote}>
+                Owners must transfer ownership before leaving.
+              </Text>
             )}
           </View>
-        </View>
 
-        {/* ===== LEAVE CLUB ===== */}
-        <View style={[styles.card, styles.leaveCard]}>
-          <TouchableOpacity
-            style={styles.leaveButton}
-            onPress={handleLeaveClub}>
-            <Text style={styles.leaveButtonText}>Leave Club</Text>
-          </TouchableOpacity>
-          {role === 'owner' && (
-            <Text style={styles.leaveOwnerNote}>
-              Owners must transfer ownership before leaving.
-            </Text>
+          {/* ===== DEV ONLY: Subscription Debug ===== */}
+          {__DEV__ && (
+            <View style={[styles.card, styles.devCard]}>
+              <Text style={styles.devCardTitle}>
+                Subscription Debug (DEV ONLY)
+              </Text>
+
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={() => setPlan('pro_monthly')}>
+                <Text style={styles.devButtonText}>Turn Pro ON (Monthly)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={() => setPlan('pro_yearly')}>
+                <Text style={styles.devButtonText}>Turn Pro ON (Yearly)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.devButton, styles.devButtonOff]}
+                onPress={() => setPlan('free')}>
+                <Text style={styles.devButtonOffText}>Turn Pro OFF</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.devStatus}>
+                Plan: {plan} {isPro ? '✓ Pro' : '✗ Free'}
+              </Text>
+            </View>
           )}
-        </View>
-
-        {/* ===== CLUB PRO SUBSCRIPTION ===== */}
-        {/* <ClubProSection /> */}
-
-        {/* ===== DEV ONLY: Subscription Debug ===== */}
-        {__DEV__ && (
-          <View style={[styles.card, styles.devCard]}>
-            <Text style={styles.devCardTitle}>
-              Subscription Debug (DEV ONLY)
-            </Text>
-            <TouchableOpacity
-              style={styles.devButton}
-              onPress={() => setPlan('pro_monthly')}>
-              <Text style={styles.devButtonText}>Turn Pro ON (Monthly)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.devButton}
-              onPress={() => setPlan('pro_yearly')}>
-              <Text style={styles.devButtonText}>Turn Pro ON (Yearly)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.devButton, styles.devButtonOff]}
-              onPress={() => setPlan('free')}>
-              <Text style={styles.devButtonOffText}>Turn Pro OFF</Text>
-            </TouchableOpacity>
-            <Text style={styles.devStatus}>
-              Plan: {plan} {isPro ? '✓ Pro' : '✗ Free'}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-
-      {upgradeVisible && (
+        </ScrollView>
         <UpgradeProModal
           visible={upgradeVisible}
           clubId={currentClub.id}
           onClose={() => setUpgradeVisible(false)}
         />
-      )}
-      {snackVisible && (
-        <View pointerEvents="none" style={styles.snackbar}>
-          <Text style={styles.snackbarText}>{snackMsg}</Text>
-        </View>
-      )}
-    </SafeAreaView>
+        {snackVisible && (
+          <View pointerEvents="none" style={styles.snackbar}>
+            <Text style={styles.snackbarText}>{snackMsg}</Text>
+          </View>
+        )}
+      </SafeAreaView>
+    </ScreenErrorBoundary>
   );
 }
 
@@ -374,6 +425,7 @@ function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: {flex: 1, backgroundColor: c.background},
     scroll: {padding: 20, paddingBottom: 40},
+
     snackbar: {
       position: 'absolute',
       left: 16,
@@ -458,6 +510,7 @@ function createStyles(c: ThemeColors) {
       alignItems: 'center',
       gap: 8,
     },
+
     copyBtn: {
       paddingHorizontal: 10,
       paddingVertical: 4,
@@ -481,6 +534,9 @@ function createStyles(c: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingVertical: 12,
+    },
+    highlightTextWrap: {
+      flex: 1,
     },
     highlightTitle: {
       fontSize: 16,
@@ -507,11 +563,6 @@ function createStyles(c: ThemeColors) {
       color: c.danger,
     },
 
-    metaText: {
-      fontSize: 13,
-      color: c.textMuted,
-      marginTop: 4,
-    },
     metaDesc: {
       fontSize: 13,
       color: c.textMuted,
@@ -531,6 +582,7 @@ function createStyles(c: ThemeColors) {
       letterSpacing: 2,
       fontVariant: ['tabular-nums'],
     },
+
     leaveCard: {
       borderWidth: 1,
       borderColor: '#FFE2E2',
@@ -553,6 +605,7 @@ function createStyles(c: ThemeColors) {
       textAlign: 'center',
       marginTop: 8,
     },
+
     devCard: {
       borderWidth: 1,
       borderColor: '#FFA500',
@@ -595,3 +648,15 @@ function createStyles(c: ThemeColors) {
     },
   });
 }
+
+const stylesErrorBoundary = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  text: {
+    color: 'red',
+    padding: 20,
+  },
+});

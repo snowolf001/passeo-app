@@ -1,10 +1,6 @@
 // src/components/UpgradeProModal.tsx
 //
 // Full-screen modal for upgrading a club to Pro.
-// Plug in anywhere:
-//
-//   const [open, setOpen] = useState(false);
-//   <UpgradeProModal visible={open} clubId={club.id} onClose={() => setOpen(false)} />
 
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
@@ -25,15 +21,11 @@ import {useClubSubscription} from '../hooks/useClubSubscription';
 import {useAppTheme} from '../theme/useAppTheme';
 import type {ThemeColors} from '../theme/colors';
 
-// ─── Props ────────────────────────────────────────────────────────────────────
-
 type Props = {
   visible: boolean;
   clubId: string;
   onClose: () => void;
 };
-
-// ─── Static content ───────────────────────────────────────────────────────────
 
 const PRO_FEATURES = [
   '✓  Unlimited members',
@@ -43,10 +35,9 @@ const PRO_FEATURES = [
   '✓  Priority support',
 ] as const;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function fmt(iso: string | null | undefined): string {
   if (!iso) return '—';
+
   try {
     return new Date(iso).toLocaleDateString('en-US', {
       month: 'short',
@@ -58,25 +49,39 @@ function fmt(iso: string | null | undefined): string {
   }
 }
 
-function capitalize(s: string): string {
+function capitalize(s?: string | null): string {
+  if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+function getPlanLabel(product: {
+  productId: string;
+  planCycle?: string | null;
+}): string {
+  if (product.planCycle) {
+    return capitalize(product.planCycle);
+  }
+
+  const normalized = product.productId.toLowerCase();
+
+  if (normalized.includes('monthly') || normalized.includes('month')) {
+    return 'Monthly';
+  }
+
+  if (normalized.includes('yearly') || normalized.includes('annual')) {
+    return 'Yearly';
+  }
+
+  return 'Plan';
+}
 
 export default function UpgradeProModal({visible, clubId, onClose}: Props) {
   const {colors} = useAppTheme();
-  const s = makeStyles(colors);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const {status, refresh} = useClubSubscription(clubId);
-
-  const purchaseState = useClubProPurchase({skip: !visible});
-
-  const products = Array.isArray(purchaseState.products)
-    ? purchaseState.products
-    : [];
-
   const {
+    products,
     loadingProducts,
     purchasing,
     restoring,
@@ -84,24 +89,23 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
     clearError,
     purchase,
     restore,
-  } = purchaseState;
+  } = useClubProPurchase({skip: !visible});
 
   const [pendingProductId, setPendingProductId] = useState<string | null>(null);
 
   const busy = purchasing || restoring;
-  const isAlreadyPro = status?.isPro;
+  const isAlreadyPro = !!status?.isPro;
 
   const hasMonthlyPlan = useMemo(
-    () => products.some(product => product.planCycle === 'monthly'),
+    () => products.some(product => product?.planCycle === 'monthly'),
     [products],
   );
 
   const hasYearlyPlan = useMemo(
-    () => products.some(product => product.planCycle === 'yearly'),
+    () => products.some(product => product?.planCycle === 'yearly'),
     [products],
   );
 
-  // Reset transient modal state when the modal closes.
   useEffect(() => {
     if (!visible) {
       setPendingProductId(null);
@@ -109,11 +113,14 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
     }
   }, [visible, clearError]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-
   const handlePurchase = useCallback(
     async (productId: string) => {
       if (busy) return;
+
+      if (!clubId) {
+        Alert.alert('Error', 'Club not ready. Please try again.');
+        return;
+      }
 
       try {
         setPendingProductId(productId);
@@ -149,17 +156,25 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
           ]);
         }
       } catch (e: any) {
-        if (e?.message === 'USER_CANCELLED') return;
+        if (e?.message === 'USER_CANCELLED') {
+          return;
+        }
+
         Alert.alert('Purchase failed', e?.message ?? 'Please try again.');
       } finally {
         setPendingProductId(null);
       }
     },
-    [busy, purchase, clubId, refresh, onClose],
+    [busy, clubId, onClose, purchase, refresh],
   );
 
   const handleRestore = useCallback(async () => {
     if (busy) return;
+
+    if (!clubId) {
+      Alert.alert('Error', 'Club not ready. Please try again.');
+      return;
+    }
 
     try {
       const result = await restore(clubId);
@@ -197,92 +212,95 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
     } catch (e: any) {
       Alert.alert('Restore failed', e?.message ?? 'Please try again.');
     }
-  }, [busy, restore, clubId, refresh, onClose]);
-
-  // ─── Render ────────────────────────────────────────────────────────────────
+  }, [busy, clubId, onClose, refresh, restore]);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={s.safeArea}>
-        {/* Header row */}
-        <View style={s.header}>
-          <Text style={s.headerTitle}>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>
             {isAlreadyPro ? 'Club Pro' : 'Upgrade to Pro'}
           </Text>
 
           <Pressable
             onPress={onClose}
             hitSlop={12}
-            style={({pressed}) => [s.closeBtn, pressed && s.closeBtnPressed]}>
-            <Text style={s.closeBtnText}>✕</Text>
+            style={({pressed}) => [
+              styles.closeBtn,
+              pressed && styles.closeBtnPressed,
+            ]}>
+            <Text style={styles.closeBtnText}>✕</Text>
           </Pressable>
         </View>
 
         <ScrollView
-          contentContainerStyle={s.content}
+          contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled">
-          {/* Hero tagline */}
-          <Text style={s.tagline}>Unlock the full potential of your club</Text>
+          <Text style={styles.tagline}>
+            Unlock the full potential of your club
+          </Text>
 
-          {/* Feature list */}
-          <View style={s.featuresCard}>
+          <View style={styles.featuresCard}>
             {PRO_FEATURES.map(feature => (
-              <Text key={feature} style={s.featureItem}>
+              <Text key={feature} style={styles.featureItem}>
                 {feature}
               </Text>
             ))}
           </View>
 
-          {/* Current subscription status summary */}
           {isAlreadyPro && status?.activeSubscription && (
-            <View style={s.statusCard}>
-              <View style={s.statusRow}>
-                <View style={s.badge}>
-                  <Text style={s.badgeText}>PRO</Text>
+            <View style={styles.statusCard}>
+              <View style={styles.statusRow}>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>PRO</Text>
                 </View>
-                <Text style={s.statusText}>
-                  {capitalize(status.activeSubscription.planCycle)} plan active
+                <Text style={styles.statusText}>
+                  {capitalize(status.activeSubscription.planCycle) || 'Pro'}{' '}
+                  plan active
                 </Text>
               </View>
 
-              <Text style={s.statusSub}>
+              <Text style={styles.statusSub}>
                 Renews {fmt(status.activeSubscription.expiresAt)}
               </Text>
 
               {status.scheduledSubscription && (
-                <Text style={s.statusSub}>
-                  Next: {capitalize(status.scheduledSubscription.planCycle)}{' '}
+                <Text style={styles.statusSub}>
+                  Next:{' '}
+                  {capitalize(status.scheduledSubscription.planCycle) || 'Plan'}{' '}
                   starting {fmt(status.scheduledSubscription.startsAt)}
                 </Text>
               )}
             </View>
           )}
 
-          {/* Error banner */}
-          {purchaseError && (
-            <View style={s.errorBanner}>
-              <Text style={s.errorBannerText} numberOfLines={2}>
+          {!!purchaseError && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText} numberOfLines={2}>
                 {purchaseError}
               </Text>
               <Pressable onPress={clearError} hitSlop={8}>
-                <Text style={s.errorBannerDismiss}>✕</Text>
+                <Text style={styles.errorBannerDismiss}>✕</Text>
               </Pressable>
             </View>
           )}
 
-          {/* Purchase options */}
           {!isAlreadyPro && (
-            <View style={s.plansSection}>
-              <Text style={s.plansLabel}>Choose a plan</Text>
+            <View style={styles.plansSection}>
+              <Text style={styles.plansLabel}>Choose a plan</Text>
 
               {loadingProducts ? (
                 <ActivityIndicator
-                  style={s.loadingIndicator}
+                  style={styles.loadingIndicator}
                   color={colors.primary}
                 />
               ) : products.length > 0 ? (
                 products.map(product => {
+                  if (!product || !product.productId) {
+                    return null;
+                  }
+
                   const isThisPending =
                     purchasing && pendingProductId === product.productId;
 
@@ -295,16 +313,16 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
                     <TouchableOpacity
                       key={product.productId}
                       style={[
-                        s.planBtn,
-                        isBestValue && s.planBtnHighlighted,
-                        busy && s.planBtnDisabled,
+                        styles.planBtn,
+                        isBestValue && styles.planBtnHighlighted,
+                        busy && styles.planBtnDisabled,
                       ]}
                       disabled={busy}
                       activeOpacity={0.8}
                       onPress={() => handlePurchase(product.productId)}>
                       {isBestValue && (
-                        <View style={s.planBadge}>
-                          <Text style={s.planBadgeText}>Best value</Text>
+                        <View style={styles.planBadge}>
+                          <Text style={styles.planBadgeText}>Best value</Text>
                         </View>
                       )}
 
@@ -314,20 +332,20 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
                           color={isBestValue ? '#fff' : colors.primary}
                         />
                       ) : (
-                        <View style={s.planBtnInner}>
+                        <View style={styles.planBtnInner}>
                           <Text
                             style={[
-                              s.planBtnCycle,
-                              isBestValue && s.planBtnCycleHighlighted,
+                              styles.planBtnCycle,
+                              isBestValue && styles.planBtnCycleHighlighted,
                             ]}>
-                            {capitalize(product.planCycle)}
+                            {getPlanLabel(product)}
                           </Text>
                           <Text
                             style={[
-                              s.planBtnPrice,
-                              isBestValue && s.planBtnPriceHighlighted,
+                              styles.planBtnPrice,
+                              isBestValue && styles.planBtnPriceHighlighted,
                             ]}>
-                            {product.localizedPrice}
+                            {product.localizedPrice || '—'}
                           </Text>
                         </View>
                       )}
@@ -335,11 +353,11 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
                   );
                 })
               ) : (
-                <View style={s.emptyProducts}>
-                  <Text style={s.emptyProductsText}>
+                <View style={styles.emptyProducts}>
+                  <Text style={styles.emptyProductsText}>
                     Plans are temporarily unavailable.
                   </Text>
-                  <Text style={s.emptyProductsSub}>
+                  <Text style={styles.emptyProductsSub}>
                     Please try again later or restore an existing purchase.
                   </Text>
                 </View>
@@ -347,22 +365,22 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
             </View>
           )}
 
-          {/* Restore */}
           {!isAlreadyPro && (
             <TouchableOpacity
-              style={[s.restoreBtn, busy && s.planBtnDisabled]}
+              style={[styles.restoreBtn, busy && styles.planBtnDisabled]}
               disabled={busy}
               onPress={handleRestore}>
               {restoring ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <Text style={s.restoreBtnText}>Restore previous purchase</Text>
+                <Text style={styles.restoreBtnText}>
+                  Restore previous purchase
+                </Text>
               )}
             </TouchableOpacity>
           )}
 
-          {/* Legal note */}
-          <Text style={s.legalNote}>
+          <Text style={styles.legalNote}>
             Subscriptions auto-renew unless cancelled at least 24 hours before
             the end of the current period. Manage in your device&apos;s account
             settings.
@@ -373,16 +391,13 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-function makeStyles(c: ThemeColors) {
+function createStyles(c: ThemeColors) {
   return StyleSheet.create({
     safeArea: {
       flex: 1,
       backgroundColor: c.background,
     },
 
-    // Header
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -411,7 +426,6 @@ function makeStyles(c: ThemeColors) {
       lineHeight: 20,
     },
 
-    // Scroll content
     content: {
       paddingHorizontal: 20,
       paddingTop: 24,
@@ -427,7 +441,6 @@ function makeStyles(c: ThemeColors) {
       lineHeight: 30,
     },
 
-    // Feature list
     featuresCard: {
       backgroundColor: c.card,
       borderRadius: 14,
@@ -443,7 +456,6 @@ function makeStyles(c: ThemeColors) {
       lineHeight: 22,
     },
 
-    // Status card (already Pro)
     statusCard: {
       backgroundColor: c.primary + '18',
       borderRadius: 12,
@@ -481,7 +493,6 @@ function makeStyles(c: ThemeColors) {
       fontSize: 13,
     },
 
-    // Error banner
     errorBanner: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -504,7 +515,6 @@ function makeStyles(c: ThemeColors) {
       fontWeight: '700',
     },
 
-    // Plan buttons
     plansSection: {
       marginBottom: 6,
     },
@@ -591,7 +601,6 @@ function makeStyles(c: ThemeColors) {
       lineHeight: 18,
     },
 
-    // Restore
     restoreBtn: {
       alignItems: 'center',
       paddingVertical: 14,
@@ -605,7 +614,6 @@ function makeStyles(c: ThemeColors) {
       fontWeight: '500',
     },
 
-    // Legal
     legalNote: {
       color: c.textMuted,
       fontSize: 11,

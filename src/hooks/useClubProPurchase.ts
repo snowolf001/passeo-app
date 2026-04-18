@@ -50,13 +50,21 @@ export type UseClubProPurchaseResult = {
   restore: (clubId: string) => Promise<RestoreResult>;
 };
 
+function getAndroidOfferDetails(sub: SubscriptionAndroid | undefined): any[] {
+  const details = (sub as any)?.subscriptionOfferDetails;
+  return Array.isArray(details) ? details : [];
+}
+
 function extractLocalizedPrice(sub: any): string {
   if (typeof sub?.localizedPrice === 'string' && sub.localizedPrice) {
     return sub.localizedPrice;
   }
 
-  const phase =
-    sub?.subscriptionOfferDetails?.[0]?.pricingPhases?.pricingPhaseList?.[0];
+  const firstOffer = Array.isArray(sub?.subscriptionOfferDetails)
+    ? sub.subscriptionOfferDetails[0]
+    : null;
+
+  const phase = firstOffer?.pricingPhases?.pricingPhaseList?.[0];
 
   if (phase?.formattedPrice) {
     return phase.formattedPrice;
@@ -70,17 +78,16 @@ function buildSubscriptionRequest(
   androidSub: SubscriptionAndroid | undefined,
 ): RequestSubscriptionAndroid | RequestSubscriptionIOS {
   if (Platform.OS === 'android') {
-    const offerToken =
-      (androidSub as any)?.subscriptionOfferDetails?.[0]?.offerToken ?? '';
+    const offerDetails = getAndroidOfferDetails(androidSub);
+    const offerToken = offerDetails[0]?.offerToken ?? '';
 
     if (__DEV__) {
       console.log('[IAP] buildSubscriptionRequest(android)', {
         productId,
         hasAndroidSub: !!androidSub,
         offerTokenPresent: !!offerToken,
-        offerCount: (androidSub as any)?.subscriptionOfferDetails?.length ?? 0,
-        subscriptionOfferDetails:
-          (androidSub as any)?.subscriptionOfferDetails ?? [],
+        offerCount: offerDetails.length,
+        subscriptionOfferDetails: offerDetails,
       });
     }
 
@@ -124,10 +131,6 @@ export function useClubProPurchase(options?: {
     initConnectionError,
   } = useIAP();
 
-  // Hold the latest getSubscriptions in a ref so we can call it from an
-  // effect without listing it as a dependency. useIAP can recreate
-  // getSubscriptions when the subscriptions array changes, so putting it in
-  // deps can restart the loading effect and keep the spinner alive forever.
   const getSubscriptionsRef = useRef(getSubscriptions);
 
   useEffect(() => {
@@ -138,6 +141,9 @@ export function useClubProPurchase(options?: {
     () => (Array.isArray(subscriptions) ? subscriptions : []),
     [subscriptions],
   );
+
+  const subLengthRef = useRef(0);
+  subLengthRef.current = safeSubscriptions.length;
 
   const [products, setProducts] = useState<StoreProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -166,10 +172,6 @@ export function useClubProPurchase(options?: {
     }
   }, [connected, initConnectionError]);
 
-  // ── Load products when the billing connection is ready ─────────────────────
-  // IMPORTANT: only depend on `connected` and `initConnectionError`.
-  // Do NOT add `getSubscriptions` here — useIAP can recreate it on store state
-  // changes, which would restart this effect and create a spinner loop.
   useEffect(() => {
     if (skip) return;
 
@@ -184,7 +186,6 @@ export function useClubProPurchase(options?: {
       });
     }
 
-    // Billing client failed to connect entirely.
     if (initConnectionError) {
       if (__DEV__) {
         console.warn('[IAP] initConnectionError:', initConnectionError);
@@ -197,12 +198,24 @@ export function useClubProPurchase(options?: {
       };
     }
 
-    // Connection not yet established — wait for it.
     if (!connected) {
       if (__DEV__) {
         console.log('[IAP] waiting for store connection...');
       }
       setLoadingProducts(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (subLengthRef.current > 0) {
+      if (__DEV__) {
+        console.log(
+          '[IAP] subscriptions already fetched, skipping duplicate query',
+        );
+      }
+      setLoadingProducts(false);
+      setError(null);
       return () => {
         cancelled = true;
       };
@@ -215,7 +228,6 @@ export function useClubProPurchase(options?: {
       console.log('[IAP] loading subscriptions', {skus: ALL_SUBSCRIPTION_SKUS});
     }
 
-    // 10-second safety timeout so the spinner never stays forever.
     timeoutId = setTimeout(() => {
       if (!cancelled) {
         if (__DEV__) {
@@ -226,39 +238,51 @@ export function useClubProPurchase(options?: {
       }
     }, 10_000);
 
-    // getSubscriptions() populates the context subscriptions state.
-    getSubscriptionsRef
-      .current({skus: ALL_SUBSCRIPTION_SKUS})
-      .then(() => {
+    try {
+      getSubscriptionsRef
+        .current({skus: ALL_SUBSCRIPTION_SKUS})
+        .then(() => {
+          if (__DEV__) {
+            console.log('[IAP] getSubscriptions resolved');
+          }
+        })
+        .catch(e => {
+          if (!cancelled) {
+            const msg = e?.message ?? 'Failed to load subscription plans.';
+            if (__DEV__) {
+              console.warn('[IAP] getSubscriptions promise rejection:', msg, e);
+            }
+            setError(msg);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+            }
+            if (__DEV__) {
+              console.log('[IAP] getSubscriptions call finished');
+              console.log(
+                '[DIAG] subscriptions in context after load:',
+                subLengthRef.current,
+              );
+            }
+            setLoadingProducts(false);
+          }
+        });
+    } catch (err: any) {
+      if (!cancelled) {
+        if (timeoutId) clearTimeout(timeoutId);
         if (__DEV__) {
-          console.log('[IAP] getSubscriptions resolved');
+          console.error(
+            '[IAP] FATAL synchronous crash in getSubscriptions:',
+            err,
+          );
         }
-      })
-      .catch(e => {
-        if (!cancelled) {
-          const msg = e?.message ?? 'Failed to load subscription plans.';
-          if (__DEV__) {
-            console.warn('[IAP] getSubscriptions error:', msg, e);
-          }
-          setError(msg);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          if (timeoutId) {
-            clearTimeout(timeoutId);
-          }
-          if (__DEV__) {
-            console.log('[IAP] getSubscriptions call finished');
-            console.log(
-              '[DIAG] subscriptions in context after load:',
-              safeSubscriptions.length,
-              safeSubscriptions.map(s => s.productId),
-            );
-          }
-          setLoadingProducts(false);
-        }
-      });
+        setLoadingProducts(false);
+        setError('Cannot connect to the local store proxy.');
+      }
+    }
 
     return () => {
       cancelled = true;
@@ -268,44 +292,56 @@ export function useClubProPurchase(options?: {
     };
   }, [connected, initConnectionError, skip]);
 
-  // Map context subscriptions → StoreProduct[] whenever the list changes.
   useEffect(() => {
     if (skip) return;
 
-    const mapped: StoreProduct[] = safeSubscriptions
-      .map(s => {
-        const planCycle = getPlanCycleFromProductId(s.productId);
+    try {
+      const mapped: StoreProduct[] = safeSubscriptions
+        .map(s => {
+          try {
+            const planCycle = getPlanCycleFromProductId(s.productId);
 
-        if (!planCycle) {
-          if (__DEV__) {
-            console.log('[IAP] ignoring unknown subscription productId', {
+            if (!planCycle) {
+              if (__DEV__) {
+                console.log('[IAP] ignoring unknown subscription productId', {
+                  productId: s.productId,
+                });
+              }
+              return null;
+            }
+
+            return {
               productId: s.productId,
-            });
+              title: (s as any).title ?? '',
+              localizedPrice: extractLocalizedPrice(s),
+              planCycle,
+            };
+          } catch (itemErr: any) {
+            if (__DEV__) {
+              console.error('[IAP] map item error', itemErr);
+            }
+            return null;
           }
-          return null;
-        }
+        })
+        .filter((s): s is StoreProduct => s !== null);
 
-        return {
-          productId: s.productId,
-          title: (s as any).title ?? '',
-          localizedPrice: extractLocalizedPrice(s),
-          planCycle,
-        };
-      })
-      .filter((s): s is StoreProduct => s !== null);
+      if (__DEV__) {
+        console.log('[IAP] mapped store products', {
+          rawCount: safeSubscriptions.length,
+          mappedCount: mapped.length,
+          mapped,
+        });
+      }
 
-    if (__DEV__) {
-      console.log('[IAP] mapped store products', {
-        rawCount: safeSubscriptions.length,
-        mappedCount: mapped.length,
-        mapped,
-      });
+      setProducts(mapped);
+    } catch (e: any) {
+      if (__DEV__) {
+        console.error('[IAP] mapped effect global error', e);
+      }
+      setProducts([]);
     }
-
-    setProducts(mapped);
   }, [safeSubscriptions, skip]);
 
-  // Surface "no plans" only after loading has actually finished.
   useEffect(() => {
     if (skip) return;
 
@@ -393,6 +429,10 @@ export function useClubProPurchase(options?: {
 
       if (!connected) {
         throw new Error('Store not connected');
+      }
+
+      if (!clubId) {
+        throw new Error('Missing clubId');
       }
 
       setPurchasing(true);
@@ -518,6 +558,10 @@ export function useClubProPurchase(options?: {
 
       if (!connected) {
         throw new Error('Store not connected');
+      }
+
+      if (!clubId) {
+        throw new Error('Missing clubId');
       }
 
       setRestoring(true);
