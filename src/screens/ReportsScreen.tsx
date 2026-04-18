@@ -26,8 +26,12 @@ import {
 import {exportSummaryReportPdf} from '../services/reportPdfService';
 import {formatDate} from '../utils/date';
 import {useAppTheme} from '../theme/useAppTheme';
-import {useProStatus} from '../hooks/useProStatus';
-import {canAccessMemberHistory} from '../config/entitlementConfig';
+// NOTE: If this screen needs to gate on Pro in the future, use:
+//   import {useClubSubscription} from '../hooks/useClubSubscription';
+//   const { status } = useClubSubscription(currentClub?.id);
+//   const isPro = status?.isPro ?? false;
+// Do NOT use useProStatus() — it reads from a local cache, not the backend.
+// The backend club subscription status is the source of truth for Pro gating.
 import UpgradeModal from '../components/UpgradeModal';
 import type {ThemeColors} from '../theme/colors';
 
@@ -250,8 +254,7 @@ export default function ReportsScreen({navigation}: Props) {
                 style={styles.dateInput}
                 onPress={() => setShowEndPicker(true)}
                 activeOpacity={0.7}>
-                <Text
-                  style={{color: endDate ? colors.text : colors.textMuted}}>
+                <Text style={{color: endDate ? colors.text : colors.textMuted}}>
                   {endDate || 'YYYY-MM-DD'}
                 </Text>
               </TouchableOpacity>

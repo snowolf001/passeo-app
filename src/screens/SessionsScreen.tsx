@@ -12,7 +12,9 @@ import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
 import {formatDate} from '../utils/date';
 import {useAppTheme} from '../theme/useAppTheme';
-import {useProStatus} from '../hooks/useProStatus';
+// Club subscription status from backend is the source of truth for Pro gating.
+// Store purchase history is only used for purchase/restore flows, not app startup entitlement checks.
+import {useClubSubscription} from '../hooks/useClubSubscription';
 import {
   canAccessFullHistory,
   FREE_SESSION_LIMIT,
@@ -29,7 +31,9 @@ export default function SessionsScreen({navigation}: Props) {
   const {currentMembership, currentClub} = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const {isPro} = useProStatus();
+  // isPro comes from the backend club subscription status — not local purchase history.
+  const {status: subStatus} = useClubSubscription(currentClub?.id);
+  const isPro = subStatus?.isPro ?? false;
   const [sessions, setSessions] = useState<ApiSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

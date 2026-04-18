@@ -16,6 +16,28 @@
 
 let initialized = false;
 
+/**
+ * App-level IAP initialization entry point.
+ *
+ * IMPORTANT ARCHITECTURE RULE (Passeo):
+ *
+ * Passeo uses CLUB-LEVEL subscriptions.
+ * The backend is the ONLY source of truth for Pro status.
+ *
+ * Therefore:
+ * - Do NOT check Store purchases here
+ * - Do NOT call getAvailablePurchases() here
+ * - Do NOT restore purchases here
+ * - Do NOT write any entitlement (isPro) to local storage here
+ * - Do NOT gate app startup on any Store logic
+ *
+ * Store APIs are ONLY used in:
+ * - purchase flow (useClubProPurchase)
+ * - restore flow (explicit user action)
+ *
+ * Any change here that reads Store state for entitlement
+ * will break club-level subscription logic.
+ */
 export async function initIap(): Promise<void> {
   if (initialized) {
     if (__DEV__) {
@@ -30,14 +52,9 @@ export async function initIap(): Promise<void> {
     console.log('[IAP] initIap start (subscription mode)');
   }
 
-  // Keep this as the app-level entry point.
-  // withIAPContext owns the billing connection lifecycle.
-  // useClubProPurchase owns subscription loading / purchase flow.
-  //
-  // Do not:
-  // - init/end native billing connection here
-  // - unlock Pro locally here
-  // - restore Pro locally here
+  // Intentionally empty.
+  // withIAPContext handles connection lifecycle.
+  // Purchase / restore flows are handled elsewhere.
 
   if (__DEV__) {
     console.log('[IAP] initIap done (subscription mode)');

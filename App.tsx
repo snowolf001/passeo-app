@@ -1,6 +1,6 @@
 import {NavigationContainer} from '@react-navigation/native';
-import React, {useEffect, useState} from 'react';
-import {ActivityIndicator, Text, TouchableOpacity, View} from 'react-native';
+import React, {useEffect} from 'react';
+import {Text, TouchableOpacity, View} from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -8,10 +8,13 @@ import {withIAPContext} from 'react-native-iap';
 
 import RootNavigator from './src/navigation/RootNavigator';
 import {AppProvider} from './src/context/AppContext';
-// initIap sets up store listeners used by Club Pro subscriptions.
+// initIap is the designated entry point for store listener setup.
 // endIap is intentionally NOT called on unmount: it calls RNIap.endConnection()
 // which would kill withIAPContext's billing connection.
-import {initIap, syncProStatusFromStore} from './src/services/iap';
+// NOTE: Do NOT call syncProStatusFromStore() or getAvailablePurchases() here.
+// Club Pro status is the backend's responsibility. Each screen/component fetches
+// backend subscription status via useClubSubscription() when needed.
+import {initIap} from './src/services/iap';
 import {useAppTheme} from './src/theme/useAppTheme';
 import {trackEvent} from './src/analytics/trackEvent';
 
@@ -66,69 +69,24 @@ const toastConfig = {
 };
 
 export default withIAPContext(function App() {
-  const {navTheme, colors} = useAppTheme();
-  const [isEntitlementReady, setIsEntitlementReady] = useState(false);
+  const {navTheme} = useAppTheme();
 
   useEffect(() => {
-    let isMounted = true;
-
-    const setupIAP = async () => {
-      try {
-        console.log('[App] initIap start');
-        await initIap();
-        console.log('[App] initIap done');
-
-        if (!isMounted) {
-          return;
-        }
-
-        console.log('[App] syncProStatusFromStore start');
-        await syncProStatusFromStore(true);
-        console.log('[App] syncProStatusFromStore done');
-
-        if (!isMounted) {
-          return;
-        }
-
-        setIsEntitlementReady(true);
-      } catch (error) {
-        console.error('[App] IAP initialization failed:', error);
-
-        if (isMounted) {
-          setIsEntitlementReady(true);
-        }
-      }
-    };
-
-    setupIAP();
+    // initIap is a lightweight no-op entry point. It does not call
+    // getAvailablePurchases() or infer club Pro status from the store.
+    // Club-level subscription status is fetched from the backend by each
+    // screen via useClubSubscription() — not derived from store purchase history.
+    initIap().catch(error => {
+      console.error('[App] initIap failed:', error);
+    });
 
     trackEvent({eventName: 'app_opened'});
 
     return () => {
-      isMounted = false;
       // NOTE: intentionally not calling endIap() / RNIap.endConnection() here.
-      // withIAPContext owns the billing connection lifecycle. Calling
-      // endConnection() here would terminate it and prevent subscriptions
-      // from loading on any subsequent mount.
+      // withIAPContext owns the billing connection lifecycle.
     };
   }, []);
-
-  if (!isEntitlementReady) {
-    return (
-      <GestureHandlerRootView style={{flex: 1}}>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: colors.background,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </GestureHandlerRootView>
-    );
-  }
-
   return (
     <GestureHandlerRootView style={{flex: 1}}>
       <SafeAreaProvider>

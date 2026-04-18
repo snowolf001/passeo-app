@@ -13,10 +13,17 @@ export const PRO_FEATURES = {
 };
 
 // ── Feature Gate Helpers ──────────────────────────────────────────────
-// Pass isPro from useProStatus(). All gating logic lives here — do NOT
-// scatter isPro checks across screens.
+// Pass isPro from useClubSubscription(), not useProStatus().
+// The backend club subscription status is the source of truth for Pro gating.
+// useProStatus() reads from a local AsyncStorage cache and must NOT be used
+// to gate Pro features.
 //
-// NOTE: session report export is intentionally ALWAYS allowed (not listed).
+// Correct pattern:
+//   const { status } = useClubSubscription(clubId);
+//   const isPro = status?.isPro ?? false;
+//
+// Store purchase history is only used for purchase/restore flows.
+// All gating logic lives here — do NOT scatter isPro checks across screens.
 
 export function canAccessFullHistory(isPro: boolean): boolean {
   return isPro;

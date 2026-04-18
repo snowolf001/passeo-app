@@ -7,6 +7,22 @@ import {
   EntitlementPlan,
 } from '../services/entitlement';
 
+/**
+ * @deprecated Do NOT use this hook to gate Pro features.
+ *
+ * useProStatus reads `isPro` from a local AsyncStorage cache. That cache may
+ * be stale and does NOT represent the club-level subscription status from the
+ * backend. It also can never reflect another member's purchase for the same
+ * club.
+ *
+ * The backend club subscription status is the source of truth:
+ *   import {useClubSubscription} from './useClubSubscription';
+ *   const { status } = useClubSubscription(clubId);
+ *   const isPro = status?.isPro ?? false;
+ *
+ * Store purchase history (and therefore this hook) is only relevant during
+ * the purchase flow and restore/relink flows — never for normal Pro gating.
+ */
 export function useProStatus() {
   const [isPro, setIsProState] = useState(false);
   const [plan, setPlanState] = useState<EntitlementPlan>('free');
