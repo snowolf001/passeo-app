@@ -31,6 +31,9 @@ export type RootStackParamList = {
 
   // Club Pro placeholder paywall (closed testing)
   ClubProPreview: undefined;
+
+  // Club Pro subscription management screen
+  ClubPro: undefined;
 };
 
 export type MainTabParamList = {

@@ -8,24 +8,41 @@ import {SubscriptionPlanCycle} from '../config/iap';
 export type {SubscriptionPlanCycle};
 
 export type ActiveSubscription = {
+  id: string;
+  platform: 'ios' | 'android';
   planCycle: SubscriptionPlanCycle;
-  startsAt: string; // ISO 8601
-  expiresAt: string; // ISO 8601
-  provider: 'app_store' | 'google_play';
+  startsAt: string | null; // ISO 8601
+  expiresAt: string | null; // ISO 8601
+  status: string;
+  productId: string | null;
+  autoRenews: boolean | null;
 };
 
-export type ScheduledSubscription = {
+export type ScheduledSubscription = ActiveSubscription;
+
+export type LastExpiredSubscription = {
+  id: string;
+  platform: 'ios' | 'android';
   planCycle: SubscriptionPlanCycle;
-  startsAt: string; // ISO 8601
-  expiresAt: string; // ISO 8601
-  provider: 'app_store' | 'google_play';
+  startsAt: string | null;
+  expiresAt: string | null;
+  status: string;
+  productId: string | null;
 };
+
+export type BillingState =
+  | 'free'
+  | 'active_renewing'
+  | 'active_cancelled'
+  | 'expired';
 
 /** Shape returned by GET /api/subscriptions/status and POST /api/subscriptions/verify */
 export type ClubSubscriptionStatus = {
   isPro: boolean;
+  billingState: BillingState;
   activeSubscription: ActiveSubscription | null;
   scheduledSubscription: ScheduledSubscription | null;
+  lastExpiredSubscription: LastExpiredSubscription | null;
 };
 
 /** Payload for POST /api/subscriptions/verify */

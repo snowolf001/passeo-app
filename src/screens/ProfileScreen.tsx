@@ -11,7 +11,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {leaveClub} from '../services/api/clubApi';
 import {useAppTheme} from '../theme/useAppTheme';
-import {useProStatus} from '../hooks/useProStatus';
+import {useClubSubscription} from '../hooks/useClubSubscription';
 import UpgradeProModal from '../components/UpgradeProModal';
 import {
   canAccessSummaryReports,
@@ -64,7 +64,8 @@ export default function ProfileScreen({navigation}: Props) {
   const {currentMembership, currentClub, clearMembershipSession} = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const {isPro, plan, setPlan} = useProStatus();
+  const {status: subStatus} = useClubSubscription(currentClub?.id);
+  const isPro = subStatus?.isPro ?? false;
 
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
@@ -285,6 +286,22 @@ export default function ProfileScreen({navigation}: Props) {
 
               <TouchableOpacity
                 style={styles.actionItem}
+                onPress={() => navigation.navigate('ClubPro')}>
+                <View style={styles.proRowInner}>
+                  <Text style={styles.actionItemText}>Club Pro</Text>
+                  {isPro && (
+                    <View style={styles.proActiveBadge}>
+                      <Text style={styles.proActiveBadgeText}>PRO</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+
+              <View style={styles.actionDivider} />
+
+              <TouchableOpacity
+                style={styles.actionItem}
                 onPress={() =>
                   canAccessSummaryReports(isPro)
                     ? navigation.navigate('Reports')
@@ -381,27 +398,9 @@ export default function ProfileScreen({navigation}: Props) {
               <Text style={styles.devCardTitle}>
                 Subscription Debug (DEV ONLY)
               </Text>
-
-              <TouchableOpacity
-                style={styles.devButton}
-                onPress={() => setPlan('pro_monthly')}>
-                <Text style={styles.devButtonText}>Turn Pro ON (Monthly)</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.devButton}
-                onPress={() => setPlan('pro_yearly')}>
-                <Text style={styles.devButtonText}>Turn Pro ON (Yearly)</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.devButton, styles.devButtonOff]}
-                onPress={() => setPlan('free')}>
-                <Text style={styles.devButtonOffText}>Turn Pro OFF</Text>
-              </TouchableOpacity>
-
               <Text style={styles.devStatus}>
-                Plan: {plan} {isPro ? '✓ Pro' : '✗ Free'}
+                billingState: {subStatus?.billingState ?? 'unknown'}{' '}
+                {isPro ? '✓ Pro' : '✗ Free'}
               </Text>
             </View>
           )}
@@ -553,6 +552,23 @@ function createStyles(c: ThemeColors) {
       fontSize: 15,
       color: c.text,
     },
+    proRowInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    proActiveBadge: {
+      backgroundColor: c.primary,
+      borderRadius: 5,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+    },
+    proActiveBadgeText: {
+      color: '#fff',
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.4,
+    },
 
     chevron: {
       fontSize: 22,
@@ -615,33 +631,10 @@ function createStyles(c: ThemeColors) {
       fontSize: 11,
       fontWeight: '700',
       color: '#FFA500',
-      marginBottom: 12,
+      marginBottom: 8,
       textTransform: 'uppercase',
     },
-    devButton: {
-      paddingVertical: 11,
-      paddingHorizontal: 14,
-      backgroundColor: c.surfaceRaised,
-      borderRadius: 8,
-      marginBottom: 8,
-      alignItems: 'center',
-    },
-    devButtonText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: c.primary,
-    },
-    devButtonOff: {
-      borderWidth: 1,
-      borderColor: c.danger,
-    },
-    devButtonOffText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: c.danger,
-    },
     devStatus: {
-      marginTop: 4,
       fontSize: 12,
       color: c.textMuted,
       textAlign: 'center',

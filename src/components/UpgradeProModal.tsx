@@ -79,7 +79,7 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const {status, refresh} = useClubSubscription(clubId);
+  const {refresh} = useClubSubscription(clubId);
   const {
     products,
     loadingProducts,
@@ -94,7 +94,6 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
   const [pendingProductId, setPendingProductId] = useState<string | null>(null);
 
   const busy = purchasing || restoring;
-  const isAlreadyPro = !!status?.isPro;
 
   const hasMonthlyPlan = useMemo(
     () => products.some(product => product?.planCycle === 'monthly'),
@@ -218,9 +217,7 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>
-            {isAlreadyPro ? 'Club Pro' : 'Upgrade to Pro'}
-          </Text>
+          <Text style={styles.headerTitle}>Upgrade to Pro</Text>
 
           <Pressable
             onPress={onClose}
@@ -249,32 +246,6 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
             ))}
           </View>
 
-          {isAlreadyPro && status?.activeSubscription && (
-            <View style={styles.statusCard}>
-              <View style={styles.statusRow}>
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>PRO</Text>
-                </View>
-                <Text style={styles.statusText}>
-                  {capitalize(status.activeSubscription.planCycle) || 'Pro'}{' '}
-                  plan active
-                </Text>
-              </View>
-
-              <Text style={styles.statusSub}>
-                Renews {fmt(status.activeSubscription.expiresAt)}
-              </Text>
-
-              {status.scheduledSubscription && (
-                <Text style={styles.statusSub}>
-                  Next:{' '}
-                  {capitalize(status.scheduledSubscription.planCycle) || 'Plan'}{' '}
-                  starting {fmt(status.scheduledSubscription.startsAt)}
-                </Text>
-              )}
-            </View>
-          )}
-
           {!!purchaseError && (
             <View style={styles.errorBanner}>
               <Text style={styles.errorBannerText} numberOfLines={2}>
@@ -286,99 +257,96 @@ export default function UpgradeProModal({visible, clubId, onClose}: Props) {
             </View>
           )}
 
-          {!isAlreadyPro && (
-            <View style={styles.plansSection}>
-              <Text style={styles.plansLabel}>Choose a plan</Text>
+          {/* Plans are always shown — this modal is paywall-only */}
+          <View style={styles.plansSection}>
+            <Text style={styles.plansLabel}>Choose a plan</Text>
 
-              {loadingProducts ? (
-                <ActivityIndicator
-                  style={styles.loadingIndicator}
-                  color={colors.primary}
-                />
-              ) : products.length > 0 ? (
-                products.map(product => {
-                  if (!product || !product.productId) {
-                    return null;
-                  }
+            {loadingProducts ? (
+              <ActivityIndicator
+                style={styles.loadingIndicator}
+                color={colors.primary}
+              />
+            ) : products.length > 0 ? (
+              products.map(product => {
+                if (!product || !product.productId) {
+                  return null;
+                }
 
-                  const isThisPending =
-                    purchasing && pendingProductId === product.productId;
+                const isThisPending =
+                  purchasing && pendingProductId === product.productId;
 
-                  const isBestValue =
-                    product.planCycle === 'yearly' &&
-                    hasMonthlyPlan &&
-                    hasYearlyPlan;
+                const isBestValue =
+                  product.planCycle === 'yearly' &&
+                  hasMonthlyPlan &&
+                  hasYearlyPlan;
 
-                  return (
-                    <TouchableOpacity
-                      key={product.productId}
-                      style={[
-                        styles.planBtn,
-                        isBestValue && styles.planBtnHighlighted,
-                        busy && styles.planBtnDisabled,
-                      ]}
-                      disabled={busy}
-                      activeOpacity={0.8}
-                      onPress={() => handlePurchase(product.productId)}>
-                      {isBestValue && (
-                        <View style={styles.planBadge}>
-                          <Text style={styles.planBadgeText}>Best value</Text>
-                        </View>
-                      )}
+                return (
+                  <TouchableOpacity
+                    key={product.productId}
+                    style={[
+                      styles.planBtn,
+                      isBestValue && styles.planBtnHighlighted,
+                      busy && styles.planBtnDisabled,
+                    ]}
+                    disabled={busy}
+                    activeOpacity={0.8}
+                    onPress={() => handlePurchase(product.productId)}>
+                    {isBestValue && (
+                      <View style={styles.planBadge}>
+                        <Text style={styles.planBadgeText}>Best value</Text>
+                      </View>
+                    )}
 
-                      {isThisPending ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={isBestValue ? '#fff' : colors.primary}
-                        />
-                      ) : (
-                        <View style={styles.planBtnInner}>
-                          <Text
-                            style={[
-                              styles.planBtnCycle,
-                              isBestValue && styles.planBtnCycleHighlighted,
-                            ]}>
-                            {getPlanLabel(product)}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.planBtnPrice,
-                              isBestValue && styles.planBtnPriceHighlighted,
-                            ]}>
-                            {product.localizedPrice || '—'}
-                          </Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })
-              ) : (
-                <View style={styles.emptyProducts}>
-                  <Text style={styles.emptyProductsText}>
-                    Plans are temporarily unavailable.
-                  </Text>
-                  <Text style={styles.emptyProductsSub}>
-                    Please try again later or restore an existing purchase.
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {!isAlreadyPro && (
-            <TouchableOpacity
-              style={[styles.restoreBtn, busy && styles.planBtnDisabled]}
-              disabled={busy}
-              onPress={handleRestore}>
-              {restoring ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <Text style={styles.restoreBtnText}>
-                  Restore previous purchase
+                    {isThisPending ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={isBestValue ? '#fff' : colors.primary}
+                      />
+                    ) : (
+                      <View style={styles.planBtnInner}>
+                        <Text
+                          style={[
+                            styles.planBtnCycle,
+                            isBestValue && styles.planBtnCycleHighlighted,
+                          ]}>
+                          {getPlanLabel(product)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.planBtnPrice,
+                            isBestValue && styles.planBtnPriceHighlighted,
+                          ]}>
+                          {product.localizedPrice || '—'}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <View style={styles.emptyProducts}>
+                <Text style={styles.emptyProductsText}>
+                  Plans are temporarily unavailable.
                 </Text>
-              )}
-            </TouchableOpacity>
-          )}
+                <Text style={styles.emptyProductsSub}>
+                  Please try again later or restore an existing purchase.
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.restoreBtn, busy && styles.planBtnDisabled]}
+            disabled={busy}
+            onPress={handleRestore}>
+            {restoring ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={styles.restoreBtnText}>
+                Restore previous purchase
+              </Text>
+            )}
+          </TouchableOpacity>
 
           <Text style={styles.legalNote}>
             Subscriptions auto-renew unless cancelled at least 24 hours before
