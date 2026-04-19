@@ -12,7 +12,6 @@ import {useApp} from '../context/AppContext';
 import {leaveClub} from '../services/api/clubApi';
 import {useAppTheme} from '../theme/useAppTheme';
 import {useClubSubscription} from '../hooks/useClubSubscription';
-import UpgradeProModal from '../components/UpgradeProModal';
 import {
   canAccessSummaryReports,
   canAccessAuditLogs,
@@ -69,7 +68,6 @@ export default function ProfileScreen({navigation}: Props) {
 
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
-  const [upgradeVisible, setUpgradeVisible] = useState(false);
   const snackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showSnackbar = useCallback((message: string) => {
@@ -305,7 +303,7 @@ export default function ProfileScreen({navigation}: Props) {
                 onPress={() =>
                   canAccessSummaryReports(isPro)
                     ? navigation.navigate('Reports')
-                    : setUpgradeVisible(true)
+                    : navigation.navigate('ClubPro')
                 }>
                 <Text style={styles.actionItemText}>Reports</Text>
                 <Text style={styles.chevron}>›</Text>
@@ -327,7 +325,7 @@ export default function ProfileScreen({navigation}: Props) {
                 onPress={() =>
                   canAccessAuditLogs(isPro)
                     ? navigation.navigate('AuditLog')
-                    : setUpgradeVisible(true)
+                    : navigation.navigate('ClubPro')
                 }>
                 <Text style={styles.actionItemText}>Audit Log</Text>
                 <Text style={styles.chevron}>›</Text>
@@ -405,11 +403,6 @@ export default function ProfileScreen({navigation}: Props) {
             </View>
           )}
         </ScrollView>
-        <UpgradeProModal
-          visible={upgradeVisible}
-          clubId={currentClub.id}
-          onClose={() => setUpgradeVisible(false)}
-        />
         {snackVisible && (
           <View pointerEvents="none" style={styles.snackbar}>
             <Text style={styles.snackbarText}>{snackMsg}</Text>

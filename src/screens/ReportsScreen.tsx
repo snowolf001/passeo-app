@@ -30,9 +30,9 @@ import {useAppTheme} from '../theme/useAppTheme';
 //   import {useClubSubscription} from '../hooks/useClubSubscription';
 //   const { status } = useClubSubscription(currentClub?.id);
 //   const isPro = status?.isPro ?? false;
+//   navigation.navigate('ClubPro') to send users to the upgrade screen.
 // Do NOT use useProStatus() — it reads from a local cache, not the backend.
 // The backend club subscription status is the source of truth for Pro gating.
-import UpgradeModal from '../components/UpgradeModal';
 import type {ThemeColors} from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Reports'>;

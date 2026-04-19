@@ -561,7 +561,6 @@ Add `isRestore: boolean` to the request body. All existing fields remain unchang
 | `src/hooks/useClubProPurchase.ts`         | Update `restore()` to iterate all Passeo purchases most-recent-first; pass `isRestore: true`; interpret `restoreSignal` from response |
 | `src/types/subscription.ts`               | Add `restoreSignal?: string` to `ClubSubscriptionStatus`; add `isRestore?: boolean` to `VerifyPurchasePayload`                        |
 | `src/services/clubSubscriptionService.ts` | Pass `isRestore: true` in payload from `normalizeForVerify` or as a separate argument                                                 |
-| `src/components/UpgradeProModal.tsx`      | Update restore result UI to use `restoreSignal` for correct messaging                                                                 |
 
 ### Backend files to change
 
@@ -578,7 +577,7 @@ Add `isRestore: boolean` to the request body. All existing fields remain unchang
 2. **Backend:** Add `restoreSignal` to response DTO. Confirm all three signals: `restore_recovered`, `already_up_to_date`, `no_change_needed`.
 3. **Frontend:** Add `isRestore: true` to restore payload. Confirm existing single-purchase path works end-to-end.
 4. **Frontend:** Switch from "take latest" to "iterate until success" for multi-purchase scenarios.
-5. **Frontend:** Improve restore result UI in `UpgradeProModal` and `ClubProScreen` using `restoreSignal`.
+5. **Frontend:** Improve restore result UI in `ClubProScreen` using `restoreSignal`.
 6. **Backend:** Add `restore_*` system events.
 
 ### Manual testing checklist
