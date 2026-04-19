@@ -213,7 +213,26 @@ export default function CreateSessionScreen({navigation}: Props) {
       showSnackbar('Session created!');
       setTimeout(() => navigation.goBack(), 1500);
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to create session.');
+      const code: string = err?.code ?? '';
+      const msg: string = err?.message || 'Failed to create session.';
+
+      if (
+        code === 'SESSION_LIMIT_REACHED' ||
+        code === 'MEMBER_LIMIT_REACHED' ||
+        code === 'PRO_REQUIRED'
+      ) {
+        Alert.alert(
+          'Upgrade Required',
+          msg ||
+            "You've reached the free plan limit. Upgrade to Pro to create more sessions.",
+          [
+            {text: 'Not Now', style: 'cancel'},
+            {text: 'View Pro', onPress: () => navigation.navigate('ClubPro')},
+          ],
+        );
+      } else {
+        Alert.alert('Error', msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -493,7 +512,7 @@ export default function CreateSessionScreen({navigation}: Props) {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Capacity (optional)</Text>
+              <Text style={styles.label}>Capacity (optional) · Pro</Text>
               <TextInput
                 style={styles.input}
                 value={capacity}

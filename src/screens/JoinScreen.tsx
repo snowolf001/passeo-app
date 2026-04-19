@@ -81,13 +81,16 @@ export default function JoinScreen({navigation}: Props) {
 
       await setActiveMembershipSession({membershipId, clubId, userId});
     } catch (err: any) {
+      const code: string = err?.code ?? '';
+      const msg: string = err?.message || 'Failed to join club.';
+
       if (
-        err?.code === 'DISPLAY_NAME_CONFLICT' ||
-        err?.code === 'POSSIBLE_EXISTING_MEMBER'
+        code === 'DISPLAY_NAME_CONFLICT' ||
+        code === 'POSSIBLE_EXISTING_MEMBER'
       ) {
         setNameConflict(true);
       } else {
-        Alert.alert('Error', err?.message || 'Failed to join club.');
+        Alert.alert('Error', msg);
       }
 
       trackEvent({

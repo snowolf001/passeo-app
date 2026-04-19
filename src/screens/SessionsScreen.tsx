@@ -19,7 +19,6 @@ import {
   canAccessFullHistory,
   FREE_SESSION_LIMIT,
 } from '../config/entitlementConfig';
-import UpgradeModal from '../components/UpgradeModal';
 import type {ThemeColors} from '../theme/colors';
 
 type SessionRow = ApiSession & {locked?: boolean};
@@ -37,8 +36,6 @@ export default function SessionsScreen({navigation}: Props) {
   const [sessions, setSessions] = useState<ApiSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [upgradeVisible, setUpgradeVisible] = useState(false);
-
   const loadSessions = useCallback(async () => {
     const clubId = currentClub?.id;
     if (!clubId) {
@@ -197,7 +194,7 @@ export default function SessionsScreen({navigation}: Props) {
       return (
         <TouchableOpacity
           style={[styles.card, styles.cardLocked]}
-          onPress={() => setUpgradeVisible(true)}>
+          onPress={() => navigation.navigate('ClubPro')}>
           <View style={styles.cardTop}>
             <Text
               style={[styles.cardTitle, styles.cardTitleLocked]}
@@ -336,17 +333,13 @@ export default function SessionsScreen({navigation}: Props) {
           lockedCount > 0 ? (
             <TouchableOpacity
               style={styles.upgradeBanner}
-              onPress={() => setUpgradeVisible(true)}>
+              onPress={() => navigation.navigate('ClubPro')}>
               <Text style={styles.upgradeBannerText}>
                 🔒 Upgrade to Pro to unlock full history
               </Text>
             </TouchableOpacity>
           ) : null
         }
-      />
-      <UpgradeModal
-        visible={upgradeVisible}
-        onClose={() => setUpgradeVisible(false)}
       />
     </SafeAreaView>
   );
