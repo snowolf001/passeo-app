@@ -113,21 +113,17 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       }
       setReportFetchFailed(false);
       try {
-        const [loadedSession, members] = await Promise.all([
+        const [loadedSession, members, intentResult] = await Promise.all([
           apiGetSessionById(sessionId),
           apiGetCheckedInMembers(sessionId),
+          getSessionIntentSummary(sessionId).catch(err => {
+            console.warn('[SessionDetailScreen] intent summary failed:', err);
+            return null;
+          }),
         ]);
         setSession(loadedSession);
         setCheckedInMembers(members);
-
-        // Load session intent summary if feature is enabled for this club
-        if (currentClub?.settings?.enableSessionIntents) {
-          getSessionIntentSummary(sessionId)
-            .then(summary => setIntentSummary(summary))
-            .catch(err =>
-              console.warn('[SessionDetailScreen] intent summary failed:', err),
-            );
-        }
+        setIntentSummary(intentResult);
 
         // Load rich attendee report for hosts/owners
         const myRole = currentMembership?.role ?? '';
@@ -704,42 +700,44 @@ export default function SessionDetailScreen({route, navigation}: Props) {
           </View>
         </View>
 
-        {intentSummary?.enabled && checkInMode === 'upcoming' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Who's Going</Text>
-            <TouchableOpacity
-              style={[
-                styles.intentBtn,
-                intentSummary.currentMemberGoing && styles.intentBtnActive,
-              ]}
-              onPress={handleToggleIntent}
-              disabled={submittingIntent}>
-              {submittingIntent ? (
-                <ActivityIndicator
-                  color={
-                    intentSummary.currentMemberGoing ? '#34C759' : '#007AFF'
-                  }
-                />
-              ) : (
-                <Text
-                  style={[
-                    styles.intentBtnText,
-                    intentSummary.currentMemberGoing &&
-                      styles.intentBtnTextActive,
-                  ]}>
-                  {intentSummary.currentMemberGoing ? 'Going ✓' : "I'm Going"}
+        {intentSummary?.enabled &&
+          session != null &&
+          new Date(session.startTime).getTime() > Date.now() && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Who's Going</Text>
+              <TouchableOpacity
+                style={[
+                  styles.intentBtn,
+                  intentSummary.currentMemberGoing && styles.intentBtnActive,
+                ]}
+                onPress={handleToggleIntent}
+                disabled={submittingIntent}>
+                {submittingIntent ? (
+                  <ActivityIndicator
+                    color={
+                      intentSummary.currentMemberGoing ? '#34C759' : '#007AFF'
+                    }
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.intentBtnText,
+                      intentSummary.currentMemberGoing &&
+                        styles.intentBtnTextActive,
+                    ]}>
+                    {intentSummary.currentMemberGoing ? 'Going ✓' : "I'm Going"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+              {intentSummary.count > 0 && (
+                <Text style={styles.intentCountText}>
+                  {intentSummary.count}{' '}
+                  {intentSummary.count === 1 ? 'person' : 'people'} planning to
+                  attend
                 </Text>
               )}
-            </TouchableOpacity>
-            {intentSummary.count > 0 && (
-              <Text style={styles.intentCountText}>
-                {intentSummary.count}{' '}
-                {intentSummary.count === 1 ? 'person' : 'people'} planning to
-                attend
-              </Text>
-            )}
-          </View>
-        )}
+            </View>
+          )}
 
         {checkInMode !== 'already_checked_in' && checkInMode !== 'expired' && (
           <View style={styles.section}>
