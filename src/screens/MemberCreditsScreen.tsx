@@ -1,4 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import Clipboard from '@react-native-clipboard/clipboard';
 import {
   View,
   Text,
@@ -12,7 +13,6 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Platform,
-  
   ScrollView,
   TouchableWithoutFeedback,
 } from 'react-native';
@@ -392,7 +392,7 @@ export default function MemberCreditsScreen({navigation}: Props) {
                           <TouchableOpacity
                             style={styles.copyBtn}
                             onPress={() => {
-                              console.log(recoveryCode);
+                              Clipboard.setString(recoveryCode);
                               showSnackbar(
                                 'Recovery code copied to clipboard.',
                               );

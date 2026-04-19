@@ -1,4 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import Clipboard from '@react-native-clipboard/clipboard';
 import {
   View,
   Text,
@@ -276,7 +277,9 @@ export default function ClubSettingsScreen({navigation}: Props) {
                     <TouchableOpacity
                       style={styles.joinCodeBtn}
                       onPress={() => {
-                        console.log(joinCode ?? currentClub.joinCode ?? '');
+                        Clipboard.setString(
+                          joinCode ?? currentClub.joinCode ?? '',
+                        );
                         showSnackbar('Join code copied');
                       }}>
                       <Text style={styles.joinCodeBtnText}>Copy</Text>

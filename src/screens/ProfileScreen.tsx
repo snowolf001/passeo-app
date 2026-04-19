@@ -1,4 +1,5 @@
 import React, {useCallback, useMemo, useRef, useState, Component} from 'react';
+import Clipboard from '@react-native-clipboard/clipboard';
 import {
   View,
   Text,
@@ -224,7 +225,7 @@ export default function ProfileScreen({navigation}: Props) {
                   <TouchableOpacity
                     style={styles.copyBtn}
                     onPress={() => {
-                      console.log(currentClub.joinCode ?? '');
+                      Clipboard.setString(currentClub.joinCode ?? '');
                       showSnackbar('Join code copied');
                     }}>
                     <Text style={styles.copyBtnText}>Copy</Text>
@@ -373,7 +374,7 @@ export default function ProfileScreen({navigation}: Props) {
                 <TouchableOpacity
                   style={styles.copyBtn}
                   onPress={() => {
-                    console.log(currentMembership.recoveryCode ?? '');
+                    Clipboard.setString(currentMembership.recoveryCode ?? '');
                     showSnackbar('Recovery code copied');
                   }}>
                   <Text style={styles.copyBtnText}>Copy</Text>
