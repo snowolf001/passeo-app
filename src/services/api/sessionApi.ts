@@ -4,6 +4,11 @@ import {apiRequest} from './apiClient';
 
 // ─── Backend response shapes ──────────────────────────────────────────────────
 
+export type ApiSessionHost = {
+  membershipId: string;
+  displayName: string;
+};
+
 export type ApiSession = {
   id: string;
   clubId: string;
@@ -15,6 +20,7 @@ export type ApiSession = {
   locationName: string | null;
   capacity: number | null;
   status: 'active' | 'closed';
+  host?: ApiSessionHost | null;
 };
 
 export type ApiCheckedInMember = {
@@ -136,9 +142,24 @@ export async function createSession(params: {
   startTime: string;
   endTime?: string | null;
   capacity?: number | null;
+  hostMembershipId?: string | null;
 }): Promise<ApiSession> {
   return apiRequest<ApiSession>('/api/sessions', {
     method: 'POST',
+    body: params,
+  });
+}
+
+/**
+ * PATCH /api/sessions/:sessionId — update session fields (e.g. assigned host)
+ * Owner/host only.
+ */
+export async function updateSession(
+  sessionId: string,
+  params: {hostMembershipId?: string | null},
+): Promise<ApiSession> {
+  return apiRequest<ApiSession>(`/api/sessions/${sessionId}`, {
+    method: 'PATCH',
     body: params,
   });
 }
@@ -169,6 +190,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
 export type ApiIntentMember = {
   membershipId: string;
   displayName: string;
+  createdAt: string;
 };
 
 export type ApiSessionIntentSummary = {

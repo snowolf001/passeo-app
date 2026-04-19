@@ -19,7 +19,12 @@ import DateTimePicker, {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {useApp} from '../context/AppContext';
-import {getClubLocations, ApiClubLocation} from '../services/api/clubApi';
+import {
+  getClubLocations,
+  getClubMembers,
+  ApiClubLocation,
+  ApiClubMember,
+} from '../services/api/clubApi';
 import {createSession} from '../services/api/sessionApi';
 import {RootStackParamList} from '../navigation/types';
 import {useAppTheme} from '../theme/useAppTheme';
@@ -54,6 +59,10 @@ export default function CreateSessionScreen({navigation}: Props) {
   const [locations, setLocations] = useState<ApiClubLocation[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  const [hostMembers, setHostMembers] = useState<ApiClubMember[]>([]);
+  const [selectedHostId, setSelectedHostId] = useState<string | null>(null);
+  const [hostMembersLoading, setHostMembersLoading] = useState(false);
 
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
@@ -96,6 +105,33 @@ export default function CreateSessionScreen({navigation}: Props) {
     const unsub = navigation.addListener('focus', loadLocations);
     return unsub;
   }, [navigation, loadLocations]);
+
+  const loadHostMembers = useCallback(() => {
+    if (!currentMembership) {
+      return;
+    }
+    setHostMembersLoading(true);
+    getClubMembers(currentMembership.clubId)
+      .then(members => {
+        const eligible = members.filter(
+          m => m.role === 'owner' || m.role === 'host',
+        );
+        setHostMembers(eligible);
+        // Default to current user if they appear in the eligible list
+        const selfInList = eligible.find(
+          m => m.membershipId === currentMembership.id,
+        );
+        setSelectedHostId(
+          selfInList ? currentMembership.id : eligible[0]?.membershipId ?? null,
+        );
+      })
+      .catch(() => {})
+      .finally(() => setHostMembersLoading(false));
+  }, [currentMembership]);
+
+  useEffect(() => {
+    loadHostMembers();
+  }, [loadHostMembers]);
 
   const combineDateTime = (date: Date, time: Date): Date => {
     return new Date(
@@ -171,6 +207,7 @@ export default function CreateSessionScreen({navigation}: Props) {
         startTime: startISO,
         endTime: endISO,
         capacity: capacityNum,
+        hostMembershipId: selectedHostId,
       });
       trackEvent({
         eventName: 'session_created',
@@ -291,6 +328,59 @@ export default function CreateSessionScreen({navigation}: Props) {
               <Text style={styles.label}>Location *</Text>
               {renderLocationSection()}
             </View>
+
+            {/* Assigned Host — only shown when there are multiple eligible members */}
+            {hostMembers.length > 0 && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Assigned Host</Text>
+                {hostMembersLoading ? (
+                  <View style={styles.locationLoadingRow}>
+                    <ActivityIndicator size="small" color="#007AFF" />
+                    <Text style={styles.locationLoadingText}>
+                      Loading hosts…
+                    </Text>
+                  </View>
+                ) : (
+                  hostMembers.map(member => {
+                    const isSelected = selectedHostId === member.membershipId;
+                    const isCurrentUser =
+                      member.membershipId === currentMembership?.id;
+                    return (
+                      <TouchableOpacity
+                        key={member.membershipId}
+                        style={[
+                          styles.locationOption,
+                          isSelected && styles.locationOptionSelected,
+                        ]}
+                        activeOpacity={0.7}
+                        onPress={() => setSelectedHostId(member.membershipId)}>
+                        <View style={styles.locationRadio}>
+                          {isSelected && (
+                            <View style={styles.locationRadioDot} />
+                          )}
+                        </View>
+                        <View style={styles.locationTextWrap}>
+                          <Text
+                            style={[
+                              styles.locationName,
+                              isSelected && styles.locationNameSelected,
+                            ]}>
+                            {member.userName}
+                            {isCurrentUser ? ' (You)' : ''}
+                          </Text>
+                          <Text style={styles.locationAddress}>
+                            {member.role}
+                          </Text>
+                        </View>
+                        {isSelected && (
+                          <Text style={styles.locationCheck}>✓</Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </View>
+            )}
 
             <View style={styles.field}>
               <Text style={styles.label}>Session Name (Optional)</Text>

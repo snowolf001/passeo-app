@@ -73,6 +73,9 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const [intentSummary, setIntentSummary] =
     useState<ApiSessionIntentSummary | null>(null);
   const [submittingIntent, setSubmittingIntent] = useState(false);
+  const [goingExpanded, setGoingExpanded] = useState(true);
+  const [checkedInExpanded, setCheckedInExpanded] = useState(false);
+  const expandInitializedRef = useRef(false);
 
   const [showPeoplePicker, setShowPeoplePicker] = useState(false);
   const [peopleCount, setPeopleCount] = useState(1);
@@ -187,6 +190,17 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     loadData(true);
   }, [lastCheckInEvent, sessionId, loadData]);
 
+  // Initialize expand/collapse state once when session first loads
+  useEffect(() => {
+    if (!session || expandInitializedRef.current) {
+      return;
+    }
+    const isBeforeStart = new Date(session.startTime).getTime() > Date.now();
+    setGoingExpanded(isBeforeStart);
+    setCheckedInExpanded(!isBeforeStart);
+    expandInitializedRef.current = true;
+  }, [session]);
+
   const isCheckedIn = currentMembership
     ? checkedInMembers.some(m => m.membershipId === currentMembership.id)
     : false;
@@ -199,6 +213,15 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const canManualCheckIn = currentMembership
     ? ['host', 'owner'].includes(currentMembership.role)
     : false;
+
+  const sessionStarted = session
+    ? new Date(session.startTime).getTime() <= Date.now()
+    : false;
+
+  const checkedInMemberIds = useMemo(
+    () => new Set(checkedInMembers.map(m => m.membershipId)),
+    [checkedInMembers],
+  );
 
   const checkInMode: CheckInMode = useMemo(() => {
     if (!currentMembership || !session) {
@@ -684,6 +707,12 @@ export default function SessionDetailScreen({route, navigation}: Props) {
             </Text>
           )}
 
+          {session.host != null && (
+            <Text style={styles.detailRow}>
+              👤 Host: {session.host.displayName}
+            </Text>
+          )}
+
           <View style={styles.capacityRow}>
             <Text style={styles.capacityText}>
               👥{' '}
@@ -700,44 +729,78 @@ export default function SessionDetailScreen({route, navigation}: Props) {
           </View>
         </View>
 
-        {intentSummary?.enabled &&
-          session != null &&
-          new Date(session.startTime).getTime() > Date.now() && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Who's Going</Text>
-              <TouchableOpacity
-                style={[
-                  styles.intentBtn,
-                  intentSummary.currentMemberGoing && styles.intentBtnActive,
-                ]}
-                onPress={handleToggleIntent}
-                disabled={submittingIntent}>
-                {submittingIntent ? (
-                  <ActivityIndicator
-                    color={
-                      intentSummary.currentMemberGoing ? '#34C759' : '#007AFF'
-                    }
-                  />
-                ) : (
-                  <Text
+        {intentSummary?.enabled && (
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.collapsibleHeader}
+              onPress={() => setGoingExpanded(prev => !prev)}
+              activeOpacity={0.7}>
+              <Text style={[styles.sectionTitle, {marginBottom: 0}]}>
+                Going ({intentSummary.count})
+              </Text>
+              <Text style={styles.collapseIcon}>
+                {goingExpanded ? '▲' : '▼'}
+              </Text>
+            </TouchableOpacity>
+            {goingExpanded && (
+              <>
+                {!sessionStarted && (
+                  <TouchableOpacity
                     style={[
-                      styles.intentBtnText,
+                      styles.intentBtn,
                       intentSummary.currentMemberGoing &&
-                        styles.intentBtnTextActive,
-                    ]}>
-                    {intentSummary.currentMemberGoing ? 'Going ✓' : "I'm Going"}
-                  </Text>
+                        styles.intentBtnActive,
+                    ]}
+                    onPress={handleToggleIntent}
+                    disabled={submittingIntent}>
+                    {submittingIntent ? (
+                      <ActivityIndicator
+                        color={
+                          intentSummary.currentMemberGoing
+                            ? '#34C759'
+                            : '#007AFF'
+                        }
+                      />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.intentBtnText,
+                          intentSummary.currentMemberGoing &&
+                            styles.intentBtnTextActive,
+                        ]}>
+                        {intentSummary.currentMemberGoing
+                          ? 'Going ✓'
+                          : "I'm Going"}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
-              {intentSummary.count > 0 && (
-                <Text style={styles.intentCountText}>
-                  {intentSummary.count}{' '}
-                  {intentSummary.count === 1 ? 'person' : 'people'} planning to
-                  attend
-                </Text>
-              )}
-            </View>
-          )}
+                {intentSummary.members.length === 0 ? (
+                  <Text style={[styles.emptyText, {marginTop: 10}]}>
+                    Nobody has marked going yet.
+                  </Text>
+                ) : (
+                  intentSummary.members.map(member => (
+                    <View
+                      key={member.membershipId}
+                      style={styles.intentMemberRow}>
+                      <Text style={styles.memberName}>
+                        {member.displayName}
+                      </Text>
+                      {checkedInMemberIds.has(member.membershipId) && (
+                        <View style={styles.checkedInBadge}>
+                          <Text style={styles.checkedInBadgeText}>
+                            Checked in ✓
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ))
+                )}
+              </>
+            )}
+          </View>
+        )}
 
         {checkInMode !== 'already_checked_in' && checkInMode !== 'expired' && (
           <View style={styles.section}>
@@ -792,14 +855,22 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         {canManualCheckIn ? (
           <View style={styles.section}>
             <View style={styles.attendeesSectionHeader}>
-              <Text style={styles.sectionTitle}>
-                Attendees
-                {attendeesReport
-                  ? ` (${attendeesReport.summary.totalCheckIns})`
-                  : checkedInMembers.length > 0
-                  ? ` (${checkedInMembers.length})`
-                  : ''}
-              </Text>
+              <TouchableOpacity
+                style={styles.collapsibleTitleRow}
+                onPress={() => setCheckedInExpanded(prev => !prev)}
+                activeOpacity={0.7}>
+                <Text style={[styles.sectionTitle, {marginBottom: 0}]}>
+                  Attendees
+                  {attendeesReport
+                    ? ` (${attendeesReport.summary.totalCheckIns})`
+                    : checkedInMembers.length > 0
+                    ? ` (${checkedInMembers.length})`
+                    : ''}
+                </Text>
+                <Text style={styles.collapseIcon}>
+                  {checkedInExpanded ? '▲' : '▼'}
+                </Text>
+              </TouchableOpacity>
               <View
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
                 {loadingReport && (
@@ -837,103 +908,127 @@ export default function SessionDetailScreen({route, navigation}: Props) {
               </View>
             </View>
 
-            {reportFetchFailed && !loadingReport && (
-              <Text
-                style={[
-                  styles.helperText,
-                  {
-                    color: colors.danger,
-                    marginBottom: 12,
-                    marginTop: -6,
-                    textAlign: 'left',
-                  },
-                ]}>
-                Could not load attendee report. Retry to enable export.
-              </Text>
-            )}
+            {checkedInExpanded && (
+              <>
+                {reportFetchFailed && !loadingReport && (
+                  <Text
+                    style={[
+                      styles.helperText,
+                      {
+                        color: colors.danger,
+                        marginBottom: 12,
+                        marginTop: -6,
+                        textAlign: 'left',
+                      },
+                    ]}>
+                    Could not load attendee report. Retry to enable export.
+                  </Text>
+                )}
 
-            {attendeesReport && (
-              <View style={styles.summaryRow}>
-                <View style={styles.summaryCard}>
-                  <Text style={styles.summaryValue}>
-                    {attendeesReport.summary.totalParticipation}
-                  </Text>
-                  <Text style={styles.summaryLabel}>Total Credits Used</Text>
-                </View>
-                <View style={styles.summaryCard}>
-                  <Text style={styles.summaryValue}>
-                    {attendeesReport.summary.totalCheckIns}
-                  </Text>
-                  <Text style={styles.summaryLabel}>Check{'\u2011'}ins</Text>
-                </View>
-                <View style={styles.summaryCard}>
-                  <Text style={styles.summaryValue}>
-                    {attendeesReport.summary.uniqueMembers}
-                  </Text>
-                  <Text style={styles.summaryLabel}>Unique Members</Text>
-                </View>
-              </View>
-            )}
-
-            {attendeesReport && attendeesReport.attendees.length === 0 ? (
-              <Text style={styles.emptyText}>No attendees yet.</Text>
-            ) : attendeesReport ? (
-              <FlatList
-                data={attendeesReport.attendees}
-                keyExtractor={item => item.attendanceId}
-                renderItem={({item}) => (
-                  <View style={styles.attendeeRow}>
-                    <View style={styles.attendeeHeaderRow}>
-                      <Text style={styles.memberName}>{item.memberName}</Text>
-                      <Text style={styles.attendeeTime}>
-                        {formatDate(item.checkedInAt)}
+                {attendeesReport && (
+                  <View style={styles.summaryRow}>
+                    <View style={styles.summaryCard}>
+                      <Text style={styles.summaryValue}>
+                        {attendeesReport.summary.totalParticipation}
+                      </Text>
+                      <Text style={styles.summaryLabel}>
+                        Total Credits Used
                       </Text>
                     </View>
-                    <Text style={styles.attendeeMethodText}>
-                      {`${getCheckInTypeLabel(item.checkInType)} · ${
-                        item.creditsUsed
-                      } credit${item.creditsUsed === 1 ? '' : 's'}`}
-                    </Text>
-                    {item.creditsUsed > 1 && (
-                      <Text style={styles.attendeeSubText}>
-                        Includes guests
+                    <View style={styles.summaryCard}>
+                      <Text style={styles.summaryValue}>
+                        {attendeesReport.summary.totalCheckIns}
                       </Text>
-                    )}
-                    {item.checkedInByName &&
-                      item.checkedInByName !== item.memberName && (
-                        <Text style={styles.checkedInByText}>
-                          by {item.checkedInByName}
-                        </Text>
-                      )}
+                      <Text style={styles.summaryLabel}>
+                        Check{'\u2011'}ins
+                      </Text>
+                    </View>
+                    <View style={styles.summaryCard}>
+                      <Text style={styles.summaryValue}>
+                        {attendeesReport.summary.uniqueMembers}
+                      </Text>
+                      <Text style={styles.summaryLabel}>Unique Members</Text>
+                    </View>
                   </View>
                 )}
-                scrollEnabled={false}
-              />
-            ) : checkedInMembers.length === 0 ? (
-              <Text style={styles.emptyText}>No attendees yet.</Text>
-            ) : (
-              <FlatList
-                data={checkedInMembers}
-                keyExtractor={item => item.membershipId}
-                renderItem={renderMemberRow}
-                scrollEnabled={false}
-              />
+
+                {attendeesReport && attendeesReport.attendees.length === 0 ? (
+                  <Text style={styles.emptyText}>No attendees yet.</Text>
+                ) : attendeesReport ? (
+                  <FlatList
+                    data={attendeesReport.attendees}
+                    keyExtractor={item => item.attendanceId}
+                    renderItem={({item}) => (
+                      <View style={styles.attendeeRow}>
+                        <View style={styles.attendeeHeaderRow}>
+                          <Text style={styles.memberName}>
+                            {item.memberName}
+                          </Text>
+                          <Text style={styles.attendeeTime}>
+                            {formatDate(item.checkedInAt)}
+                          </Text>
+                        </View>
+                        <Text style={styles.attendeeMethodText}>
+                          {`${getCheckInTypeLabel(item.checkInType)} · ${
+                            item.creditsUsed
+                          } credit${item.creditsUsed === 1 ? '' : 's'}`}
+                        </Text>
+                        {item.creditsUsed > 1 && (
+                          <Text style={styles.attendeeSubText}>
+                            Includes guests
+                          </Text>
+                        )}
+                        {item.checkedInByName &&
+                          item.checkedInByName !== item.memberName && (
+                            <Text style={styles.checkedInByText}>
+                              by {item.checkedInByName}
+                            </Text>
+                          )}
+                      </View>
+                    )}
+                    scrollEnabled={false}
+                  />
+                ) : checkedInMembers.length === 0 ? (
+                  <Text style={styles.emptyText}>No attendees yet.</Text>
+                ) : (
+                  <FlatList
+                    data={checkedInMembers}
+                    keyExtractor={item => item.membershipId}
+                    renderItem={renderMemberRow}
+                    scrollEnabled={false}
+                  />
+                )}
+              </>
             )}
           </View>
         ) : (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Checked In ({checkedInMembers.length})
-            </Text>
-            {checkedInMembers.length === 0 ? (
-              <Text style={styles.emptyText}>No members checked in yet.</Text>
-            ) : (
-              <FlatList
-                data={checkedInMembers}
-                keyExtractor={item => item.membershipId}
-                renderItem={renderMemberRow}
-                scrollEnabled={false}
-              />
+            <TouchableOpacity
+              style={styles.collapsibleHeader}
+              onPress={() => setCheckedInExpanded(prev => !prev)}
+              activeOpacity={0.7}>
+              <Text style={[styles.sectionTitle, {marginBottom: 0}]}>
+                Checked In ({checkedInMembers.length})
+              </Text>
+              <Text style={styles.collapseIcon}>
+                {checkedInExpanded ? '▲' : '▼'}
+              </Text>
+            </TouchableOpacity>
+            {checkedInExpanded && (
+              <>
+                {checkedInMembers.length === 0 ? (
+                  <Text style={[styles.emptyText, {marginTop: 10}]}>
+                    No members checked in yet.
+                  </Text>
+                ) : (
+                  <FlatList
+                    data={checkedInMembers}
+                    keyExtractor={item => item.membershipId}
+                    renderItem={renderMemberRow}
+                    scrollEnabled={false}
+                  />
+                )}
+              </>
             )}
           </View>
         )}
@@ -1569,6 +1664,43 @@ function createStyles(c: ThemeColors) {
       fontSize: 13,
       color: c.textMuted,
       textAlign: 'center',
+    },
+    collapsibleHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    collapsibleTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flex: 1,
+    },
+    collapseIcon: {
+      fontSize: 11,
+      color: c.textMuted,
+      fontWeight: '600',
+      marginLeft: 4,
+    },
+    intentMemberRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    checkedInBadge: {
+      backgroundColor: '#D1FAE5',
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    checkedInBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#065F46',
     },
   });
 }
