@@ -9,7 +9,6 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
-  
   KeyboardAvoidingView,
   ScrollView,
   TouchableWithoutFeedback,
@@ -85,6 +84,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
         allowMemberBackfill: settings.allowMemberBackfill,
         memberBackfillHours: settings.memberBackfillHours,
         hostBackfillHours: settings.hostBackfillHours,
+        enableSessionIntents: settings.enableSessionIntents ?? false,
       });
     } catch (err) {
       console.warn('[ClubSettings] loadData error:', err);
@@ -216,6 +216,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
         allowMemberBackfill: updated.allowMemberBackfill,
         memberBackfillHours: updated.memberBackfillHours,
         hostBackfillHours: updated.hostBackfillHours,
+        enableSessionIntents: updated.enableSessionIntents,
       });
     } catch (err) {
       console.warn('[ClubSettings] updateClubSettings error:', err);
@@ -273,9 +274,7 @@ export default function ClubSettingsScreen({navigation}: Props) {
                     <TouchableOpacity
                       style={styles.joinCodeBtn}
                       onPress={() => {
-                        console.log(
-                          joinCode ?? currentClub.joinCode ?? '',
-                        );
+                        console.log(joinCode ?? currentClub.joinCode ?? '');
                         showSnackbar('Join code copied');
                       }}>
                       <Text style={styles.joinCodeBtnText}>Copy</Text>
@@ -465,6 +464,29 @@ export default function ClubSettingsScreen({navigation}: Props) {
                       </TouchableOpacity>
                     );
                   })}
+                </View>
+              </View>
+            )}
+
+            {isOwner && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Session Planning</Text>
+                <View style={styles.settingRow}>
+                  <View style={styles.settingLabelWrap}>
+                    <Text style={styles.settingLabel}>Enable "I'm Going"</Text>
+                    <Text style={styles.settingHint}>
+                      Members can mark that they plan to attend a session before
+                      it starts. Does not deduct credits.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={localSettings.enableSessionIntents}
+                    onValueChange={val =>
+                      handleSettingChange('enableSessionIntents', val)
+                    }
+                    trackColor={{false: '#E5E5EA', true: '#34C759'}}
+                    thumbColor="#FFF"
+                  />
                 </View>
               </View>
             )}

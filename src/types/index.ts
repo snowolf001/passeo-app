@@ -15,12 +15,14 @@ export type ClubSettings = {
   allowMemberBackfill: boolean;
   memberBackfillHours: number;
   hostBackfillHours: number;
+  enableSessionIntents: boolean;
 };
 
 export const DEFAULT_CLUB_SETTINGS: ClubSettings = {
   allowMemberBackfill: true,
   memberBackfillHours: 24,
   hostBackfillHours: 72,
+  enableSessionIntents: false,
 };
 
 // Check-in mode for a given membership + session combination.

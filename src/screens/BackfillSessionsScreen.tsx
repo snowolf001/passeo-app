@@ -23,6 +23,7 @@ const FALLBACK_SETTINGS = {
   allowMemberBackfill: true,
   memberBackfillHours: 24,
   hostBackfillHours: 72,
+  enableSessionIntents: false,
 };
 
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;

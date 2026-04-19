@@ -163,3 +163,43 @@ export async function manualCheckIn(
 export async function deleteSession(sessionId: string): Promise<void> {
   await apiRequest<void>(`/api/sessions/${sessionId}`, {method: 'DELETE'});
 }
+
+// ─── Session Intents ──────────────────────────────────────────────────────────
+
+export type ApiIntentMember = {
+  membershipId: string;
+  displayName: string;
+};
+
+export type ApiSessionIntentSummary = {
+  enabled: boolean;
+  count: number;
+  currentMemberGoing: boolean;
+  members: ApiIntentMember[];
+};
+
+/**
+ * GET /api/sessions/:sessionId/intents
+ * Returns the planned-attendance summary for the session.
+ */
+export async function getSessionIntentSummary(
+  sessionId: string,
+): Promise<ApiSessionIntentSummary> {
+  return apiRequest<ApiSessionIntentSummary>(
+    `/api/sessions/${sessionId}/intents`,
+  );
+}
+
+/**
+ * PUT /api/sessions/:sessionId/intent
+ * Marks or unmarks the current member as going to the session.
+ */
+export async function setSessionIntent(
+  sessionId: string,
+  going: boolean,
+): Promise<{going: boolean}> {
+  return apiRequest<{going: boolean}>(`/api/sessions/${sessionId}/intent`, {
+    method: 'PUT',
+    body: {going},
+  });
+}

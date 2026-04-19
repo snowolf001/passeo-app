@@ -24,6 +24,9 @@ import {
   checkInToSession,
   getCheckInErrorMessage,
   deleteSession as apiDeleteSession,
+  getSessionIntentSummary,
+  setSessionIntent,
+  ApiSessionIntentSummary,
 } from '../services/api/sessionApi';
 import {
   getSessionAttendees,
@@ -66,6 +69,10 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const [checkingIn, setCheckingIn] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
+
+  const [intentSummary, setIntentSummary] =
+    useState<ApiSessionIntentSummary | null>(null);
+  const [submittingIntent, setSubmittingIntent] = useState(false);
 
   const [showPeoplePicker, setShowPeoplePicker] = useState(false);
   const [peopleCount, setPeopleCount] = useState(1);
@@ -112,6 +119,15 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         ]);
         setSession(loadedSession);
         setCheckedInMembers(members);
+
+        // Load session intent summary if feature is enabled for this club
+        if (currentClub?.settings?.enableSessionIntents) {
+          getSessionIntentSummary(sessionId)
+            .then(summary => setIntentSummary(summary))
+            .catch(err =>
+              console.warn('[SessionDetailScreen] intent summary failed:', err),
+            );
+        }
 
         // Load rich attendee report for hosts/owners
         const myRole = currentMembership?.role ?? '';
@@ -566,6 +582,27 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     );
   };
 
+  const handleToggleIntent = async () => {
+    if (!session || !currentMembership || submittingIntent) {
+      return;
+    }
+    const going = !(intentSummary?.currentMemberGoing ?? false);
+    setSubmittingIntent(true);
+    try {
+      await setSessionIntent(session.id, going);
+      const updated = await getSessionIntentSummary(session.id);
+      setIntentSummary(updated);
+    } catch (err) {
+      console.warn('[SessionDetailScreen] toggle intent failed:', err);
+      Alert.alert(
+        'Error',
+        'Could not update your attendance plan. Please try again.',
+      );
+    } finally {
+      setSubmittingIntent(false);
+    }
+  };
+
   const renderMemberRow = ({item}: {item: ApiCheckedInMember}) => {
     const isYou = currentMembership?.id === item.membershipId;
 
@@ -666,6 +703,43 @@ export default function SessionDetailScreen({route, navigation}: Props) {
             <Text style={styles.statusText}>{getStatusText(checkInMode)}</Text>
           </View>
         </View>
+
+        {intentSummary?.enabled && checkInMode === 'upcoming' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Who's Going</Text>
+            <TouchableOpacity
+              style={[
+                styles.intentBtn,
+                intentSummary.currentMemberGoing && styles.intentBtnActive,
+              ]}
+              onPress={handleToggleIntent}
+              disabled={submittingIntent}>
+              {submittingIntent ? (
+                <ActivityIndicator
+                  color={
+                    intentSummary.currentMemberGoing ? '#34C759' : '#007AFF'
+                  }
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.intentBtnText,
+                    intentSummary.currentMemberGoing &&
+                      styles.intentBtnTextActive,
+                  ]}>
+                  {intentSummary.currentMemberGoing ? 'Going ✓' : "I'm Going"}
+                </Text>
+              )}
+            </TouchableOpacity>
+            {intentSummary.count > 0 && (
+              <Text style={styles.intentCountText}>
+                {intentSummary.count}{' '}
+                {intentSummary.count === 1 ? 'person' : 'people'} planning to
+                attend
+              </Text>
+            )}
+          </View>
+        )}
 
         {checkInMode !== 'already_checked_in' && checkInMode !== 'expired' && (
           <View style={styles.section}>
@@ -1472,6 +1546,31 @@ function createStyles(c: ThemeColors) {
       fontWeight: '500',
       color: 'rgba(255,255,255,0.85)',
       marginTop: 1,
+    },
+    intentBtn: {
+      borderWidth: 1.5,
+      borderColor: '#007AFF',
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    intentBtnActive: {
+      backgroundColor: 'rgba(52,199,89,0.08)',
+      borderColor: '#34C759',
+    },
+    intentBtnText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#007AFF',
+    },
+    intentBtnTextActive: {
+      color: '#34C759',
+    },
+    intentCountText: {
+      marginTop: 10,
+      fontSize: 13,
+      color: c.textMuted,
+      textAlign: 'center',
     },
   });
 }
