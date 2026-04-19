@@ -114,16 +114,11 @@ export default function CreateSessionScreen({navigation}: Props) {
     getClubMembers(currentMembership.clubId)
       .then(members => {
         const eligible = members.filter(
-          m => m.role === 'owner' || m.role === 'host',
+          m => (m.role === 'owner' || m.role === 'host') && m.active,
         );
         setHostMembers(eligible);
-        // Default to current user if they appear in the eligible list
-        const selfInList = eligible.find(
-          m => m.membershipId === currentMembership.id,
-        );
-        setSelectedHostId(
-          selfInList ? currentMembership.id : eligible[0]?.membershipId ?? null,
-        );
+        // Default to No Host (null)
+        setSelectedHostId(null);
       })
       .catch(() => {})
       .finally(() => setHostMembersLoading(false));
@@ -341,19 +336,27 @@ export default function CreateSessionScreen({navigation}: Props) {
                     </Text>
                   </View>
                 ) : (
-                  hostMembers.map(member => {
-                    const isSelected = selectedHostId === member.membershipId;
+                  [null, ...hostMembers].map((member, index) => {
+                    const isNoHost = member === null;
+                    const isSelected = isNoHost
+                      ? selectedHostId === null
+                      : selectedHostId === member.membershipId;
                     const isCurrentUser =
+                      !isNoHost &&
                       member.membershipId === currentMembership?.id;
                     return (
                       <TouchableOpacity
-                        key={member.membershipId}
+                        key={isNoHost ? '__none__' : member.membershipId}
                         style={[
                           styles.locationOption,
                           isSelected && styles.locationOptionSelected,
                         ]}
                         activeOpacity={0.7}
-                        onPress={() => setSelectedHostId(member.membershipId)}>
+                        onPress={() =>
+                          setSelectedHostId(
+                            isNoHost ? null : member.membershipId,
+                          )
+                        }>
                         <View style={styles.locationRadio}>
                           {isSelected && (
                             <View style={styles.locationRadioDot} />
@@ -365,12 +368,17 @@ export default function CreateSessionScreen({navigation}: Props) {
                               styles.locationName,
                               isSelected && styles.locationNameSelected,
                             ]}>
-                            {member.userName}
-                            {isCurrentUser ? ' (You)' : ''}
+                            {isNoHost
+                              ? 'No Host'
+                              : `${member.userName}${
+                                  isCurrentUser ? ' (You)' : ''
+                                }`}
                           </Text>
-                          <Text style={styles.locationAddress}>
-                            {member.role}
-                          </Text>
+                          {!isNoHost && (
+                            <Text style={styles.locationAddress}>
+                              {member.role}
+                            </Text>
+                          )}
                         </View>
                         {isSelected && (
                           <Text style={styles.locationCheck}>✓</Text>

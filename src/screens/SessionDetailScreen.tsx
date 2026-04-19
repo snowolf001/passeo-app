@@ -27,7 +27,9 @@ import {
   getSessionIntentSummary,
   setSessionIntent,
   ApiSessionIntentSummary,
+  updateSession,
 } from '../services/api/sessionApi';
+import {getClubMembers, ApiClubMember} from '../services/api/clubApi';
 import {
   getSessionAttendees,
   SessionAttendeesResponse,
@@ -79,6 +81,14 @@ export default function SessionDetailScreen({route, navigation}: Props) {
 
   const [showPeoplePicker, setShowPeoplePicker] = useState(false);
   const [peopleCount, setPeopleCount] = useState(1);
+
+  const [hostEditVisible, setHostEditVisible] = useState(false);
+  const [hostEditMembers, setHostEditMembers] = useState<ApiClubMember[]>([]);
+  const [hostEditSelectedId, setHostEditSelectedId] = useState<string | null>(
+    null,
+  );
+  const [hostEditLoading, setHostEditLoading] = useState(false);
+  const [hostEditSaving, setHostEditSaving] = useState(false);
 
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
@@ -561,6 +571,43 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     checkedInMembers.length === 0 &&
     (attendeesReport === null || attendeesReport.summary.totalCheckIns === 0);
 
+  const openHostEdit = useCallback(() => {
+    if (!currentMembership) {
+      return;
+    }
+    setHostEditSelectedId(session?.host?.membershipId ?? null);
+    setHostEditVisible(true);
+    setHostEditLoading(true);
+    getClubMembers(currentMembership.clubId)
+      .then(members => {
+        setHostEditMembers(
+          members.filter(
+            m => (m.role === 'owner' || m.role === 'host') && m.active,
+          ),
+        );
+      })
+      .catch(() => {})
+      .finally(() => setHostEditLoading(false));
+  }, [currentMembership, session?.host?.membershipId]);
+
+  const saveHostEdit = useCallback(async () => {
+    if (!session) {
+      return;
+    }
+    setHostEditSaving(true);
+    try {
+      const updated = await updateSession(session.id, {
+        hostMembershipId: hostEditSelectedId,
+      });
+      setSession(updated);
+      setHostEditVisible(false);
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Failed to update host.');
+    } finally {
+      setHostEditSaving(false);
+    }
+  }, [session, hostEditSelectedId]);
+
   const handleDeleteSession = () => {
     Alert.alert(
       'Delete Session',
@@ -707,10 +754,22 @@ export default function SessionDetailScreen({route, navigation}: Props) {
             </Text>
           )}
 
-          {session.host != null && (
-            <Text style={styles.detailRow}>
-              👤 Host: {session.host.displayName}
-            </Text>
+          {canManualCheckIn ? (
+            <View style={styles.hostRow}>
+              <Text style={styles.detailRow}>
+                👤 Host:{' '}
+                {session.host != null ? session.host.displayName : 'No host'}
+              </Text>
+              <TouchableOpacity onPress={openHostEdit}>
+                <Text style={styles.changeHostLink}>Change</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            session.host != null && (
+              <Text style={styles.detailRow}>
+                👤 Host: {session.host.displayName}
+              </Text>
+            )
           )}
 
           <View style={styles.capacityRow}>
@@ -1139,6 +1198,101 @@ export default function SessionDetailScreen({route, navigation}: Props) {
                         {peopleCount} {peopleCount === 1 ? 'person' : 'people'}
                       </Text>
                     </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Change Host modal */}
+        <Modal
+          visible={hostEditVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => !hostEditSaving && setHostEditVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={() => !hostEditSaving && setHostEditVisible(false)}
+            />
+            <View style={styles.modalSheet}>
+              <Text style={styles.modalTitle}>Change Host</Text>
+
+              {hostEditLoading ? (
+                <ActivityIndicator
+                  size="small"
+                  color="#007AFF"
+                  style={{marginVertical: 16}}
+                />
+              ) : (
+                [null, ...hostEditMembers].map(member => {
+                  const isNoHost = member === null;
+                  const isSelected = isNoHost
+                    ? hostEditSelectedId === null
+                    : hostEditSelectedId === member.membershipId;
+                  const isCurrentUser =
+                    !isNoHost && member.membershipId === currentMembership?.id;
+                  return (
+                    <TouchableOpacity
+                      key={isNoHost ? '__none__' : member.membershipId}
+                      style={[
+                        styles.locationOption,
+                        isSelected && styles.locationOptionSelected,
+                      ]}
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        setHostEditSelectedId(
+                          isNoHost ? null : member.membershipId,
+                        )
+                      }>
+                      <View style={styles.locationRadio}>
+                        {isSelected && <View style={styles.locationRadioDot} />}
+                      </View>
+                      <View style={styles.locationTextWrap}>
+                        <Text
+                          style={[
+                            styles.locationName,
+                            isSelected && styles.locationNameSelected,
+                          ]}>
+                          {isNoHost
+                            ? 'No Host'
+                            : `${member.userName}${
+                                isCurrentUser ? ' (You)' : ''
+                              }`}
+                        </Text>
+                        {!isNoHost && (
+                          <Text style={styles.locationAddress}>
+                            {member.role}
+                          </Text>
+                        )}
+                      </View>
+                      {isSelected && (
+                        <Text style={styles.locationCheck}>✓</Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalSecondaryButton}
+                  onPress={() => setHostEditVisible(false)}
+                  disabled={hostEditSaving}>
+                  <Text style={styles.modalSecondaryButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalPrimaryButton,
+                    hostEditSaving && styles.modalPrimaryButtonDisabled,
+                  ]}
+                  onPress={saveHostEdit}
+                  disabled={hostEditSaving}>
+                  {hostEditSaving ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.modalPrimaryButtonText}>Save</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -1701,6 +1855,68 @@ function createStyles(c: ThemeColors) {
       fontSize: 11,
       fontWeight: '700',
       color: '#065F46',
+    },
+    hostRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    changeHostLink: {
+      fontSize: 14,
+      color: '#007AFF',
+      fontWeight: '500',
+    },
+    locationOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 10,
+      padding: 12,
+      marginTop: 8,
+      backgroundColor: c.card,
+    },
+    locationOptionSelected: {
+      borderColor: '#007AFF',
+      backgroundColor: '#EFF6FF',
+    },
+    locationRadio: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: '#007AFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    locationRadioDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: '#007AFF',
+    },
+    locationTextWrap: {
+      flex: 1,
+    },
+    locationName: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: c.text,
+    },
+    locationNameSelected: {
+      color: '#007AFF',
+      fontWeight: '600',
+    },
+    locationAddress: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 2,
+    },
+    locationCheck: {
+      fontSize: 16,
+      color: '#007AFF',
+      marginLeft: 8,
     },
   });
 }
