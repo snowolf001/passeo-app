@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {leaveClub} from '../services/api/clubApi';
@@ -63,7 +64,7 @@ export default function ProfileScreen({navigation}: Props) {
   const {currentMembership, currentClub, clearMembershipSession} = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const {status: subStatus} = useClubSubscription(currentClub?.id);
+  const {status: subStatus, refresh} = useClubSubscription(currentClub?.id);
   const isPro = subStatus?.isPro ?? false;
 
   const [snackMsg, setSnackMsg] = useState('');
@@ -83,6 +84,12 @@ export default function ProfileScreen({navigation}: Props) {
       setSnackMsg('');
     }, 2500);
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
 
   if (!currentMembership || !currentClub) {
     return null;
