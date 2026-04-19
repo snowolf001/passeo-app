@@ -227,7 +227,7 @@ export default function CreateSessionScreen({navigation}: Props) {
             "You've reached the free plan limit. Upgrade to Pro to create more sessions.",
           [
             {text: 'Not Now', style: 'cancel'},
-            {text: 'View Pro', onPress: () => navigation.navigate('ClubPro')},
+            {text: 'Upgrade', onPress: () => navigation.navigate('ClubPro')},
           ],
         );
       } else {
@@ -521,6 +521,11 @@ export default function CreateSessionScreen({navigation}: Props) {
                 placeholderTextColor="#AEAEB2"
                 keyboardType="number-pad"
               />
+              {capacity.length > 0 && (
+                <Text style={styles.capacityHint}>
+                  Capacity limits are available on Pro plans.
+                </Text>
+              )}
             </View>
 
             <TouchableOpacity
@@ -724,5 +729,11 @@ function createStyles(c: ThemeColors) {
       backgroundColor: c.textMuted,
     },
     submitButtonText: {color: '#FFF', fontSize: 17, fontWeight: '700'},
+    capacityHint: {
+      fontSize: 12,
+      color: c.textMuted,
+      marginTop: 6,
+      fontStyle: 'italic',
+    },
   });
 }
