@@ -80,18 +80,20 @@ export default function ClubSettingsScreen({navigation}: Props) {
         getClubSettings(currentMembership.clubId),
       ]);
       setLocations(locs);
-      setLocalSettings({
+      const mappedSettings: ClubSettings = {
         allowMemberBackfill: settings.allowMemberBackfill,
         memberBackfillHours: settings.memberBackfillHours,
         hostBackfillHours: settings.hostBackfillHours,
         enableSessionIntents: settings.enableSessionIntents ?? false,
-      });
+      };
+      setLocalSettings(mappedSettings);
+      updateCurrentClubSettings(mappedSettings);
     } catch (err) {
       console.warn('[ClubSettings] loadData error:', err);
     } finally {
       setLoading(false);
     }
-  }, [currentMembership]);
+  }, [currentMembership, updateCurrentClubSettings]);
 
   useEffect(() => {
     loadData();

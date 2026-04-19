@@ -11,7 +11,7 @@ export type ApiClubSettings = {
   allowMemberBackfill: boolean;
   memberBackfillHours: number;
   hostBackfillHours: number;
-  enableSessionIntents: boolean;
+  enableSessionIntents?: boolean;
 };
 
 export type ApiClubMember = {
