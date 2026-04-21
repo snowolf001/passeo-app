@@ -6,26 +6,25 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
-  self.moduleName = @"PhotoToPDF";
-  // You can add your custom initial props in the dictionary below.
-  // They will be passed down to the ViewController used by React Native.
+  self.moduleName = @"Passeo";
   self.initialProps = @{};
 
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
 }
 
-- (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
-{
-  return [self getBundleURL];
-}
-
-- (NSURL *)getBundleURL
+- (NSURL *)bundleURL
 {
 #if DEBUG
   return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
 #else
   return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
 #endif
+}
+
+// Required for old bridge (New Architecture disabled) in RN 0.78
+- (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
+{
+  return [self bundleURL];
 }
 
 @end

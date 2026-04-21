@@ -1,4 +1,4 @@
-// ios/PhotoToPDF/PdfMaker.m
+// ios/Passeo/PdfMaker.m
 #import <React/RCTBridgeModule.h>
 #import <React/RCTEventEmitter.h>
 
@@ -11,5 +11,8 @@ RCT_EXTERN_METHOD(startJob:(NSDictionary *)options
 RCT_EXTERN_METHOD(cancelJob:(NSString *)jobId
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(addListener:(NSString *)eventName)
+RCT_EXTERN_METHOD(removeListeners:(double)count)
 
 @end

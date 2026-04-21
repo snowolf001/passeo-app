@@ -1,4 +1,4 @@
-// ios/PhotoToPDF/PdfMaker.m
+// ios/Passeo/PdfMaker.m
 
 #import <Foundation/Foundation.h>
 #import <React/RCTBridgeModule.h>

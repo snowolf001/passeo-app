@@ -1,4 +1,4 @@
-// ios/PhotoToPDF/PdfMaker.swift
+// ios/Passeo/PdfMaker.swift
 import Foundation
 import UIKit
 import CoreGraphics
@@ -8,7 +8,7 @@ import React
 @objc(PdfMaker)
 class PdfMaker: RCTEventEmitter {
 
-  private var jobQueue = DispatchQueue(label: "com.phototopdf.pdfmaker", qos: .userInitiated)
+  private var jobQueue = DispatchQueue(label: "com.passeo.pdfmaker", qos: .userInitiated)
   private var activeJobs: [String: Bool] = [:]
   private var jobsLock = NSLock()
 

@@ -9,9 +9,9 @@ This script generates a new app from the template.
 ```bash
 npm run new:app -- \
   --dest ../photo-to-pdf-app \
-  --displayName "Photo to PDF" \
-  --jsName PhotoToPDF \
-  --bundleId com.cleanutilityapps.phototopdf \
+  --displayName "Passeo" \
+  --jsName Passeo \
+  --bundleId com.cleanutilityapps.passeo \
   --version 1.0.0 \
   --build 1
 ```

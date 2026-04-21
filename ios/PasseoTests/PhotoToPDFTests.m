@@ -7,11 +7,11 @@
 #define TIMEOUT_SECONDS 600
 #define TEXT_TO_LOOK_FOR @"Welcome to React"
 
-@interface PhotoToPDFTests : XCTestCase
+@interface PasseoTests : XCTestCase
 
 @end
 
-@implementation PhotoToPDFTests
+@implementation PasseoTests
 
 - (BOOL)findSubviewInView:(UIView *)view matching:(BOOL (^)(UIView *view))test
 {

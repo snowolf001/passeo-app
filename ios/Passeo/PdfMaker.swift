@@ -1,4 +1,4 @@
-// ios/PhotoToPDF/PdfMaker.swift
+// ios/Passeo/PdfMaker.swift
 import Foundation
 import UIKit
 import CoreGraphics
@@ -6,7 +6,7 @@ import CoreGraphics
 @objc(PdfMaker)
 class PdfMaker: RCTEventEmitter {
   
-  private var jobQueue = DispatchQueue(label: "com.phototopdf.pdfmaker", qos: .userInitiated)
+  private var jobQueue = DispatchQueue(label: "com.passeo.pdfmaker", qos: .userInitiated)
   private var activeJobs: [String: Bool] = [:]
   private var jobsLock = NSLock()
   
@@ -16,6 +16,14 @@ class PdfMaker: RCTEventEmitter {
   
   override func supportedEvents() -> [String]! {
     return ["PdfMakerProgress", "PdfMakerDone", "PdfMakerError"]
+  }
+
+  @objc override func addListener(_ eventName: String) {
+    super.addListener(eventName)
+  }
+
+  @objc override func removeListeners(_ count: Double) {
+    super.removeListeners(count)
   }
   
   @objc func startJob(
