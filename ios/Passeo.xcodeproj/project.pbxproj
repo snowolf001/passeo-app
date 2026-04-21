@@ -15,6 +15,7 @@
 		34155CC42F1623820091DC9D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 34155CC32F1623820091DC9D /* Assets.xcassets */; };
 		3415A16A2F343FC500AED59A /* PdfMaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3415A1692F343FC500AED59A /* PdfMaker.swift */; };
 		3415A16C2F34401A00AED59A /* PdfMaker.m in Sources */ = {isa = PBXBuildFile; fileRef = 3415A16B2F34401A00AED59A /* PdfMaker.m */; };
+		34B2B2002F973DC40085D500 /* Passeo.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 34B2B1FF2F973DC40085D500 /* Passeo.storekit */; };
 		6129526247AFD2C53C694BBA /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3FFC22A898D650FB73799407 /* PrivacyInfo.xcprivacy */; };
 		7699B88040F8A987B510C191 /* libPods-Passeo-PasseoTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-Passeo-PasseoTests.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
@@ -44,9 +45,9 @@
 		34155CC32F1623820091DC9D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3415A1692F343FC500AED59A /* PdfMaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PdfMaker.swift; sourceTree = "<group>"; };
 		3415A16B2F34401A00AED59A /* PdfMaker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PdfMaker.m; sourceTree = "<group>"; };
-		346D641C2F2206890012B402 /* QuickPDFScanner.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = QuickPDFScanner.storekit; sourceTree = "<group>"; };
+		34B2B1FF2F973DC40085D500 /* Passeo.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Passeo.storekit; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-Passeo.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Passeo.debug.xcconfig"; path = "Target Support Files/Pods-Passeo/Pods-Passeo.debug.xcconfig"; sourceTree = "<group>"; };
-		3FFC22A898D650FB73799407 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Passeo/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		3FFC22A898D650FB73799407 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Passeo/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-Passeo.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Passeo.release.xcconfig"; path = "Target Support Files/Pods-Passeo/Pods-Passeo.release.xcconfig"; sourceTree = "<group>"; };
 		5B7EB9410499542E8C5724F5 /* Pods-Passeo-PasseoTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Passeo-PasseoTests.debug.xcconfig"; path = "Target Support Files/Pods-Passeo-PasseoTests/Pods-Passeo-PasseoTests.debug.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-Passeo.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Passeo.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -131,7 +132,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
-				346D641C2F2206890012B402 /* QuickPDFScanner.storekit */,
+				34B2B1FF2F973DC40085D500 /* Passeo.storekit */,
 				13B07FAE1A68108700A75B9A /* Passeo */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				00E356EF1AD99517003FC87E /* PasseoTests */,
@@ -269,6 +270,7 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				34155CC42F1623820091DC9D /* Assets.xcassets in Resources */,
+				34B2B2002F973DC40085D500 /* Passeo.storekit in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				6129526247AFD2C53C694BBA /* PrivacyInfo.xcprivacy in Resources */,
 			);
@@ -301,9 +303,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Passeo/Pods-Passeo-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Passeo/Pods-Passeo-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -362,9 +368,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Passeo-PasseoTests/Pods-Passeo-PasseoTests-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Passeo-PasseoTests/Pods-Passeo-PasseoTests-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -379,9 +389,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Passeo/Pods-Passeo-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Passeo/Pods-Passeo-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -396,9 +410,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Passeo-PasseoTests/Pods-Passeo-PasseoTests-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Passeo-PasseoTests/Pods-Passeo-PasseoTests-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -617,10 +635,7 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -690,10 +705,7 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;

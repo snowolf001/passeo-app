@@ -61,7 +61,7 @@
          </BuildableReference>
       </BuildableProductRunnable>
       <StoreKitConfigurationFileReference
-         identifier = "../QuickPDFScanner.storekit">
+         identifier = "../Passeo.storekit">
       </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
