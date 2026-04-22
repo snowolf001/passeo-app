@@ -514,6 +514,9 @@ export function useClubProPurchase(options?: {
         throw e;
       } finally {
         setPurchasing(false);
+        // Clear the stale purchase from useIAP context so a retry doesn't
+        // match the previous purchase in the currentPurchase effect.
+        clearCurrentPurchase();
       }
     },
     [

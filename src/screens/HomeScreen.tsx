@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
-import {getSessions, ApiSession} from '../services/api/sessionApi';
+import {getSessions, getCheckedInMembers, ApiSession} from '../services/api/sessionApi';
 import {getMemberAttendance} from '../services/api/attendanceApi';
 import {formatDate} from '../utils/date';
 import {useAppTheme} from '../theme/useAppTheme';
@@ -26,6 +26,7 @@ export default function HomeScreen({navigation}: Props) {
   const [todaySession, setTodaySession] = useState<ApiSession | null>(null);
   const [isTodayCheckedIn, setIsTodayCheckedIn] = useState(false);
   const [hasTodaySession, setHasTodaySession] = useState(false);
+  const [todayCheckedInCount, setTodayCheckedInCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -75,18 +76,27 @@ export default function HomeScreen({navigation}: Props) {
         setHasTodaySession(true);
         setTodaySession(foundTodaySession);
 
-        try {
-          const attendance = await getMemberAttendance(currentMembership.id);
-          setIsTodayCheckedIn(
-            attendance.some(a => a.sessionId === foundTodaySession.id),
-          );
-        } catch {
-          setIsTodayCheckedIn(false);
-        }
+        const [attendance, checkedInMembers] = await Promise.allSettled([
+          getMemberAttendance(currentMembership.id),
+          getCheckedInMembers(foundTodaySession.id),
+        ]);
+
+        setIsTodayCheckedIn(
+          attendance.status === 'fulfilled'
+            ? attendance.value.some(a => a.sessionId === foundTodaySession.id)
+            : false,
+        );
+
+        setTodayCheckedInCount(
+          checkedInMembers.status === 'fulfilled'
+            ? checkedInMembers.value.length
+            : 0,
+        );
       } else {
         setHasTodaySession(false);
         setTodaySession(null);
         setIsTodayCheckedIn(false);
+        setTodayCheckedInCount(0);
       }
     } finally {
       setLoading(false);
@@ -133,6 +143,7 @@ export default function HomeScreen({navigation}: Props) {
         icon: '⏳',
         title: 'Loading today',
         subtitle: 'Checking your session status...',
+        secondary: undefined as string | undefined,
         toneStyle: styles.todayCardNeutral,
         textStyle: styles.todayTitle,
         subTextStyle: styles.todaySubtitle,
@@ -144,8 +155,9 @@ export default function HomeScreen({navigation}: Props) {
     if (isTodayCheckedIn && todaySession) {
       return {
         icon: '✅',
-        title: 'Checked in today',
-        subtitle: "You're all set for today's session.",
+        title: todaySession.title ?? 'Active Session',
+        subtitle: `${todayCheckedInCount} checked in`,
+        secondary: 'You have checked in',
         toneStyle: styles.todayCardSuccess,
         textStyle: styles.todayTitleDark,
         subTextStyle: styles.todaySubtitleDark,
@@ -158,8 +170,9 @@ export default function HomeScreen({navigation}: Props) {
     if (hasTodaySession && todaySession) {
       return {
         icon: '🏃',
-        title: 'Active session today',
-        subtitle: "You haven't checked in yet.",
+        title: todaySession.title ?? 'Active Session',
+        subtitle: `${todayCheckedInCount} checked in`,
+        secondary: "You haven't checked in yet",
         toneStyle: styles.todayCardInfo,
         textStyle: styles.todayTitleDark,
         subTextStyle: styles.todaySubtitleDark,
@@ -173,6 +186,7 @@ export default function HomeScreen({navigation}: Props) {
       icon: '📆',
       title: 'No active session today',
       subtitle: 'Check the schedule for upcoming sessions.',
+      secondary: undefined as string | undefined,
       toneStyle: styles.todayCardNeutral,
       textStyle: styles.todayTitle,
       subTextStyle: styles.todaySubtitle,
@@ -210,6 +224,11 @@ export default function HomeScreen({navigation}: Props) {
             <Text style={[styles.todaySubtitle, todayStatus.subTextStyle]}>
               {todayStatus.subtitle}
             </Text>
+            {!!(todayStatus as any).secondary && (
+              <Text style={[styles.todaySubtitle, todayStatus.subTextStyle]}>
+                {(todayStatus as any).secondary}
+              </Text>
+            )}
 
             {!!todayStatus.cta && (
               <Text

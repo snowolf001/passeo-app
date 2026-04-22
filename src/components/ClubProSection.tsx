@@ -179,23 +179,37 @@ export default function ClubProSection() {
   }
 
   // ── Render: Pro active ──────────────────────────────────────────────────────
-  if (status?.isPro && status.activeSubscription) {
+  if (status?.isPro) {
     const active = status.activeSubscription;
+    const isCancelled = status.billingState === 'active_cancelled';
 
     return (
       <View style={styles.card}>
         <View style={styles.proBadgeRow}>
-          <View style={[styles.proBadge, {backgroundColor: colors.success}]}>
+          <View style={[styles.proBadge, {backgroundColor: isCancelled ? colors.warning : colors.success}]}>
             <Text style={styles.proBadgeText}>PRO</Text>
           </View>
           <Text style={[styles.proTitle, {color: colors.text}]}>
-            {active.planCycle === 'monthly' ? 'Monthly Plan' : 'Yearly Plan'}
+            {active
+              ? active.planCycle === 'monthly'
+                ? 'Monthly Plan'
+                : 'Yearly Plan'
+              : 'Pro'}
           </Text>
         </View>
 
-        <Text style={[styles.proMeta, {color: colors.textMuted}]}>
-          Active until {formatDateShort(active.expiresAt)}
-        </Text>
+        {active && (
+          <Text style={[styles.proMeta, {color: colors.textMuted}]}>
+            {isCancelled ? 'Access until' : 'Active until'}{' '}
+            {formatDateShort(active.expiresAt)}
+          </Text>
+        )}
+
+        {isCancelled && (
+          <Text style={[styles.proMeta, {color: colors.warning}]}>
+            Cancels at period end. Re-subscribe to keep Pro.
+          </Text>
+        )}
 
         {status.scheduledSubscription && (
           <Text style={[styles.scheduledNote, {color: colors.textMuted}]}>
