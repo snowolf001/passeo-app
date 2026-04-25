@@ -72,6 +72,12 @@ export default function HomeScreen({navigation}: Props) {
         return true;
       });
 
+      // "Up next" should not repeat what's already shown in "Today"
+      const nextAfterToday = upcoming.find(
+        s => !foundTodaySession || s.id !== foundTodaySession.id,
+      );
+      setNextSession(nextAfterToday ?? null);
+
       if (foundTodaySession) {
         setHasTodaySession(true);
         setTodaySession(foundTodaySession);
