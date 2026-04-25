@@ -52,5 +52,6 @@ target 'Passeo' do
       config[:reactNativePath],
       :mac_catalyst_enabled => false
     )
+
   end
 end

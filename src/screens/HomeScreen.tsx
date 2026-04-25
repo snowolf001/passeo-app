@@ -11,7 +11,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getSessions, getCheckedInMembers, ApiSession} from '../services/api/sessionApi';
 import {getMemberAttendance} from '../services/api/attendanceApi';
-import {formatDate} from '../utils/date';
+import {formatDate, formatTimeRange} from '../utils/date';
 import {useAppTheme} from '../theme/useAppTheme';
 import type {ThemeColors} from '../theme/colors';
 
@@ -156,7 +156,7 @@ export default function HomeScreen({navigation}: Props) {
       return {
         icon: '✅',
         title: todaySession.title ?? 'Active Session',
-        subtitle: `${todayCheckedInCount} checked in`,
+        subtitle: todayCheckedInCount === 0 ? 'No members checked in' : `${todayCheckedInCount} ${todayCheckedInCount === 1 ? 'member' : 'members'} checked in`,
         secondary: 'You have checked in',
         toneStyle: styles.todayCardSuccess,
         textStyle: styles.todayTitleDark,
@@ -171,7 +171,7 @@ export default function HomeScreen({navigation}: Props) {
       return {
         icon: '🏃',
         title: todaySession.title ?? 'Active Session',
-        subtitle: `${todayCheckedInCount} checked in`,
+        subtitle: todayCheckedInCount === 0 ? 'No members checked in' : `${todayCheckedInCount} ${todayCheckedInCount === 1 ? 'member' : 'members'} checked in`,
         secondary: "You haven't checked in yet",
         toneStyle: styles.todayCardInfo,
         textStyle: styles.todayTitleDark,
@@ -260,8 +260,13 @@ export default function HomeScreen({navigation}: Props) {
               {nextSession.title}
             </Text>
             <Text style={styles.nextSessionDetail}>
-              ⏱ {formatDate(nextSession.startTime)}
+              {formatTimeRange(nextSession.startTime, nextSession.endTime)}
             </Text>
+            {nextSession.goingCount > 0 && (
+              <Text style={styles.nextSessionDetail}>
+                👥 {nextSession.goingCount} going
+              </Text>
+            )}
           </TouchableOpacity>
         ) : (
           <View style={styles.emptyCard}>

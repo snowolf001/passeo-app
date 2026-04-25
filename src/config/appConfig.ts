@@ -34,7 +34,7 @@ export const IAP_CONFIG = {
    * Must match products configured in App Store Connect / Google Play Console
    */
   PRODUCT_IDS: Platform.select({
-    ios: ['passeo_pro_monthly', 'passeo_pro_yearly'],
+    ios: ['passeo_pro_monthly', 'Passeo_pro_yearly'],
     android: ['passeo_pro_monthly', 'passeo_pro_yearly'],
     default: [],
   })!,
@@ -43,7 +43,7 @@ export const IAP_CONFIG = {
    * Club Pro subscription SKUs
    */
   PRO_MONTHLY_SKU: 'passeo_pro_monthly',
-  PRO_YEARLY_SKU: 'passeo_pro_yearly',
+  PRO_YEARLY_SKU: Platform.OS === 'ios' ? 'Passeo_pro_yearly' : 'passeo_pro_yearly',
 
   /**
    * Mock IAP for testing (only works in __DEV__)
@@ -79,12 +79,6 @@ export const FREE_LIMITS = {
    * Set to -1 for unlimited
    */
   MAX_DOCUMENTS: -1, // -1 = unlimited
-
-  /**
-   * Maximum photos per Passeo export for free users
-   * Pro users: unlimited
-   */
-  PHOTOS_PER_PDF: 10,
 } as const;
 
 // ============================================

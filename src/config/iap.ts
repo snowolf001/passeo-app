@@ -26,7 +26,7 @@ export type PlanCycle = SubscriptionPlanCycle;
 export const IAP_PRODUCTS = {
   ios: {
     monthly: SUBSCRIPTION_PRODUCT_IDS.monthly as string,
-    yearly: SUBSCRIPTION_PRODUCT_IDS.yearly as string,
+    yearly: 'Passeo_pro_yearly' as string,
   },
   android: {
     monthly: SUBSCRIPTION_PRODUCT_IDS.monthly as string,
@@ -38,6 +38,7 @@ export const IAP_PRODUCTS = {
 export const ALL_SUBSCRIPTION_SKUS: string[] = [
   SUBSCRIPTION_PRODUCT_IDS.monthly,
   SUBSCRIPTION_PRODUCT_IDS.yearly,
+  'Passeo_pro_yearly',
 ];
 
 /** Map a store product ID back to our plan cycle. Returns null for unknown IDs. */
@@ -45,6 +46,6 @@ export function getPlanCycleFromProductId(
   productId: string,
 ): SubscriptionPlanCycle | null {
   if (productId === SUBSCRIPTION_PRODUCT_IDS.monthly) return 'monthly';
-  if (productId === SUBSCRIPTION_PRODUCT_IDS.yearly) return 'yearly';
+  if (productId === SUBSCRIPTION_PRODUCT_IDS.yearly || productId === 'Passeo_pro_yearly') return 'yearly';
   return null;
 }

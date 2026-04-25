@@ -38,7 +38,7 @@ import {exportSessionParticipantsPdf} from '../services/pdf/sessionParticipantsP
 import {DEFAULT_CLUB_SETTINGS, CheckInMode} from '../types';
 import {getCheckInMode} from '../utils/checkIn';
 import {RootStackParamList} from '../navigation/types';
-import {formatDate} from '../utils/date';
+import {formatDate, formatTime} from '../utils/date';
 import {ApiError} from '../types/api';
 import {useAppTheme} from '../theme/useAppTheme';
 import type {ThemeColors} from '../theme/colors';
@@ -745,14 +745,8 @@ export default function SessionDetailScreen({route, navigation}: Props) {
             </TouchableOpacity>
           )}
           <Text style={styles.detailRow}>
-            ⏱ {formatDate(session.startTime)}
+            ⏱ {formatDate(session.startTime)} → {formatTime(session.endTime)}
           </Text>
-
-          {session.endTime && (
-            <Text style={styles.detailRow}>
-              🏁 Ends {formatDate(session.endTime)}
-            </Text>
-          )}
 
           {canManualCheckIn ? (
             <View style={styles.hostRow}>
@@ -828,8 +822,8 @@ export default function SessionDetailScreen({route, navigation}: Props) {
                             styles.intentBtnTextActive,
                         ]}>
                         {intentSummary.currentMemberGoing
-                          ? 'Going ✓'
-                          : "I'm Going"}
+                          ? "You're going ✓"
+                          : "I'm going"}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -1844,6 +1838,12 @@ function createStyles(c: ThemeColors) {
       paddingVertical: 10,
       borderBottomWidth: 1,
       borderBottomColor: c.border,
+    },
+    goingSummaryText: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 8,
+      marginBottom: 4,
     },
     checkedInBadge: {
       backgroundColor: '#D1FAE5',

@@ -9,6 +9,47 @@ export const formatDate = (dateString: string): string => {
   });
 };
 
+/**
+ * Formats a session time range compactly, e.g.:
+ *   "Wed, Apr 22 · 7–8 AM"
+ *   "Wed, Apr 22 · 11:30 AM–1:00 PM"
+ * Falls back gracefully if endISO is missing.
+ */
+export const formatTimeRange = (
+  startISO: string,
+  endISO?: string | null,
+): string => {
+  const start = new Date(startISO);
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  const datePart = `${weekdays[start.getDay()]}, ${months[start.getMonth()]} ${start.getDate()}`;
+
+  const fmtTime = (d: Date): {label: string; ampm: string} => {
+    let h = d.getHours();
+    const min = d.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    const label = min === 0 ? `${h}` : `${h}:${min.toString().padStart(2, '0')}`;
+    return {label, ampm};
+  };
+
+  const s = fmtTime(start);
+
+  if (!endISO) {
+    return `${datePart} · ${s.label} ${s.ampm}`;
+  }
+
+  const e = fmtTime(new Date(endISO));
+
+  if (s.ampm === e.ampm) {
+    return `${datePart} · ${s.label}–${e.label} ${e.ampm}`;
+  }
+  return `${datePart} · ${s.label} ${s.ampm}–${e.label} ${e.ampm}`;
+};
+
 export const formatTime = (isoString: string): string => {
   return new Date(isoString).toLocaleTimeString([], {
     hour: '2-digit',

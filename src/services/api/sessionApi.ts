@@ -20,6 +20,8 @@ export type ApiSession = {
   locationName: string | null;
   capacity: number | null;
   status: 'active' | 'closed';
+  checkedInCount: number;
+  goingCount: number;
   host?: ApiSessionHost | null;
 };
 
@@ -140,7 +142,7 @@ export async function createSession(params: {
   title?: string | null;
   locationId: string;
   startTime: string;
-  endTime?: string | null;
+  endTime: string;
   capacity?: number | null;
   hostMembershipId?: string | null;
 }): Promise<ApiSession> {

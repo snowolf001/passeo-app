@@ -10,7 +10,7 @@ import {
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
 import {getSessions, ApiSession} from '../services/api/sessionApi';
-import {formatDate} from '../utils/date';
+import {formatTimeRange} from '../utils/date';
 import {useAppTheme} from '../theme/useAppTheme';
 // Club subscription status from backend is the source of truth for Pro gating.
 // Store purchase history is only used for purchase/restore flows, not app startup entitlement checks.
@@ -22,6 +22,13 @@ import {
 import type {ThemeColors} from '../theme/colors';
 
 type SessionRow = ApiSession & {locked?: boolean};
+type HighlightedSession = {
+  type: 'live' | 'upcoming';
+  session: ApiSession;
+  title: string;
+  subtitle: string;
+  accent: string;
+};
 type Props = {navigation: any};
 
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -66,22 +73,33 @@ export default function SessionsScreen({navigation}: Props) {
     return unsub;
   }, [navigation, loadSessions]);
 
-  const {sections, lockedCount} = useMemo(() => {
+  const {sections, lockedCount, highlightedSession} = useMemo(() => {
     const now = Date.now();
 
     const upcoming = sessions
-      .filter(s => new Date(s.startTime).getTime() > now)
+      .filter(s => new Date(s.endTime).getTime() > now)
       .sort(
         (a, b) =>
           new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
       );
 
     const past = sessions
-      .filter(s => new Date(s.startTime).getTime() <= now)
+      .filter(s => new Date(s.endTime).getTime() <= now)
       .sort(
         (a, b) =>
           new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
       );
+
+    // Determine which session gets the highlight card
+    const liveSession = upcoming.find(
+      s => new Date(s.startTime).getTime() <= now,
+    );
+    const pinnedSession = liveSession ?? upcoming[0] ?? null;
+
+    // Exclude the pinned session from the list to avoid duplication
+    const upcomingList = pinnedSession
+      ? upcoming.filter(s => s.id !== pinnedSession.id)
+      : upcoming;
 
     const freePast = canAccessFullHistory(isPro)
       ? past
@@ -92,10 +110,10 @@ export default function SessionsScreen({navigation}: Props) {
 
     const builtSections: {title: string; data: SessionRow[]}[] = [];
 
-    if (upcoming.length > 0) {
+    if (upcomingList.length > 0) {
       builtSections.push({
         title: 'Upcoming Sessions',
-        data: upcoming.map(s => ({...s, locked: false})),
+        data: upcomingList.map(s => ({...s, locked: false})),
       });
     }
 
@@ -109,52 +127,36 @@ export default function SessionsScreen({navigation}: Props) {
       });
     }
 
-    return {sections: builtSections, lockedCount: lockedPast.length};
-  }, [sessions, isPro]);
-
-  const highlightedSession = useMemo(() => {
-    const now = Date.now();
-
-    const liveSession = sessions.find(session => {
-      const start = new Date(session.startTime).getTime();
-      const end = session.endTime
-        ? new Date(session.endTime).getTime()
-        : Infinity;
-      return now >= start && now <= end;
-    });
-
+    let highlighted: HighlightedSession | null = null;
     if (liveSession) {
-      return {
+      highlighted = {
         type: 'live' as const,
         session: liveSession,
         title: 'Happening Now',
         subtitle: 'This session is currently open for check-in',
         accent: '#34C759',
       };
-    }
-
-    const nextSession = sections.find(s => s.title === 'Upcoming Sessions')
-      ?.data[0];
-
-    if (nextSession) {
-      return {
+    } else if (pinnedSession) {
+      highlighted = {
         type: 'upcoming' as const,
-        session: nextSession,
+        session: pinnedSession,
         title: 'Next Session',
         subtitle: 'Your next upcoming session',
         accent: '#007AFF',
       };
     }
 
-    return null;
-  }, [sessions, sections]);
+    return {
+      sections: builtSections,
+      lockedCount: lockedPast.length,
+      highlightedSession: highlighted,
+    };
+  }, [sessions, isPro]);
 
   const getStatusBadge = (session: ApiSession) => {
     const now = Date.now();
     const start = new Date(session.startTime).getTime();
-    const end = session.endTime
-      ? new Date(session.endTime).getTime()
-      : Infinity;
+    const end = new Date(session.endTime).getTime();
 
     if (now < start) {
       const diffHours = (start - now) / 3600000;
@@ -204,7 +206,7 @@ export default function SessionsScreen({navigation}: Props) {
             <Text style={styles.lockBadge}>🔒</Text>
           </View>
           <Text style={[styles.detailText, {color: colors.textMuted}]}>
-            {formatDate(item.startTime)}
+            {formatTimeRange(item.startTime, item.endTime)}
           </Text>
         </TouchableOpacity>
       );
@@ -235,7 +237,12 @@ export default function SessionsScreen({navigation}: Props) {
           )}
         </View>
 
-        <Text style={styles.detailText}>⏱ {formatDate(item.startTime)}</Text>
+        <Text style={styles.detailText}>
+          {formatTimeRange(item.startTime, item.endTime)}
+        </Text>
+        {item.goingCount > 0 && (
+          <Text style={styles.goingText}>👥 {item.goingCount} going</Text>
+        )}
       </TouchableOpacity>
     );
   };
@@ -303,8 +310,16 @@ export default function SessionsScreen({navigation}: Props) {
                   {highlightedSession.subtitle}
                 </Text>
                 <Text style={styles.highlightTime}>
-                  {formatDate(highlightedSession.session.startTime)}
+                  {formatTimeRange(
+                    highlightedSession.session.startTime,
+                    highlightedSession.session.endTime,
+                  )}
                 </Text>
+                {highlightedSession.session.goingCount > 0 && (
+                  <Text style={styles.highlightGoing}>
+                    👥 {highlightedSession.session.goingCount} going
+                  </Text>
+                )}
               </TouchableOpacity>
             )}
 
@@ -402,6 +417,11 @@ function createStyles(c: ThemeColors) {
       color: c.text,
       fontWeight: '600',
     },
+    highlightGoing: {
+      marginTop: 4,
+      fontSize: 13,
+      color: c.textMuted,
+    },
     topActionCard: {
       backgroundColor: c.card,
       borderRadius: 14,
@@ -477,6 +497,11 @@ function createStyles(c: ThemeColors) {
       fontSize: 14,
       color: c.text,
       marginTop: 3,
+    },
+    goingText: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 4,
     },
     emptyWrap: {
       marginTop: 48,

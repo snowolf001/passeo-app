@@ -1,6 +1,7 @@
 import React from 'react';
-import {ActivityIndicator, View} from 'react-native';
+import {ActivityIndicator, Text, TouchableOpacity, View} from 'react-native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {useNavigation} from '@react-navigation/native';
 
 import {RootStackParamList} from './types';
 import {useApp} from '../context/AppContext';
@@ -48,10 +49,30 @@ export default function RootNavigator() {
 
   const hasMembership = !!currentMembership;
 
+  function BackButton() {
+    const navigation = useNavigation();
+    return (
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+        style={{paddingRight: 8}}>
+        <Text style={{fontSize: 24, color: colors.text}}>←</Text>
+      </TouchableOpacity>
+    );
+  }
+
   return (
     <Stack.Navigator
       initialRouteName={hasMembership ? 'MainTabs' : 'JoinOrCreateClub'}
-      screenOptions={{headerShown: false}}>
+      screenOptions={{
+        headerShown: false,
+        headerBackVisible: false,
+        headerStyle: {backgroundColor: colors.background},
+        headerTintColor: colors.text,
+        headerTitleStyle: {fontWeight: '700', fontSize: 18},
+        headerShadowVisible: false,
+        headerLeft: () => <BackButton />,
+      }}>
       <Stack.Screen
         name="JoinOrCreateClub"
         component={JoinOrCreateClubScreen}

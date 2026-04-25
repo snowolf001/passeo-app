@@ -570,13 +570,13 @@ export default function MemberCreditsScreen({navigation}: Props) {
               </ScrollView>
             </View>
           </View>
+        {snackVisible && (
+          <View pointerEvents="none" style={styles.snackbar}>
+            <Text style={styles.snackbarText}>{snackMsg}</Text>
+          </View>
+        )}
         </KeyboardAvoidingView>
       </Modal>
-      {snackVisible && (
-        <View pointerEvents="none" style={styles.snackbar}>
-          <Text style={styles.snackbarText}>{snackMsg}</Text>
-        </View>
-      )}
     </SafeAreaView>
   );
 }

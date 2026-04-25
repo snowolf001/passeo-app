@@ -2,4 +2,3 @@
 export * from './database';
 export * from './entitlement';
 export * from './fileStorage';
-export * from './pdfService';

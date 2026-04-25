@@ -672,7 +672,7 @@ function ensureSpaceOrNewPage(b: PdfBuilder, neededHeight: number): boolean {
 
 function drawPagedTableSection<T>(
   b: PdfBuilder,
-  title: string,
+  title: string | undefined,
   rows: T[],
   cols: Col[],
   mapRow: (row: T) => string[],
@@ -683,7 +683,9 @@ function drawPagedTableSection<T>(
   const headerBlockH = TABLE_TH_H + 2;
   const rowBlockH = TABLE_ROW_H;
 
-  drawSectionHeaderOnly(b, title);
+  if (title !== undefined) {
+    drawSectionHeaderOnly(b, title);
+  }
 
   let rowIndex = 0;
 

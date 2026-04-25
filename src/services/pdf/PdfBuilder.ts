@@ -225,6 +225,7 @@ export class PdfBuilder {
       font?: PDFFont;
       fontType?: 'regular' | 'bold' | 'mono';
       kind?: 'title' | 'body' | 'code';
+      lineHeight?: number;
     },
   ) {
     const kind =

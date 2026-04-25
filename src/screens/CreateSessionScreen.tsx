@@ -177,12 +177,15 @@ export default function CreateSessionScreen({navigation}: Props) {
       return;
     }
 
-    const startISO = combineDateTime(sessionDate, startTime).toISOString();
-    const endISO = endTime
-      ? combineDateTime(sessionDate, endTime).toISOString()
-      : null;
+    if (!endTime) {
+      Alert.alert('Required', 'Please select an end time.');
+      return;
+    }
 
-    if (endISO && endISO <= startISO) {
+    const startISO = combineDateTime(sessionDate, startTime).toISOString();
+    const endISO = combineDateTime(sessionDate, endTime).toISOString();
+
+    if (endISO <= startISO) {
       Alert.alert('Invalid Times', 'End time must be after start time.');
       return;
     }
@@ -200,7 +203,7 @@ export default function CreateSessionScreen({navigation}: Props) {
         title: title.trim() || null,
         locationId: selectedLocationId,
         startTime: startISO,
-        endTime: endISO,
+        endTime: endISO as string,
         capacity: capacityNum,
         hostMembershipId: selectedHostId,
       });
@@ -473,15 +476,23 @@ export default function CreateSessionScreen({navigation}: Props) {
                     is24Hour={false}
                     onChange={(e: DateTimePickerEvent, d?: Date) => {
                       setShowStartPicker(Platform.OS === 'ios');
-                      if (e.type === 'set' && d) setStartTime(d);
-                      else if (Platform.OS !== 'ios') setShowStartPicker(false);
+                    if (e.type === 'set' && d) {
+                      setStartTime(d);
+                      // Auto-fill end time to start + 60 min when not already set
+                      if (!endTime) {
+                        const autoEnd = new Date(d.getTime() + 60 * 60 * 1000);
+                        setEndTime(autoEnd);
+                      }
+                    } else if (Platform.OS !== 'ios') {
+                      setShowStartPicker(false);
+                    }
                     }}
                   />
                 )}
               </View>
               <View style={{width: 12}} />
               <View style={[styles.field, {flex: 1}]}>
-                <Text style={styles.label}>End Time</Text>
+                <Text style={styles.label}>End Time *</Text>
                 <TouchableOpacity
                   style={styles.pickerBtn}
                   onPress={() => setShowEndPicker(true)}
@@ -491,7 +502,7 @@ export default function CreateSessionScreen({navigation}: Props) {
                       styles.pickerBtnText,
                       !endTime && styles.pickerBtnPlaceholder,
                     ]}>
-                    {formatTimeLabel(endTime, 'Optional')}
+                    {formatTimeLabel(endTime, 'Select')}
                   </Text>
                   <Text style={styles.pickerIcon}>🕐</Text>
                 </TouchableOpacity>
