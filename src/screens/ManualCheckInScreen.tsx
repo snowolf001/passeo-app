@@ -156,6 +156,22 @@ export default function ManualCheckInScreen({route, navigation}: Props) {
     loadMembers();
   }, [loadMembers]);
 
+  // 当 Modal 打开时，拦截 header 的 ← 按钮，关闭 Modal 而不是退出页面
+  useEffect(() => {
+    navigation.setOptions({
+      headerLeft: selectedMember
+        ? () => (
+            <TouchableOpacity
+              onPress={closePeoplePicker}
+              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+              style={{paddingRight: 8}}>
+              <Text style={{fontSize: 24, color: colors.text}}>←</Text>
+            </TouchableOpacity>
+          )
+        : undefined,
+    });
+  }, [selectedMember, navigation, closePeoplePicker, colors.text]);
+
   useEffect(() => {
     return () => {
       if (snackTimer.current) {

@@ -200,6 +200,26 @@ export default function SessionDetailScreen({route, navigation}: Props) {
     loadData(true);
   }, [lastCheckInEvent, sessionId, loadData]);
 
+  // 当任意 Modal 打开时，拦截 header 的 ← 按钮，关闭 Modal 而不是退出页面
+  useEffect(() => {
+    const anyModalOpen = showPeoplePicker || hostEditVisible;
+    navigation.setOptions({
+      headerLeft: anyModalOpen
+        ? () => (
+            <TouchableOpacity
+              onPress={() => {
+                if (showPeoplePicker) closePeoplePicker();
+                if (hostEditVisible) setHostEditVisible(false);
+              }}
+              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+              style={{paddingRight: 8}}>
+              <Text style={{fontSize: 24, color: colors.text}}>←</Text>
+            </TouchableOpacity>
+          )
+        : undefined,
+    });
+  }, [showPeoplePicker, hostEditVisible, navigation, closePeoplePicker, colors.text]);
+
   // Initialize expand/collapse state once when session first loads
   useEffect(() => {
     if (!session || expandInitializedRef.current) {
