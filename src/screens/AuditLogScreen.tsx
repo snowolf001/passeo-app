@@ -185,26 +185,6 @@ export default function AuditLogScreen({navigation}: Props) {
     load(0, false, {});
   }, [load]);
 
-  // 当任意 Modal 打开时，拦截 header 的 ← 按钮，关闭 Modal 而不是退出页面
-  useEffect(() => {
-    const anyModalOpen = eventTypePickerOpen || memberPickerOpen;
-    navigation.setOptions({
-      headerLeft: anyModalOpen
-        ? () => (
-            <TouchableOpacity
-              onPress={() => {
-                setEventTypePickerOpen(false);
-                setMemberPickerOpen(false);
-              }}
-              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-              style={{paddingRight: 8}}>
-              <Text style={{fontSize: 24, color: colors.text}}>←</Text>
-            </TouchableOpacity>
-          )
-        : undefined,
-    });
-  }, [eventTypePickerOpen, memberPickerOpen, navigation, colors.text]);
-
   const applyFilters = () => {
     setAppliedMember(selectedMember);
     setAppliedStart(startDate);

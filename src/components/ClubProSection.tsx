@@ -76,6 +76,16 @@ export default function ClubProSection() {
         return;
       }
 
+      // Guard: never allow a second purchase while club already has active Pro.
+      // Check backend status — do not trust local state or Store receipts.
+      if (status?.isPro) {
+        Alert.alert(
+          'Club already has Pro',
+          'This club already has an active Pro subscription. No additional purchase is needed.',
+        );
+        return;
+      }
+
       const product = products.find(p => p.planCycle === plan);
       if (!product) {
         Alert.alert('Unavailable', 'This plan is currently unavailable.');
@@ -114,7 +124,7 @@ export default function ClubProSection() {
         setPurchasingPlan(null);
       }
     },
-    [currentClub?.id, products, refresh, purchase],
+    [currentClub?.id, products, refresh, purchase, status],
   );
 
   // ── Restore handler ─────────────────────────────────────────────────────────

@@ -183,6 +183,16 @@ export default function ClubProScreen({navigation}: Props) {
       return;
     }
 
+    // Guard: never allow a second purchase while club already has active Pro.
+    // Check backend status — do not trust local state or Store receipts.
+    if (status?.isPro) {
+      Alert.alert(
+        'Club already has Pro',
+        'This club already has an active Pro subscription. No additional purchase is needed.',
+      );
+      return;
+    }
+
     try {
       clearError();
       await purchase(selectedProductId, clubId);
@@ -206,7 +216,7 @@ export default function ClubProScreen({navigation}: Props) {
 
       Alert.alert('Purchase failed', e?.message ?? 'Please try again.');
     }
-  }, [busy, clearError, clubId, purchase, refresh, selectedProductId]);
+  }, [busy, clearError, clubId, purchase, refresh, selectedProductId, status]);
 
   const handleRestore = useCallback(async () => {
     if (busy) {

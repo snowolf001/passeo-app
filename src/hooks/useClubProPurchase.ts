@@ -355,10 +355,21 @@ export function useClubProPurchase(options?: {
 
     const resolver = purchaseResolverRef.current;
 
+    if (resolver.requestId !== requestIdRef.current) {
+      return;
+    }
+
+    // Case-insensitive comparison: StoreKit may return different casing
+    // (e.g. 'passeo_pro_yearly' vs 'Passeo_pro_yearly') in RESUBSCRIBE flows.
     if (
-      currentPurchase.productId !== resolver.productId ||
-      resolver.requestId !== requestIdRef.current
+      currentPurchase.productId.toLowerCase() !== resolver.productId.toLowerCase()
     ) {
+      if (__DEV__) {
+        console.warn('[IAP] currentPurchase productId mismatch', {
+          expected: resolver.productId,
+          received: currentPurchase.productId,
+        });
+      }
       return;
     }
 
@@ -469,7 +480,54 @@ export function useClubProPurchase(options?: {
           );
         }
 
-        const storePurchase = await storePromise;
+        // Race storePromise against a timeout. On iOS, in RESUBSCRIBE scenarios
+        // StoreKit may not fire purchaseUpdatedListener reliably — in that case
+        // fall back to getAvailablePurchases to recover the transaction.
+        const PURCHASE_TIMEOUT_MS = 15_000;
+        let storePurchase: Purchase;
+        try {
+          storePurchase = await Promise.race([
+            storePromise,
+            new Promise<Purchase>((_, reject) =>
+              setTimeout(
+                () => reject(new Error('IAP_TIMEOUT')),
+                PURCHASE_TIMEOUT_MS,
+              ),
+            ),
+          ]);
+        } catch (raceErr: any) {
+          if (raceErr?.message === 'IAP_TIMEOUT') {
+            if (__DEV__) {
+              console.warn(
+                '[IAP] storePromise timed out — falling back to getAvailablePurchases',
+                {productId},
+              );
+            }
+            // Clear the pending resolver so it doesn't fire later
+            purchaseResolverRef.current = null;
+            const available = await iapGetAvailablePurchases();
+            const recovered = Array.isArray(available)
+              ? available.find(
+                  p =>
+                    p.productId.toLowerCase() === productId.toLowerCase(),
+                )
+              : undefined;
+            if (!recovered) {
+              throw new Error(
+                'Purchase not confirmed by store. Please restore purchases if your subscription was charged.',
+              );
+            }
+            if (__DEV__) {
+              console.log('[IAP] recovered purchase via getAvailablePurchases', {
+                productId: recovered.productId,
+                transactionId: recovered.transactionId,
+              });
+            }
+            storePurchase = recovered;
+          } else {
+            throw raceErr;
+          }
+        }
 
         if (__DEV__) {
           console.log('[IAP] store purchase received', {
