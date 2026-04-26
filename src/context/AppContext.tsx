@@ -4,8 +4,10 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
   ReactNode,
 } from 'react';
+import {AppState, AppStateStatus} from 'react-native';
 import {Club, ClubSettings, Membership} from '../types';
 import {getMembershipById} from '../services/api/membershipApi';
 import {setActiveMemberId} from '../config/api';
@@ -155,6 +157,26 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
   useEffect(() => {
     loadFromStorage();
   }, [loadFromStorage]);
+
+  // Refresh membership/role when app comes back to foreground
+  useEffect(() => {
+    const appStateRef = {current: AppState.currentState};
+
+    const subscription = AppState.addEventListener(
+      'change',
+      (nextState: AppStateStatus) => {
+        if (
+          appStateRef.current.match(/inactive|background/) &&
+          nextState === 'active'
+        ) {
+          void refresh();
+        }
+        appStateRef.current = nextState;
+      },
+    );
+
+    return () => subscription.remove();
+  }, [refresh]);
 
   return (
     <AppContext.Provider
