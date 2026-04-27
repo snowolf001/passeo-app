@@ -154,7 +154,7 @@ export async function regenerateJoinCode(
 
 /**
  * POST /api/clubs/:clubId/transfer-ownership
- * Transfers ownership to an existing host. Owner only.
+ * Transfers ownership to an active member or host. Owner only.
  */
 export async function transferOwnership(
   clubId: string,

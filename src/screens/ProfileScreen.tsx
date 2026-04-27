@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useRef, useState, Component} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState, Component} from 'react';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {
   View,
@@ -7,11 +7,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  Modal,
+  FlatList,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
-import {leaveClub} from '../services/api/clubApi';
+import {leaveClub, getClubMembers, transferOwnership, ApiClubMember} from '../services/api/clubApi';
 import {useAppTheme} from '../theme/useAppTheme';
 import {useClubSubscription} from '../hooks/useClubSubscription';
 import {
@@ -62,11 +65,19 @@ class ScreenErrorBoundary extends Component<
 }
 
 export default function ProfileScreen({navigation}: Props) {
-  const {currentMembership, currentClub, clearMembershipSession} = useApp();
+  const {currentMembership, currentClub, clearMembershipSession, refresh: refreshApp} = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const {status: subStatus, refresh} = useClubSubscription(currentClub?.id);
   const isPro = subStatus?.isPro ?? false;
+
+  // ── Transfer Ownership state ──────────────────────────────────────────────
+  const [transferVisible, setTransferVisible] = useState(false);
+  const [transferMembers, setTransferMembers] = useState<ApiClubMember[]>([]);
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferSelected, setTransferSelected] = useState<ApiClubMember | null>(null);
+  const [transferConfirming, setTransferConfirming] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
 
   const [snackMsg, setSnackMsg] = useState('');
   const [snackVisible, setSnackVisible] = useState(false);
@@ -106,11 +117,50 @@ export default function ProfileScreen({navigation}: Props) {
     owner: 'Owner',
   };
 
-  const handleTransferOwnership = () => {
-    Alert.alert(
-      'Transfer Ownership',
-      'This feature will allow you to transfer club ownership. (Coming soon)',
-    );
+  const handleTransferOwnership = async () => {
+    if (!currentClub) return;
+    setTransferError(null);
+    setTransferSelected(null);
+    setTransferVisible(true);
+    setTransferLoading(true);
+    try {
+      const members = await getClubMembers(currentClub.id);
+      // Eligible: active, not the current owner
+      const eligible = members.filter(
+        m => m.active && m.membershipId !== currentMembership.id && m.role !== 'owner',
+      );
+      setTransferMembers(eligible);
+    } catch {
+      setTransferError('Could not load members. Please try again.');
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  const handleTransferConfirm = async () => {
+    if (!transferSelected || !currentClub) return;
+    setTransferConfirming(true);
+    setTransferError(null);
+    try {
+      await transferOwnership(currentClub.id, transferSelected.membershipId);
+      setTransferVisible(false);
+      setTransferSelected(null);
+      // Refresh app context so this user's role updates to host
+      await refreshApp();
+      showSnackbar('Ownership transferred successfully');
+    } catch (err: any) {
+      const code = err?.code as string | undefined;
+      const messages: Record<string, string> = {
+        NOT_OWNER: 'Only the club owner can transfer ownership.',
+        TARGET_NOT_FOUND: 'Selected member was not found in this club.',
+        TARGET_NOT_ACTIVE: 'Selected member is no longer active.',
+        TARGET_NOT_IN_CLUB: 'Selected member does not belong to this club.',
+        INVALID_TARGET: 'Invalid transfer target.',
+      };
+      setTransferError(messages[code ?? ''] ?? (err?.message ?? 'Transfer failed. Please try again.'));
+    } finally {
+      setTransferConfirming(false);
+    }
   };
 
   const handleLeaveClub = () => {
@@ -416,6 +466,123 @@ export default function ProfileScreen({navigation}: Props) {
             <Text style={styles.snackbarText}>{snackMsg}</Text>
           </View>
         )}
+
+        {/* ===== TRANSFER OWNERSHIP MODAL ===== */}
+        <Modal
+          visible={transferVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => {
+            if (!transferConfirming) setTransferVisible(false);
+          }}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHandle} />
+
+              {/* Header */}
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Transfer Ownership</Text>
+                {!transferConfirming && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setTransferVisible(false);
+                      setTransferSelected(null);
+                      setTransferError(null);
+                    }}
+                    hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                    <Text style={styles.modalCloseText}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {transferError && (
+                <Text style={styles.modalError}>{transferError}</Text>
+              )}
+
+              {!transferSelected ? (
+                // Step 1: member selection
+                <>
+                  <Text style={styles.modalSubtitle}>
+                    Select a member or host to become the new owner.
+                  </Text>
+                  {transferLoading ? (
+                    <ActivityIndicator
+                      size="large"
+                      color={colors.primary}
+                      style={{marginVertical: 32}}
+                    />
+                  ) : transferMembers.length === 0 ? (
+                    <Text style={styles.modalEmpty}>
+                      No eligible members found. A club must have at least one
+                      other active member or host to transfer ownership.
+                    </Text>
+                  ) : (
+                    <FlatList
+                      data={transferMembers}
+                      keyExtractor={m => m.membershipId}
+                      style={styles.modalList}
+                      renderItem={({item}) => (
+                        <TouchableOpacity
+                          style={styles.modalMemberRow}
+                          onPress={() => setTransferSelected(item)}>
+                          <View>
+                            <Text style={styles.modalMemberName}>
+                              {item.userName}
+                            </Text>
+                            <Text style={styles.modalMemberRole}>
+                              {item.role.charAt(0).toUpperCase() +
+                                item.role.slice(1)}
+                            </Text>
+                          </View>
+                          <Text style={styles.chevron}>›</Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  )}
+                </>
+              ) : (
+                // Step 2: confirmation
+                <>
+                  <Text style={styles.modalSubtitle}>
+                    Transfer ownership to{' '}
+                    <Text style={styles.modalBold}>{transferSelected.userName}</Text>
+                    ?
+                  </Text>
+                  <Text style={styles.modalConfirmNote}>
+                    • You will become a host.{'\n'}
+                    • {transferSelected.userName} will become the club owner.{'\n'}
+                    • Club Pro subscription will remain active for this club.
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalConfirmBtn,
+                      transferConfirming && styles.modalConfirmBtnDisabled,
+                    ]}
+                    disabled={transferConfirming}
+                    onPress={handleTransferConfirm}>
+                    {transferConfirming ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.modalConfirmBtnText}>
+                        Confirm Transfer
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                  {!transferConfirming && (
+                    <TouchableOpacity
+                      style={styles.modalBackBtn}
+                      onPress={() => {
+                        setTransferSelected(null);
+                        setTransferError(null);
+                      }}>
+                      <Text style={styles.modalBackBtnText}>← Back</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </ScreenErrorBoundary>
   );
@@ -639,6 +806,120 @@ function createStyles(c: ThemeColors) {
       fontSize: 12,
       color: c.textMuted,
       textAlign: 'center',
+    },
+
+    // \u2500\u2500 Transfer Ownership Modal \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalSheet: {
+      backgroundColor: c.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingHorizontal: 20,
+      paddingBottom: 40,
+      maxHeight: '80%',
+    },
+    modalHandle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.border,
+      alignSelf: 'center',
+      marginTop: 10,
+      marginBottom: 16,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: c.text,
+    },
+    modalCloseText: {
+      fontSize: 15,
+      color: c.primary,
+    },
+    modalSubtitle: {
+      fontSize: 14,
+      color: c.textMuted,
+      marginBottom: 16,
+      lineHeight: 20,
+    },
+    modalBold: {
+      fontWeight: '700',
+      color: c.text,
+    },
+    modalEmpty: {
+      fontSize: 14,
+      color: c.textMuted,
+      textAlign: 'center',
+      marginVertical: 24,
+      lineHeight: 20,
+    },
+    modalError: {
+      fontSize: 13,
+      color: c.danger,
+      marginBottom: 12,
+      backgroundColor: '#FFF0F0',
+      padding: 10,
+      borderRadius: 8,
+    },
+    modalList: {
+      maxHeight: 300,
+    },
+    modalMemberRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    modalMemberName: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.text,
+    },
+    modalMemberRole: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginTop: 2,
+    },
+    modalConfirmNote: {
+      fontSize: 14,
+      color: c.textMuted,
+      lineHeight: 22,
+      marginBottom: 24,
+    },
+    modalConfirmBtn: {
+      backgroundColor: c.danger,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    modalConfirmBtnDisabled: {
+      opacity: 0.6,
+    },
+    modalConfirmBtnText: {
+      color: '#fff',
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    modalBackBtn: {
+      alignItems: 'center',
+      paddingVertical: 10,
+    },
+    modalBackBtnText: {
+      fontSize: 14,
+      color: c.primary,
     },
   });
 }
