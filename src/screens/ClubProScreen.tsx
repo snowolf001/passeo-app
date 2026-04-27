@@ -4,6 +4,7 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -580,11 +581,45 @@ export default function ClubProScreen({navigation}: Props) {
           </TouchableOpacity>
         )}
 
-        <Text style={styles.legalNote}>
-          Subscriptions auto-renew unless cancelled at least 24 hours before the
-          end of the current period. Manage in your device&apos;s account
-          settings.
-        </Text>
+        <View style={styles.legalBlock}>
+          <Text style={styles.legalText}>
+            Payment will be charged to your Apple ID account at confirmation of
+            purchase.
+          </Text>
+          <Text style={styles.legalText}>
+            Subscription automatically renews unless it is canceled at least 24
+            hours before the end of the current period.
+          </Text>
+          <Text style={styles.legalText}>
+            Your account will be charged for renewal within 24 hours prior to
+            the end of the current period.
+          </Text>
+          <Text style={styles.legalText}>
+            You can manage and cancel your subscriptions in your Apple ID
+            account settings.
+          </Text>
+          <View style={styles.legalLinks}>
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL(
+                  'https://cleanutilityapps.com/passeo/privacy/',
+                )
+              }
+              hitSlop={{top: 8, bottom: 8, left: 4, right: 4}}>
+              <Text style={styles.legalLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalLinkSep}>·</Text>
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL(
+                  'https://cleanutilityapps.com/passeo/terms/',
+                )
+              }
+              hitSlop={{top: 8, bottom: 8, left: 4, right: 4}}>
+              <Text style={styles.legalLink}>Terms of Use</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -906,11 +941,34 @@ function createStyles(c: ThemeColors) {
       fontWeight: '700',
     },
 
-    legalNote: {
+    legalBlock: {
+      marginTop: 8,
+      marginBottom: 8,
+      gap: 10,
+    },
+    legalText: {
       color: c.textMuted,
       fontSize: 12,
       lineHeight: 18,
       textAlign: 'center',
+    },
+    legalLinks: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 4,
+    },
+    legalLink: {
+      color: c.primary,
+      fontSize: 13,
+      fontWeight: '600',
+      textDecorationLine: 'underline',
+      paddingVertical: 6,
+    },
+    legalLinkSep: {
+      color: c.textMuted,
+      fontSize: 13,
     },
   });
 }

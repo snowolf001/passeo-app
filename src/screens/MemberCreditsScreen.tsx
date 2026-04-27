@@ -98,11 +98,22 @@ export default function MemberCreditsScreen({navigation}: Props) {
     loadMembers();
   }, [loadMembers]);
 
-  // Hide the native nav back button while the member detail modal is open,
-  // so only the in-modal ← is visible.
+  // When the modal is open, replace the native header back button with a
+  // custom ← that closes the modal instead of navigating away.
   useEffect(() => {
-    navigation.setOptions({headerBackVisible: !selected});
-  }, [selected, navigation]);
+    navigation.setOptions({
+      headerLeft: selected
+        ? () => (
+            <TouchableOpacity
+              onPress={closeModal}
+              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+              style={{paddingRight: 8}}>
+              <Text style={{fontSize: 24, color: colors.text}}>←</Text>
+            </TouchableOpacity>
+          )
+        : undefined,
+    });
+  }, [selected, navigation, closeModal, colors.text]);
 
   const openModal = async (member: ApiClubMember) => {
     setSelected(member);
@@ -353,12 +364,6 @@ export default function MemberCreditsScreen({navigation}: Props) {
                 },
               ]}>
               <View style={styles.modalHandle} />
-              <TouchableOpacity
-                onPress={closeModal}
-                hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
-                style={{paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8, alignSelf: 'flex-start'}}>
-                <Text style={{fontSize: 24, color: colors.text}}>←</Text>
-              </TouchableOpacity>
               <ScrollView
                 ref={modalScrollRef}
                 contentContainerStyle={{paddingBottom: 24}}
