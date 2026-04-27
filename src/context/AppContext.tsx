@@ -132,9 +132,40 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
   }, []);
 
   // Refresh revalidates the currently stored session against the backend.
+  // Unlike loadFromStorage, this does NOT set isLoading=true so the navigation
+  // stack is not destroyed while the check is in progress.
   const refresh = useCallback(async () => {
-    await loadFromStorage();
-  }, [loadFromStorage]);
+    try {
+      const stored = await getStoredMembershipSession();
+      if (!stored) return;
+
+      setActiveMemberId(stored.membershipId);
+      const result = await getMembershipById(stored.membershipId);
+
+      const membership: Membership = {
+        id: result.membership.membershipId,
+        userId: result.membership.userId,
+        clubId: result.membership.clubId,
+        userName: result.membership.userName,
+        role: result.membership.role as Membership['role'],
+        credits: result.membership.credits,
+        recoveryCode: result.membership.recoveryCode,
+        memberCode: '',
+      };
+
+      setCurrentMembership(membership);
+      setActiveMemberId(membership.id);
+      setCurrentClub({
+        id: result.club.clubId,
+        name: result.club.name,
+        joinCode: result.club.joinCode ?? '',
+        createdBy: result.membership.userId,
+      });
+    } catch {
+      // Silently ignore transient errors — don't clear the session on a
+      // background refresh failure (that would log the user out unexpectedly).
+    }
+  }, []);
 
   // Called after successful join/create to persist session and update state immediately.
   const setActiveMembershipSession = useCallback(
