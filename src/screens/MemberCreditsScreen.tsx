@@ -98,6 +98,12 @@ export default function MemberCreditsScreen({navigation}: Props) {
     loadMembers();
   }, [loadMembers]);
 
+  // Hide the native nav back button while the member detail modal is open,
+  // so only the in-modal ← is visible.
+  useEffect(() => {
+    navigation.setOptions({headerBackVisible: !selected});
+  }, [selected, navigation]);
+
   const openModal = async (member: ApiClubMember) => {
     setSelected(member);
     setAmount('');
