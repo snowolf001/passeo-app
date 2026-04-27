@@ -98,6 +98,25 @@ export default function MemberCreditsScreen({navigation}: Props) {
     loadMembers();
   }, [loadMembers]);
 
+  // Hide header back button while modal is open so there is only ONE ← on screen.
+  // Cannot use `undefined` to restore — that removes it. Must explicitly rebuild it.
+  useEffect(() => {
+    if (selected) {
+      navigation.setOptions({headerLeft: () => null});
+    } else {
+      navigation.setOptions({
+        headerLeft: () => (
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+            style={{paddingRight: 8}}>
+            <Text style={{fontSize: 24, color: colors.text}}>←</Text>
+          </TouchableOpacity>
+        ),
+      });
+    }
+  }, [selected, navigation, colors.text]);
+
   const openModal = async (member: ApiClubMember) => {
     setSelected(member);
     setAmount('');
