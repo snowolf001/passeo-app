@@ -27,11 +27,11 @@ import type {BillingState} from '../types/subscription';
 type Props = {navigation: any};
 
 const PRO_FEATURES = [
-  '✓  Unlimited members',
-  '✓  Advanced attendance reports',
-  '✓  Audit log & export to PDF',
-  '✓  Custom check-in policies',
-  '✓  Priority support',
+  '✓  Gain insights with advanced attendance reports',
+  '✓  Track every change with a complete audit log',
+  '✓  Export professional PDF reports in seconds',
+  '✓  Customize check-in rules for your club',
+  '✓  Get faster help with priority support',
 ] as const;
 
 function fmt(iso: string | null | undefined): string {
@@ -476,7 +476,13 @@ export default function ClubProScreen({navigation}: Props) {
         )}
 
         <View style={styles.featuresCard}>
-          <Text style={styles.featuresTitle}>Pro Features</Text>
+          <Text style={styles.featuresTitle}>
+            Everything you need to run your club better
+          </Text>
+          <Text style={styles.featuresSubtitle}>
+            Upgrade to Club Pro to unlock powerful tools for managing your
+            club.
+          </Text>
           {PRO_FEATURES.map(f => (
             <Text key={f} style={styles.featureItem}>
               {f}
@@ -745,6 +751,12 @@ function createStyles(c: ThemeColors) {
       letterSpacing: 1,
       textTransform: 'uppercase',
       marginBottom: 4,
+    },
+    featuresSubtitle: {
+      color: c.textMuted,
+      fontSize: 13,
+      lineHeight: 19,
+      marginBottom: 10,
     },
     featureItem: {
       color: c.text,
