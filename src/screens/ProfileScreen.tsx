@@ -1,4 +1,11 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState, Component} from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  Component,
+} from 'react';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {
   View,
@@ -14,7 +21,12 @@ import {
 import {useFocusEffect} from '@react-navigation/native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useApp} from '../context/AppContext';
-import {leaveClub, getClubMembers, transferOwnership, ApiClubMember} from '../services/api/clubApi';
+import {
+  leaveClub,
+  getClubMembers,
+  transferOwnership,
+  ApiClubMember,
+} from '../services/api/clubApi';
 import {useAppTheme} from '../theme/useAppTheme';
 import {useClubSubscription} from '../hooks/useClubSubscription';
 import {
@@ -65,7 +77,12 @@ class ScreenErrorBoundary extends Component<
 }
 
 export default function ProfileScreen({navigation}: Props) {
-  const {currentMembership, currentClub, clearMembershipSession, refresh: refreshApp} = useApp();
+  const {
+    currentMembership,
+    currentClub,
+    clearMembershipSession,
+    refresh: refreshApp,
+  } = useApp();
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const {status: subStatus, refresh} = useClubSubscription(currentClub?.id);
@@ -75,7 +92,8 @@ export default function ProfileScreen({navigation}: Props) {
   const [transferVisible, setTransferVisible] = useState(false);
   const [transferMembers, setTransferMembers] = useState<ApiClubMember[]>([]);
   const [transferLoading, setTransferLoading] = useState(false);
-  const [transferSelected, setTransferSelected] = useState<ApiClubMember | null>(null);
+  const [transferSelected, setTransferSelected] =
+    useState<ApiClubMember | null>(null);
   const [transferConfirming, setTransferConfirming] = useState(false);
   const [transferError, setTransferError] = useState<string | null>(null);
 
@@ -127,7 +145,10 @@ export default function ProfileScreen({navigation}: Props) {
       const members = await getClubMembers(currentClub.id);
       // Eligible: active, not the current owner
       const eligible = members.filter(
-        m => m.active && m.membershipId !== currentMembership.id && m.role !== 'owner',
+        m =>
+          m.active &&
+          m.membershipId !== currentMembership.id &&
+          m.role !== 'owner',
       );
       setTransferMembers(eligible);
     } catch {
@@ -157,7 +178,11 @@ export default function ProfileScreen({navigation}: Props) {
         TARGET_NOT_IN_CLUB: 'Selected member does not belong to this club.',
         INVALID_TARGET: 'Invalid transfer target.',
       };
-      setTransferError(messages[code ?? ''] ?? (err?.message ?? 'Transfer failed. Please try again.'));
+      setTransferError(
+        messages[code ?? ''] ??
+          err?.message ??
+          'Transfer failed. Please try again.',
+      );
     } finally {
       setTransferConfirming(false);
     }
@@ -448,6 +473,20 @@ export default function ProfileScreen({navigation}: Props) {
             )}
           </View>
 
+          {/* ===== DELETE ACCOUNT ===== */}
+          <View style={[styles.card, styles.deleteAccountCard]}>
+            <TouchableOpacity
+              style={styles.deleteAccountButton}
+              onPress={() => navigation.navigate('DeleteAccount')}>
+              <Text style={styles.deleteAccountButtonText}>
+                Delete My Account
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.deleteAccountNote}>
+              Permanently removes your account and personal data.
+            </Text>
+          </View>
+
           {/* ===== DEV ONLY: Subscription Debug ===== */}
           {__DEV__ && (
             <View style={[styles.card, styles.devCard]}>
@@ -545,13 +584,15 @@ export default function ProfileScreen({navigation}: Props) {
                 <>
                   <Text style={styles.modalSubtitle}>
                     Transfer ownership to{' '}
-                    <Text style={styles.modalBold}>{transferSelected.userName}</Text>
+                    <Text style={styles.modalBold}>
+                      {transferSelected.userName}
+                    </Text>
                     ?
                   </Text>
                   <Text style={styles.modalConfirmNote}>
-                    • You will become a host.{'\n'}
-                    • {transferSelected.userName} will become the club owner.{'\n'}
-                    • Club Pro subscription will remain active for this club.
+                    • You will become a host.{'\n'}• {transferSelected.userName}{' '}
+                    will become the club owner.{'\n'}• Club Pro subscription
+                    will remain active for this club.
                   </Text>
                   <TouchableOpacity
                     style={[
@@ -788,6 +829,26 @@ function createStyles(c: ThemeColors) {
       color: c.textMuted,
       textAlign: 'center',
       marginTop: 8,
+    },
+
+    deleteAccountCard: {
+      borderWidth: 1,
+      borderColor: '#FFCDD2',
+    },
+    deleteAccountButton: {
+      paddingVertical: 13,
+      alignItems: 'center',
+    },
+    deleteAccountButtonText: {
+      color: '#B71C1C',
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    deleteAccountNote: {
+      fontSize: 12,
+      color: c.textMuted,
+      textAlign: 'center',
+      marginTop: 4,
     },
 
     devCard: {

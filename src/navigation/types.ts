@@ -31,6 +31,9 @@ export type RootStackParamList = {
 
   // Club Pro subscription management screen
   ClubPro: undefined;
+
+  // Account deletion
+  DeleteAccount: undefined;
 };
 
 export type MainTabParamList = {

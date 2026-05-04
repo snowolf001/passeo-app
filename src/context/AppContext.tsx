@@ -17,6 +17,15 @@ import {
   clearStoredMembershipSession,
   StoredMembershipSession,
 } from '../storage/membershipSessionStorage';
+import {
+  getStoredUserIdentity,
+  saveStoredUserIdentity,
+  clearStoredUserIdentity,
+  StoredUserIdentity,
+} from '../storage/userIdentityStorage';
+import {clearEntitlementData} from '../services/entitlement';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {IDENTITY_KEYS} from '../storage/storageKeys';
 
 export type CheckInEvent = {
   membershipId: string;
@@ -38,6 +47,10 @@ type AppContextValue = {
     session: StoredMembershipSession,
   ) => Promise<void>;
   clearMembershipSession: () => Promise<void>;
+  // Identity kept independently of the active club session — survives Leave Club.
+  // Used by the Delete Account flow to authenticate even with no active membership.
+  storedUserIdentity: StoredUserIdentity | null;
+  clearUserIdentity: () => Promise<void>;
 };
 
 const AppContext = createContext<AppContextValue>({
@@ -52,6 +65,8 @@ const AppContext = createContext<AppContextValue>({
   publishCheckInEvent: () => {},
   setActiveMembershipSession: async () => {},
   clearMembershipSession: async () => {},
+  storedUserIdentity: null,
+  clearUserIdentity: async () => {},
 });
 
 export const AppProvider = ({children}: {children: ReactNode}) => {
@@ -63,6 +78,8 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
   const [lastCheckInEvent, setLastCheckInEvent] = useState<CheckInEvent | null>(
     null,
   );
+  const [storedUserIdentity, setStoredUserIdentity] =
+    useState<StoredUserIdentity | null>(null);
 
   const decrementCurrentMembershipCredits = useCallback((amount: number) => {
     setCurrentMembership(prev =>
@@ -90,6 +107,9 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
       if (!stored) {
         setCurrentMembership(null);
         setCurrentClub(null);
+        // Still load user identity so Delete Account is accessible from JoinOrCreate.
+        const identity = await getStoredUserIdentity();
+        setStoredUserIdentity(identity);
         return;
       }
 
@@ -120,12 +140,23 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
       setCurrentMembership(membership);
       setActiveMemberId(membership.id);
       setCurrentClub(club);
+
+      // Keep user identity in sync with the current membership.
+      const identity: StoredUserIdentity = {
+        membershipId: membership.id,
+        userId: membership.userId,
+      };
+      await saveStoredUserIdentity(identity);
+      setStoredUserIdentity(identity);
     } catch {
       // Invalid or not found — clear stale storage and show join flow
       await clearStoredMembershipSession();
       setActiveMemberId(null);
       setCurrentMembership(null);
       setCurrentClub(null);
+      // Keep user identity so Delete Account remains accessible.
+      const identity = await getStoredUserIdentity();
+      setStoredUserIdentity(identity);
     } finally {
       setIsLoading(false);
     }
@@ -171,6 +202,15 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
   const setActiveMembershipSession = useCallback(
     async (session: StoredMembershipSession) => {
       await saveStoredMembershipSession(session);
+      // Persist user identity independently so it survives Leave Club.
+      await saveStoredUserIdentity({
+        membershipId: session.membershipId,
+        userId: session.userId,
+      });
+      setStoredUserIdentity({
+        membershipId: session.membershipId,
+        userId: session.userId,
+      });
       // Reload from backend to get full membership + club shape
       await loadFromStorage();
     },
@@ -178,11 +218,49 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
   );
 
   // Clear local session — returns app to JoinOrCreate flow.
+  // Does NOT clear userIdentity — Delete Account remains accessible.
   const clearMembershipSession = useCallback(async () => {
     await clearStoredMembershipSession();
     setActiveMemberId(null);
     setCurrentMembership(null);
     setCurrentClub(null);
+  }, []);
+
+  // Called only on successful account deletion — removes all identity and
+  // account data while preserving unrelated app preferences (theme, etc.).
+  const clearUserIdentity = useCallback(async () => {
+    // 1. Remove identity keys precisely — do NOT use getAllKeys/multiRemove(all)
+    //    to avoid destroying unrelated preferences like theme or onboarding flags.
+    try {
+      await AsyncStorage.multiRemove(IDENTITY_KEYS);
+    } catch (err) {
+      // Fallback: remove each key individually so a single failure does not
+      // block the others.
+      console.warn('[clearUserIdentity] multiRemove failed, falling back', err);
+      for (const key of IDENTITY_KEYS) {
+        try {
+          await AsyncStorage.removeItem(key);
+        } catch (innerErr) {
+          console.warn(
+            '[clearUserIdentity] removeItem failed for key:',
+            key,
+            innerErr,
+          );
+        }
+      }
+    }
+
+    // 2. Clear the Pro/entitlement cache (managed by its own key registry).
+    await clearEntitlementData();
+
+    // 3. Clear the active member ID header from the API config.
+    setActiveMemberId(null);
+
+    // 4. Reset all in-memory state.
+    setCurrentMembership(null);
+    setCurrentClub(null);
+    setStoredUserIdentity(null);
+    setLastCheckInEvent(null);
   }, []);
 
   useEffect(() => {
@@ -223,6 +301,8 @@ export const AppProvider = ({children}: {children: ReactNode}) => {
         publishCheckInEvent,
         setActiveMembershipSession,
         clearMembershipSession,
+        storedUserIdentity,
+        clearUserIdentity,
       }}>
       {children}
     </AppContext.Provider>

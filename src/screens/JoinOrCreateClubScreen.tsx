@@ -1,9 +1,10 @@
 import React, {useMemo} from 'react';
-import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
+import {View, Text, StyleSheet, TouchableOpacity, Linking} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/types';
 import {useAppTheme} from '../theme/useAppTheme';
+import {useApp} from '../context/AppContext';
 import type {ThemeColors} from '../theme/colors';
 import {BRANDING} from '../config/branding';
 
@@ -12,6 +13,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'JoinOrCreateClub'>;
 export default function JoinOrCreateClubScreen({navigation}: Props) {
   const {colors} = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const {storedUserIdentity} = useApp();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -72,6 +74,40 @@ export default function JoinOrCreateClubScreen({navigation}: Props) {
             style={styles.createLinkButton}>
             <Text style={styles.createLinkText}>Create your own club →</Text>
           </TouchableOpacity>
+
+          {!!storedUserIdentity && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('DeleteAccount')}
+              activeOpacity={0.7}
+              style={styles.deleteAccountLink}>
+              <Text style={styles.deleteAccountLinkText}>
+                Delete My Account
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.webDeletionSection}>
+            <Text style={styles.webDeletionHeading}>
+              Need to delete an old account?
+            </Text>
+            <Text style={styles.webDeletionBody}>
+              If you deleted or reinstalled the app and no longer have access to
+              your account on this device, you can request account deletion from
+              our website.
+            </Text>
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL(
+                  'https://cleanutilityapps.com/passeo/delete-account/',
+                )
+              }
+              activeOpacity={0.7}
+              style={styles.webDeletionButton}>
+              <Text style={styles.webDeletionButtonText}>
+                Request Account Deletion
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -239,6 +275,56 @@ function createStyles(c: ThemeColors) {
       fontWeight: '700',
       color: c.primary,
       textAlign: 'center',
+    },
+
+    deleteAccountLink: {
+      paddingHorizontal: 8,
+      paddingVertical: 10,
+      marginTop: 8,
+    },
+
+    deleteAccountLinkText: {
+      fontSize: 13,
+      color: '#B71C1C',
+      textAlign: 'center',
+    },
+
+    webDeletionSection: {
+      marginTop: 20,
+      paddingTop: 16,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+      alignItems: 'center',
+      paddingHorizontal: 8,
+    },
+
+    webDeletionHeading: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: c.textMuted,
+      textAlign: 'center',
+      marginBottom: 6,
+    },
+
+    webDeletionBody: {
+      fontSize: 12,
+      lineHeight: 18,
+      color: c.textMuted,
+      textAlign: 'center',
+      marginBottom: 10,
+    },
+
+    webDeletionButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+    },
+
+    webDeletionButtonText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: c.textMuted,
+      textAlign: 'center',
+      textDecorationLine: 'underline',
     },
   });
 }

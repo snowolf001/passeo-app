@@ -26,6 +26,7 @@ import AuditLogScreen from '../screens/AuditLogScreen';
 import MemberCreditsScreen from '../screens/MemberCreditsScreen';
 import ClubProScreen from '../screens/ClubProScreen';
 import PdfPreviewScreen from '../screens/PdfPreviewScreen';
+import DeleteAccountScreen from '../screens/DeleteAccountScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -175,6 +176,11 @@ export default function RootNavigator() {
           headerShown: true,
           title: route.params?.title ?? 'PDF Preview',
         })}
+      />
+      <Stack.Screen
+        name="DeleteAccount"
+        component={DeleteAccountScreen}
+        options={{headerShown: true, title: 'Delete My Account'}}
       />
     </Stack.Navigator>
   );
