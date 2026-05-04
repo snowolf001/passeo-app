@@ -70,6 +70,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportFetchFailed, setReportFetchFailed] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [isRefreshingMembership, setIsRefreshingMembership] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
 
@@ -265,6 +266,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const getHelperText = () => {
     if (isCheckedIn) return null;
     if (isSessionFull) return 'This session is full.';
+    if (isRefreshingMembership) return 'Checking credits...';
 
     switch (checkInMode) {
       case 'live':
@@ -362,6 +364,20 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       console.log('⚠️ already checked in');
       Alert.alert('Info', 'You are already checked in.');
       return;
+    }
+
+    // Refresh membership before check-in to get the latest credit balance.
+    // This prevents false INSUFFICIENT_CREDITS caused by stale local state.
+    try {
+      setIsRefreshingMembership(true);
+      await refresh();
+    } catch (refreshErr) {
+      console.warn(
+        '[SessionDetailScreen] pre-checkin refresh failed:',
+        refreshErr,
+      );
+    } finally {
+      setIsRefreshingMembership(false);
     }
 
     setCheckingIn(true);
@@ -484,6 +500,14 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         };
       case 'live':
       case 'backfill':
+        if (isRefreshingMembership || checkingIn) {
+          return {
+            label: 'Loading...',
+            disabled: true,
+            style: styles.btnDisabled,
+            textStyle: styles.checkInBtnTextDark,
+          };
+        }
         if (isSessionFull) {
           return {
             label: 'Session Full',

@@ -477,7 +477,17 @@ export default function ProfileScreen({navigation}: Props) {
           <View style={[styles.card, styles.deleteAccountCard]}>
             <TouchableOpacity
               style={styles.deleteAccountButton}
-              onPress={() => navigation.navigate('DeleteAccount')}>
+              onPress={() => {
+                if (role === 'owner') {
+                  Alert.alert(
+                    'Transfer Ownership First',
+                    'You are the owner of this club. Please transfer ownership to another member before deleting your account.',
+                    [{text: 'OK'}],
+                  );
+                  return;
+                }
+                navigation.navigate('DeleteAccount');
+              }}>
               <Text style={styles.deleteAccountButtonText}>
                 Delete My Account
               </Text>

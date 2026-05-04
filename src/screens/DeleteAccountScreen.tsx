@@ -24,6 +24,8 @@ export default function DeleteAccountScreen({navigation}: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const {clearUserIdentity, storedUserIdentity, currentMembership} = useApp();
 
+  const isOwner = currentMembership?.role === 'owner';
+
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
@@ -101,6 +103,15 @@ export default function DeleteAccountScreen({navigation}: Props) {
 
         <Text style={styles.title}>Delete My Account</Text>
 
+        {isOwner && (
+          <View style={styles.ownerBlockBox}>
+            <Text style={styles.ownerBlockText}>
+              You are the owner of one or more clubs. Please transfer ownership
+              to another member before deleting your account.
+            </Text>
+          </View>
+        )}
+
         <Text style={styles.body}>
           This will permanently delete your account and remove your access to
           all clubs.
@@ -135,9 +146,12 @@ export default function DeleteAccountScreen({navigation}: Props) {
         </Text>
 
         <TouchableOpacity
-          style={[styles.deleteBtn, isDeleting && styles.deleteBtnDisabled]}
+          style={[
+            styles.deleteBtn,
+            (isDeleting || isOwner) && styles.deleteBtnDisabled,
+          ]}
           onPress={handleDelete}
-          disabled={isDeleting}
+          disabled={isDeleting || isOwner}
           activeOpacity={0.8}>
           {isDeleting ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -223,6 +237,19 @@ function createStyles(c: ThemeColors) {
       textAlign: 'center',
       marginBottom: 10,
       lineHeight: 17,
+    },
+    ownerBlockBox: {
+      width: '100%',
+      backgroundColor: '#FFF3CD',
+      borderRadius: 10,
+      padding: 14,
+      marginBottom: 16,
+    },
+    ownerBlockText: {
+      fontSize: 14,
+      color: '#856404',
+      textAlign: 'center',
+      lineHeight: 20,
     },
     deleteBtn: {
       backgroundColor: '#D32F2F',
