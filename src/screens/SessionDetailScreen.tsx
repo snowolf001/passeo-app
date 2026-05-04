@@ -52,6 +52,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
   const {
     currentMembership,
     currentClub,
+    refresh,
     setCurrentMembershipCredits,
     lastCheckInEvent,
     publishCheckInEvent,
@@ -126,12 +127,20 @@ export default function SessionDetailScreen({route, navigation}: Props) {
       }
       setReportFetchFailed(false);
       try {
+        // Refresh membership credits in parallel with session data so
+        // availableCredits always reflects the latest backend value.
         const [loadedSession, members, intentResult] = await Promise.all([
           apiGetSessionById(sessionId),
           apiGetCheckedInMembers(sessionId),
           getSessionIntentSummary(sessionId).catch(err => {
             console.warn('[SessionDetailScreen] intent summary failed:', err);
             return null;
+          }),
+          refresh().catch(err => {
+            console.warn(
+              '[SessionDetailScreen] membership refresh failed:',
+              err,
+            );
           }),
         ]);
         setSession(loadedSession);
@@ -166,7 +175,7 @@ export default function SessionDetailScreen({route, navigation}: Props) {
         }
       }
     },
-    [sessionId, currentMembership?.role],
+    [sessionId, currentMembership?.role, refresh],
   );
 
   useEffect(() => {
